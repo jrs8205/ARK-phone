@@ -1,5 +1,8 @@
 package org.jarsi.arkphone.ui.theme
 
+import androidx.annotation.ChecksSdkIntAtLeast
+
+@ChecksSdkIntAtLeast(api = 31)
 fun isDynamicColorAvailable(sdkInt: Int): Boolean = sdkInt >= 31
 
 /** Below API 31 the app is always dark; with dynamic color it follows the system setting. */
