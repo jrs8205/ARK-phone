@@ -1,3 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="recents_empty">Ei vielä puheluita</string>
+    <string name="recents_no_permission">ARK Phone tarvitsee pääsyn puhelulokiin näyttääkseen viimeisimmät puhelut.</string>
+    <string name="common_grant_access">Myönnä käyttöoikeus</string>
+    <string name="call_type_incoming">Saapunut puhelu</string>
+    <string name="call_type_outgoing">Soitettu puhelu</string>
+    <string name="call_type_missed">Vastaamaton puhelu</string>
+    <string name="call_type_rejected">Hylätty puhelu</string>
 </resources>
