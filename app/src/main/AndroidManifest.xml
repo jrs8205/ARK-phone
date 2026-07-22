@@ -8,7 +8,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.ArkPhone"
         android:enableOnBackInvokedCallback="true"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:localeConfig="@xml/locales_config">
 
         <activity
             android:name=".MainActivity"
