@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.dialpad
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 private val dialpadRows = listOf(
@@ -31,7 +33,18 @@ fun DialpadGrid(onKey: (Char) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 row.forEach { (digit, letters) ->
-                    DialpadKey(digit = digit, letters = letters, onKey = onKey)
+                    DialpadKey(
+                        digit = digit,
+                        letters = letters,
+                        onKey = onKey,
+                        onLongPress = if (digit == '0') {
+                            { onKey('+') }
+                        } else {
+                            // A no-op (not null) so combinedClickable consumes the long-press
+                            // gesture instead of falling through to a plain click on release.
+                            {}
+                        },
+                    )
                 }
             }
         }
@@ -39,12 +52,22 @@ fun DialpadGrid(onKey: (Char) -> Unit) {
 }
 
 @Composable
-private fun DialpadKey(digit: Char, letters: String, onKey: (Char) -> Unit) {
+private fun DialpadKey(
+    digit: Char,
+    letters: String,
+    onKey: (Char) -> Unit,
+    onLongPress: (() -> Unit)? = null,
+) {
     Surface(
-        onClick = { onKey(digit) },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.size(72.dp),
+        modifier = Modifier
+            .size(72.dp)
+            .clip(CircleShape)
+            .combinedClickable(
+                onClick = { onKey(digit) },
+                onLongClick = onLongPress,
+            ),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
