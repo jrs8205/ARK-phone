@@ -41,6 +41,12 @@ class CallNotificationsTest {
     }
 
     @Test
+    fun incomingNotificationIsFullyVisibleOnTheLockScreen() {
+        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        assertEquals(NotificationCompat.VISIBILITY_PUBLIC, notification.visibility)
+    }
+
+    @Test
     fun answerActionOpensInCallActivityWithAnswerAction() {
         val notification = CallNotifications(context).buildIncomingCall(incomingCall())
         val activityIntents = notification.actions.mapNotNull { action ->

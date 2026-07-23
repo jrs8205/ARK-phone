@@ -46,12 +46,15 @@ class CallNotifications @Inject constructor(
         ).apply {
             setSound(ringtone, audioAttributes)
             enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         val ongoing = NotificationChannel(
             CHANNEL_ONGOING,
             context.getString(R.string.notification_channel_ongoing),
             NotificationManager.IMPORTANCE_LOW,
-        )
+        ).apply {
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
         notificationManager.createNotificationChannel(incoming)
         notificationManager.createNotificationChannel(ongoing)
     }
@@ -82,6 +85,7 @@ class CallNotifications @Inject constructor(
             )
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setFullScreenIntent(fullScreen, true)
             .setContentIntent(fullScreen)
@@ -99,6 +103,7 @@ class CallNotifications @Inject constructor(
             .setContentTitle(context.getString(R.string.notification_ongoing_title))
             .setContentText(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setContentIntent(content)
             .build()

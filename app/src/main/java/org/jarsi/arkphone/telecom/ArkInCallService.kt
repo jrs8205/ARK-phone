@@ -1,9 +1,14 @@
 package org.jarsi.arkphone.telecom
 
+import android.app.KeyguardManager
+import android.app.NotificationManager
+import android.os.Build
+import android.os.PowerManager
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
 import dagger.hilt.android.AndroidEntryPoint
+import org.jarsi.arkphone.ui.incall.InCallActivity
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -70,15 +75,38 @@ class ArkInCallService : InCallService() {
         lastStatus[handle.id] = status
         val info = callController.calls.value.firstOrNull { it.id == handle.id } ?: return
         when (status) {
-            CallStatus.RINGING -> callNotifications.showIncomingCall(info)
+            CallStatus.RINGING -> {
+                callNotifications.showIncomingCall(info)
+                if (shouldLaunchIncomingUiDirectly()) {
+                    startActivity(InCallActivity.intent(this))
+                }
+            }
             CallStatus.DIALING, CallStatus.ACTIVE -> {
                 callNotifications.showOngoingCall(info)
                 if (previous == null || previous == CallStatus.RINGING) {
-                    startActivity(org.jarsi.arkphone.ui.incall.InCallActivity.intent(this))
+                    startActivity(InCallActivity.intent(this))
                 }
             }
             CallStatus.DISCONNECTED -> callNotifications.clear()
             else -> Unit
         }
+    }
+
+    /**
+     * The full-screen intent is unreliable while the keyguard is showing (and unavailable
+     * without the full-screen-intent permission on API 34+), so launch the in-call screen
+     * directly then. System-bound InCallServices are exempt from background-start limits,
+     * and the singleTask/singleTop launch mode absorbs a duplicate start if the
+     * full-screen intent fires too.
+     */
+    private fun shouldLaunchIncomingUiDirectly(): Boolean {
+        val interactive = getSystemService(PowerManager::class.java)?.isInteractive != false
+        val keyguardShowing = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
+        return !interactive || keyguardShowing || !canUseFullScreenIntentCompat()
+    }
+
+    private fun canUseFullScreenIntentCompat(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+        return getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() != false
     }
 }
