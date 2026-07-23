@@ -11,4 +11,9 @@
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
     <string name="contacts_no_permission">ARK Phone tarvitsee pääsyn yhteystietoihin näyttääkseen ne tässä.</string>
+    <string name="tab_recents">Viimeisimmät</string>
+    <string name="tab_contacts">Yhteystiedot</string>
+    <string name="open_dialpad">Avaa näppäimistö</string>
+    <string name="banner_not_default">ARK Phone ei ole oletuspuhelinsovelluksesi.</string>
+    <string name="banner_set_default">Aseta oletukseksi</string>
 </resources>
