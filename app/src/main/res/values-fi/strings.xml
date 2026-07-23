@@ -16,4 +16,6 @@
     <string name="open_dialpad">Avaa näppäimistö</string>
     <string name="banner_not_default">ARK Phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
+    <string name="dialpad_call">Soita</string>
+    <string name="dialpad_delete">Poista numero</string>
 </resources>
