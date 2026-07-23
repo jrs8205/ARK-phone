@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import org.jarsi.arkphone.data.model.CallLogEntry
@@ -75,6 +76,6 @@ class SystemCallLogRepository @Inject constructor(
             }
             send(Unit)
             awaitClose { resolver.unregisterContentObserver(observer) }
-        }.map { query() }.flowOn(ioDispatcher)
+        }.conflate().map { query() }.flowOn(ioDispatcher)
     }
 }
