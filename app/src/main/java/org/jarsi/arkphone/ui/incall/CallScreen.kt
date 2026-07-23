@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
@@ -91,7 +90,6 @@ private fun IncomingCallActions(actions: InCallActions) {
             Icon(
                 Icons.Filled.CallEnd,
                 contentDescription = stringResource(R.string.incall_decline),
-                tint = Color.White,
             )
         }
         FloatingActionButton(
@@ -147,7 +145,6 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
             Icon(
                 Icons.Filled.CallEnd,
                 contentDescription = stringResource(R.string.incall_end_call),
-                tint = Color.White,
             )
         }
     }
