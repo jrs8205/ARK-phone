@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,8 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Dialpad
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,33 +29,41 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
-import org.jarsi.arkphone.ui.recents.RecentsScreen
+import org.jarsi.arkphone.ui.dialpad.DialpadScreen
+import org.jarsi.arkphone.ui.home.HomeScreen
 
-enum class MainTab { RECENTS, CONTACTS }
+enum class MainTab { HOME, KEYPAD, CONTACTS }
 
 @Composable
 fun MainScreen(
     onCall: (String) -> Unit,
-    onOpenDialpad: () -> Unit,
     onRequestPermissions: () -> Unit,
     showDefaultDialerBanner: Boolean,
     onRequestDefaultDialer: () -> Unit,
+    requestedNumber: String? = null,
+    onRequestedNumberConsumed: () -> Unit = {},
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(MainTab.RECENTS) }
+    var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
+    LaunchedEffect(requestedNumber) {
+        if (requestedNumber != null) selectedTab = MainTab.KEYPAD
+    }
+    BackHandler(enabled = selectedTab != MainTab.HOME) {
+        selectedTab = MainTab.HOME
+    }
     Scaffold(
         bottomBar = { ArkBottomBar(selected = selectedTab, onSelect = { selectedTab = it }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onOpenDialpad) {
-                Icon(Icons.Filled.Dialpad, contentDescription = stringResource(R.string.open_dialpad))
-            }
-        },
     ) { padding ->
         Column(Modifier.padding(padding)) {
             if (showDefaultDialerBanner) {
                 DefaultDialerBanner(onRequestDefaultDialer)
             }
             when (selectedTab) {
-                MainTab.RECENTS -> RecentsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
+                MainTab.HOME -> HomeScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
+                MainTab.KEYPAD -> DialpadScreen(
+                    onCall = onCall,
+                    initialNumber = requestedNumber,
+                    onInitialNumberConsumed = onRequestedNumberConsumed,
+                )
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
             }
         }
@@ -65,10 +74,16 @@ fun MainScreen(
 fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
     NavigationBar {
         NavigationBarItem(
-            selected = selected == MainTab.RECENTS,
-            onClick = { onSelect(MainTab.RECENTS) },
-            icon = { Icon(Icons.Filled.History, contentDescription = null) },
-            label = { Text(stringResource(R.string.tab_recents)) },
+            selected = selected == MainTab.HOME,
+            onClick = { onSelect(MainTab.HOME) },
+            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_home)) },
+        )
+        NavigationBarItem(
+            selected = selected == MainTab.KEYPAD,
+            onClick = { onSelect(MainTab.KEYPAD) },
+            icon = { Icon(Icons.Filled.Dialpad, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_keypad)) },
         )
         NavigationBarItem(
             selected = selected == MainTab.CONTACTS,

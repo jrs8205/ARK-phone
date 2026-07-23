@@ -1,6 +1,5 @@
 package org.jarsi.arkphone.ui.dialpad
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,14 +34,16 @@ import org.jarsi.arkphone.ui.components.clickableListItemModifier
 @Composable
 fun DialpadScreen(
     onCall: (String) -> Unit,
-    onClose: () -> Unit,
     viewModel: DialpadViewModel = hiltViewModel(),
     initialNumber: String? = null,
+    onInitialNumberConsumed: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    BackHandler(onBack = onClose)
     LaunchedEffect(initialNumber) {
-        if (initialNumber != null) viewModel.setNumber(initialNumber)
+        if (initialNumber != null) {
+            viewModel.setNumber(initialNumber)
+            onInitialNumberConsumed()
+        }
     }
     Surface(Modifier.fillMaxSize()) {
         DialpadContent(

@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,7 +13,6 @@ import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.PhoneCaller
-import org.jarsi.arkphone.ui.dialpad.DialpadScreen
 import org.jarsi.arkphone.ui.navigation.MainScreen
 import org.jarsi.arkphone.ui.onboarding.OnboardingScreen
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
@@ -45,12 +43,8 @@ class MainActivity : ComponentActivity() {
         refreshSetupState()
         setContent {
             ArkPhoneTheme {
-                var dialpadOpen by rememberSaveable { mutableStateOf(false) }
                 var onboardingDismissed by rememberSaveable { mutableStateOf(false) }
                 val requestedNumber by dialRequest
-                LaunchedEffect(requestedNumber) {
-                    if (requestedNumber != null) dialpadOpen = true
-                }
                 val defaultDialer by isDefault
                 val permissionsGranted by hasPermissions
                 val setupComplete = defaultDialer && permissionsGranted
@@ -63,22 +57,14 @@ class MainActivity : ComponentActivity() {
                         isDefaultDialer = defaultDialer,
                         hasPermissions = permissionsGranted,
                     )
-                } else if (dialpadOpen) {
-                    DialpadScreen(
-                        onCall = { number -> phoneCaller.placeCall(number) },
-                        onClose = {
-                            dialpadOpen = false
-                            dialRequest.value = null
-                        },
-                        initialNumber = requestedNumber,
-                    )
                 } else {
                     MainScreen(
                         onCall = { number -> phoneCaller.placeCall(number) },
-                        onOpenDialpad = { dialpadOpen = true },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.corePermissions()) },
                         showDefaultDialerBanner = !defaultDialer,
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
+                        requestedNumber = requestedNumber,
+                        onRequestedNumberConsumed = { dialRequest.value = null },
                     )
                 }
             }

@@ -12,9 +12,10 @@
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
     <string name="contacts_no_permission">ARK-phone tarvitsee pääsyn yhteystietoihin näyttääkseen ne tässä.</string>
+    <string name="tab_home">Etusivu</string>
+    <string name="tab_keypad">Näppäimistö</string>
     <string name="tab_recents">Viimeisimmät</string>
     <string name="tab_contacts">Yhteystiedot</string>
-    <string name="open_dialpad">Avaa näppäimistö</string>
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>
