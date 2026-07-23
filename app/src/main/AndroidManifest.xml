@@ -42,5 +42,12 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.incall.InCallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
     </application>
 </manifest>

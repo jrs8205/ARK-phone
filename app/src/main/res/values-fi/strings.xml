@@ -18,4 +18,16 @@
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>
     <string name="dialpad_delete">Poista numero</string>
+    <string name="incall_unknown_caller">Tuntematon numero</string>
+    <string name="incall_state_ringing">Saapuva puhelu</string>
+    <string name="incall_state_dialing">Soitetaan…</string>
+    <string name="incall_state_holding">Pidossa</string>
+    <string name="incall_state_ended">Puhelu päättyi</string>
+    <string name="incall_answer">Vastaa</string>
+    <string name="incall_decline">Hylkää</string>
+    <string name="incall_end_call">Lopeta puhelu</string>
+    <string name="incall_mute">Mykistä</string>
+    <string name="incall_speaker">Kaiutin</string>
+    <string name="incall_hold">Pito</string>
+    <string name="incall_keypad">Näppäimistö</string>
 </resources>
