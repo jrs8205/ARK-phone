@@ -8,6 +8,7 @@
     <string name="call_type_outgoing">Outgoing call</string>
     <string name="call_type_missed">Missed call</string>
     <string name="call_type_rejected">Rejected call</string>
+    <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>
     <string name="contacts_empty">No contacts</string>

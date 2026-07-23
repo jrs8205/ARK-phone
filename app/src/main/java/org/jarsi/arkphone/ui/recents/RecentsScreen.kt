@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.recents
 
 import android.text.format.DateUtils
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,15 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
+
+@StringRes
+internal fun callTypeLabelRes(type: CallType): Int = when (type) {
+    CallType.INCOMING -> R.string.call_type_incoming
+    CallType.OUTGOING -> R.string.call_type_outgoing
+    CallType.MISSED -> R.string.call_type_missed
+    CallType.REJECTED -> R.string.call_type_rejected
+    CallType.OTHER -> R.string.call_type_other
+}
 
 @Composable
 fun RecentsScreen(
@@ -82,15 +92,7 @@ fun RecentsContent(
 
 @Composable
 private fun RecentsRow(entry: CallLogEntry, onCall: (String) -> Unit) {
-    val typeLabel = stringResource(
-        when (entry.type) {
-            CallType.INCOMING -> R.string.call_type_incoming
-            CallType.OUTGOING -> R.string.call_type_outgoing
-            CallType.MISSED -> R.string.call_type_missed
-            CallType.REJECTED -> R.string.call_type_rejected
-            CallType.OTHER -> R.string.call_type_incoming
-        },
-    )
+    val typeLabel = stringResource(callTypeLabelRes(entry.type))
     ListItem(
         modifier = clickableListItemModifier { onCall(entry.number) },
         headlineContent = { Text(entry.displayName ?: entry.number) },

@@ -7,6 +7,7 @@
     <string name="call_type_outgoing">Soitettu puhelu</string>
     <string name="call_type_missed">Vastaamaton puhelu</string>
     <string name="call_type_rejected">Hylätty puhelu</string>
+    <string name="call_type_other">Puhelu</string>
     <string name="contacts_search_hint">Hae yhteystietoja</string>
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
