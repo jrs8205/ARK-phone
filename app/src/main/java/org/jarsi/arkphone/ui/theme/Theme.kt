@@ -10,6 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+/** Fixed call-action colors, independent of the theme, like in stock dialers. */
+val CallAnswerGreen = Color(0xFF188038)
+val CallDeclineRed = Color(0xFFD32F2F)
+
 /** Fallback scheme for devices without dynamic color (API 26-30). */
 internal val ArkDarkColorScheme = darkColorScheme(
     primary = Color(0xFF9ECAFF),

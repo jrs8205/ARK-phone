@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
@@ -24,19 +25,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadGrid
+import org.jarsi.arkphone.ui.theme.CallAnswerGreen
+import org.jarsi.arkphone.ui.theme.CallDeclineRed
 
 @Composable
 fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
     val call = uiState.call
     Surface(Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
+            modifier = Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -81,7 +85,7 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
 private fun IncomingCallActions(actions: InCallActions) {
     val haptics = rememberHaptics()
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 72.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         FloatingActionButton(
@@ -89,7 +93,8 @@ private fun IncomingCallActions(actions: InCallActions) {
                 haptics.reject()
                 actions.onReject()
             },
-            containerColor = MaterialTheme.colorScheme.error,
+            containerColor = CallDeclineRed,
+            contentColor = Color.White,
             modifier = Modifier.size(72.dp),
         ) {
             Icon(
@@ -102,7 +107,8 @@ private fun IncomingCallActions(actions: InCallActions) {
                 haptics.confirm()
                 actions.onAnswer()
             },
-            containerColor = MaterialTheme.colorScheme.primary,
+            containerColor = CallAnswerGreen,
+            contentColor = Color.White,
             modifier = Modifier.size(72.dp),
         ) {
             Icon(Icons.Filled.Call, contentDescription = stringResource(R.string.incall_answer))
@@ -163,8 +169,9 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
                 haptics.reject()
                 actions.onHangUp()
             },
-            containerColor = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 24.dp, bottom = 32.dp).size(72.dp),
+            containerColor = CallDeclineRed,
+            contentColor = Color.White,
+            modifier = Modifier.padding(top = 24.dp, bottom = 72.dp).size(72.dp),
         ) {
             Icon(
                 Icons.Filled.CallEnd,

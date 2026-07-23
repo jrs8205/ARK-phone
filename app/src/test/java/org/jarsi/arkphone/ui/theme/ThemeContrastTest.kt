@@ -64,6 +64,12 @@ class ThemeContrastTest {
     }
 
     @Test
+    fun fixedCallActionColorsCarryWhiteIconsClearly() {
+        assertContrastAtLeast(4.5, Color.White, CallAnswerGreen, "white/CallAnswerGreen")
+        assertContrastAtLeast(4.5, Color.White, CallDeclineRed, "white/CallDeclineRed")
+    }
+
+    @Test
     fun buttonsAndBadgesMeetAaaForLargeElements() {
         assertContrastAtLeast(4.5, scheme.onPrimary, scheme.primary, "onPrimary/primary")
         assertContrastAtLeast(4.5, scheme.onPrimaryContainer, scheme.primaryContainer, "onPrimaryContainer/primaryContainer")
