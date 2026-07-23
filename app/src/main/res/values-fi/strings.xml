@@ -34,4 +34,10 @@
     <string name="notification_channel_ongoing">Käynnissä olevat puhelut</string>
     <string name="notification_incoming_title">Saapuva puhelu</string>
     <string name="notification_ongoing_title">Käynnissä oleva puhelu</string>
+    <string name="onboarding_title">Tervetuloa ARK Phoneen</string>
+    <string name="onboarding_body">Hoitaakseen puhelusi ARK Phonen pitää olla oletuspuhelinsovellus, ja se tarvitsee pääsyn puhelulokiin, yhteystietoihin ja puhelimeen.</string>
+    <string name="onboarding_set_default">Aseta oletuspuhelinsovellukseksi</string>
+    <string name="onboarding_grant_permissions">Myönnä luvat</string>
+    <string name="onboarding_done">Jatka</string>
+    <string name="onboarding_step_done">Valmis</string>
 </resources>

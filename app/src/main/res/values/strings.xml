@@ -35,4 +35,10 @@
     <string name="notification_channel_ongoing">Ongoing calls</string>
     <string name="notification_incoming_title">Incoming call</string>
     <string name="notification_ongoing_title">Ongoing call</string>
+    <string name="onboarding_title">Welcome to ARK Phone</string>
+    <string name="onboarding_body">To handle your calls, ARK Phone needs to be your default phone app and needs access to your call log, contacts, and phone.</string>
+    <string name="onboarding_set_default">Set as default phone app</string>
+    <string name="onboarding_grant_permissions">Grant permissions</string>
+    <string name="onboarding_done">Continue</string>
+    <string name="onboarding_step_done">Done</string>
 </resources>
