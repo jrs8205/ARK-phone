@@ -16,6 +16,7 @@ private class FakeCallHandle(
     var rejected = false
     var disconnected = false
     var held = false
+    var dtmfStopped = false
     val dtmf = StringBuilder()
     override fun answer() { answered = true }
     override fun reject() { rejected = true }
@@ -23,7 +24,7 @@ private class FakeCallHandle(
     override fun hold() { held = true }
     override fun unhold() { held = false }
     override fun playDtmf(digit: Char) { dtmf.append(digit) }
-    override fun stopDtmf() {}
+    override fun stopDtmf() { dtmfStopped = true }
 }
 
 private class FakeAudioController : InCallAudioController {
@@ -80,5 +81,55 @@ class CallControllerTest {
         assertTrue(audio.muted)
         controller.onAudioStateChanged(muted = true, speakerOn = false)
         assertTrue(controller.audio.value.muted)
+    }
+
+    @Test
+    fun rejectDelegatesToHandle() {
+        val controller = CallController()
+        val handle = FakeCallHandle()
+        controller.onCallAdded(handle)
+        controller.reject("call-1")
+        assertTrue(handle.rejected)
+    }
+
+    @Test
+    fun hangUpDelegatesToHandle() {
+        val controller = CallController()
+        val handle = FakeCallHandle()
+        controller.onCallAdded(handle)
+        controller.hangUp("call-1")
+        assertTrue(handle.disconnected)
+    }
+
+    @Test
+    fun toggleHoldHoldsWhenActiveAndUnholdsWhenHolding() {
+        val controller = CallController()
+        val handle = FakeCallHandle(telecomState = Call.STATE_ACTIVE)
+        controller.onCallAdded(handle)
+
+        controller.toggleHold("call-1")
+        assertTrue(handle.held)
+
+        handle.telecomState = Call.STATE_HOLDING
+        controller.toggleHold("call-1")
+        assertEquals(false, handle.held)
+    }
+
+    @Test
+    fun playDtmfPlaysDigitAndStopsAfterDelay() {
+        val controller = CallController()
+        val handle = FakeCallHandle()
+        controller.onCallAdded(handle)
+
+        controller.playDtmf("call-1", '5')
+
+        assertEquals("5", handle.dtmf.toString())
+        assertEquals(false, handle.dtmfStopped)
+
+        val deadline = System.currentTimeMillis() + 1000
+        while (!handle.dtmfStopped && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10)
+        }
+        assertTrue(handle.dtmfStopped)
     }
 }

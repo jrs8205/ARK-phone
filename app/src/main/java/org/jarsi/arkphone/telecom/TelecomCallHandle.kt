@@ -20,7 +20,7 @@ class TelecomCallHandle(private val call: Call) : CallHandle {
 
     override val telecomState: Int
         get() = if (Build.VERSION.SDK_INT >= 31) {
-            call.details.state
+            call.details?.state ?: -1
         } else {
             @Suppress("DEPRECATION")
             call.state

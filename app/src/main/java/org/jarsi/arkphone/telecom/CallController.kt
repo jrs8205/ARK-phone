@@ -3,13 +3,21 @@ package org.jarsi.arkphone.telecom
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val DTMF_TONE_MILLIS = 150L
 
 @Singleton
 class CallController @Inject constructor() {
 
     private val handles = LinkedHashMap<String, CallHandle>()
+
+    private val dtmfExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "dtmf-stop").apply { isDaemon = true }
+    }
 
     private val _calls = MutableStateFlow<List<CallInfo>>(emptyList())
     val calls: StateFlow<List<CallInfo>> = _calls.asStateFlow()
@@ -34,19 +42,32 @@ class CallController @Inject constructor() {
         publish()
     }
 
-    fun answer(id: String) = handles[id]?.answer() ?: Unit
-    fun reject(id: String) = handles[id]?.reject() ?: Unit
-    fun hangUp(id: String) = handles[id]?.disconnect() ?: Unit
+    @Synchronized
+    fun answer(id: String) {
+        handles[id]?.answer()
+    }
 
+    @Synchronized
+    fun reject(id: String) {
+        handles[id]?.reject()
+    }
+
+    @Synchronized
+    fun hangUp(id: String) {
+        handles[id]?.disconnect()
+    }
+
+    @Synchronized
     fun toggleHold(id: String) {
         val handle = handles[id] ?: return
         if (mapTelecomState(handle.telecomState) == CallStatus.HOLDING) handle.unhold() else handle.hold()
     }
 
+    @Synchronized
     fun playDtmf(id: String, digit: Char) {
         val handle = handles[id] ?: return
         handle.playDtmf(digit)
-        handle.stopDtmf()
+        dtmfExecutor.schedule({ handle.stopDtmf() }, DTMF_TONE_MILLIS, TimeUnit.MILLISECONDS)
     }
 
     fun toggleMute() {
