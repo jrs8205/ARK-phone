@@ -6,11 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,14 +30,7 @@ class InCallActivity : ComponentActivity() {
             ArkPhoneTheme {
                 val viewModel: InCallViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                var sawCall by remember { mutableStateOf(false) }
-                LaunchedEffect(uiState.call) {
-                    if (uiState.call != null) {
-                        sawCall = true
-                    } else if (sawCall) {
-                        finish()
-                    }
-                }
+                InCallFinishGuard(hasCall = uiState.call != null, onFinish = ::finish)
                 CallScreen(uiState = uiState, actions = viewModel)
             }
         }
