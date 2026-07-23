@@ -50,7 +50,6 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -58,6 +57,7 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
@@ -70,8 +70,6 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
-    testImplementation(libs.androidx.test.core)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
-    testImplementation(libs.compose.ui.test.manifest)
 }
