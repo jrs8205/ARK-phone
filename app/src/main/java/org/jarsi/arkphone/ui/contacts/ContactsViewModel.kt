@@ -1,0 +1,66 @@
+package org.jarsi.arkphone.ui.contacts
+
+import android.Manifest
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.util.PermissionChecker
+import javax.inject.Inject
+
+data class ContactsUiState(
+    val loading: Boolean = true,
+    val favorites: List<Contact> = emptyList(),
+    val others: List<Contact> = emptyList(),
+    val query: String = "",
+    val hasPermission: Boolean = true,
+)
+
+@HiltViewModel
+class ContactsViewModel @Inject constructor(
+    repository: ContactsRepository,
+    private val permissionChecker: PermissionChecker,
+) : ViewModel() {
+
+    private val query = MutableStateFlow("")
+    private val permissionState = MutableStateFlow(hasContactsPermission())
+
+    val uiState: StateFlow<ContactsUiState> =
+        combine(repository.contacts(), query, permissionState) { contacts, query, hasPermission ->
+            val visible = if (query.isBlank()) {
+                contacts
+            } else {
+                contacts.filter { contact ->
+                    contact.displayName.contains(query, ignoreCase = true) ||
+                        contact.phoneNumber?.contains(query) == true
+                }
+            }
+            ContactsUiState(
+                loading = false,
+                favorites = visible.filter { it.starred },
+                others = visible.filterNot { it.starred },
+                query = query,
+                hasPermission = hasPermission,
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ContactsUiState(loading = true, hasPermission = hasContactsPermission()),
+        )
+
+    fun onQueryChange(query: String) {
+        this.query.value = query
+    }
+
+    fun refreshPermissionState() {
+        permissionState.value = hasContactsPermission()
+    }
+
+    private fun hasContactsPermission() = permissionChecker.has(Manifest.permission.READ_CONTACTS)
+}
