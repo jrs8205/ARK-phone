@@ -9,7 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,7 +34,7 @@ class InCallActivity : ComponentActivity() {
             ArkPhoneTheme {
                 val viewModel: InCallViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                var sawCall by rememberSaveable { mutableStateOf(false) }
+                var sawCall by remember { mutableStateOf(false) }
                 LaunchedEffect(uiState.call) {
                     if (uiState.call != null) {
                         sawCall = true
