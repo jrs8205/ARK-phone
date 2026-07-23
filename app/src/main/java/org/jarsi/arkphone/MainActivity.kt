@@ -29,7 +29,6 @@ class MainActivity : ComponentActivity() {
     private val dialRequest = mutableStateOf<String?>(null)
     private val isDefault = mutableStateOf(false)
     private val hasPermissions = mutableStateOf(false)
-    private val onboardingDismissed = mutableStateOf(false)
 
     private val roleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -47,20 +46,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             ArkPhoneTheme {
                 var dialpadOpen by rememberSaveable { mutableStateOf(false) }
+                var onboardingDismissed by rememberSaveable { mutableStateOf(false) }
                 val requestedNumber by dialRequest
                 LaunchedEffect(requestedNumber) {
                     if (requestedNumber != null) dialpadOpen = true
                 }
                 val defaultDialer by isDefault
                 val permissionsGranted by hasPermissions
-                val dismissed by onboardingDismissed
                 val setupComplete = defaultDialer && permissionsGranted
 
-                if (!setupComplete && !dismissed) {
+                if (!setupComplete && !onboardingDismissed) {
                     OnboardingScreen(
                         onRequestRole = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.corePermissions()) },
-                        onDone = { onboardingDismissed.value = true },
+                        onDone = { onboardingDismissed = true },
                         isDefaultDialer = defaultDialer,
                         hasPermissions = permissionsGranted,
                     )
