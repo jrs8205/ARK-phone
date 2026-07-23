@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:name=".ArkPhoneApp"
@@ -49,5 +50,9 @@
             android:launchMode="singleTask"
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
+
+        <receiver
+            android:name=".telecom.CallActionReceiver"
+            android:exported="false" />
     </application>
 </manifest>

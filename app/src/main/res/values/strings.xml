@@ -31,4 +31,8 @@
     <string name="incall_speaker">Speaker</string>
     <string name="incall_hold">Hold</string>
     <string name="incall_keypad">Keypad</string>
+    <string name="notification_channel_incoming">Incoming calls</string>
+    <string name="notification_channel_ongoing">Ongoing calls</string>
+    <string name="notification_incoming_title">Incoming call</string>
+    <string name="notification_ongoing_title">Ongoing call</string>
 </resources>

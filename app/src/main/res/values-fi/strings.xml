@@ -30,4 +30,8 @@
     <string name="incall_speaker">Kaiutin</string>
     <string name="incall_hold">Pito</string>
     <string name="incall_keypad">Näppäimistö</string>
+    <string name="notification_channel_incoming">Saapuvat puhelut</string>
+    <string name="notification_channel_ongoing">Käynnissä olevat puhelut</string>
+    <string name="notification_incoming_title">Saapuva puhelu</string>
+    <string name="notification_ongoing_title">Käynnissä oleva puhelu</string>
 </resources>
