@@ -10,6 +10,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.incall.InCallActivity
@@ -56,24 +57,36 @@ class CallNotifications @Inject constructor(
     }
 
     fun showIncomingCall(info: CallInfo) {
+        notify(buildIncomingCall(info))
+    }
+
+    internal fun buildIncomingCall(info: CallInfo): Notification {
         val fullScreen = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_INCOMING)
+        val caller = Person.Builder()
+            .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
+            .setImportant(true)
+            .build()
+        return NotificationCompat.Builder(context, CHANNEL_INCOMING)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(context.getString(R.string.notification_incoming_title))
-            .setContentText(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
+            .setContentTitle(caller.name)
+            .setContentText(context.getString(R.string.notification_incoming_title))
+            .setStyle(
+                NotificationCompat.CallStyle.forIncomingCall(
+                    caller,
+                    declineIntent(info.id),
+                    answerIntent(info.id),
+                ),
+            )
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
             .setFullScreenIntent(fullScreen, true)
             .setContentIntent(fullScreen)
-            .addAction(0, context.getString(R.string.incall_decline), actionIntent(ACTION_DECLINE, info.id))
-            .addAction(0, context.getString(R.string.incall_answer), actionIntent(ACTION_ANSWER, info.id))
             .build()
             .apply { flags = flags or Notification.FLAG_INSISTENT }
-        notify(notification)
     }
 
     fun showOngoingCall(info: CallInfo) {
@@ -96,12 +109,23 @@ class CallNotifications @Inject constructor(
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
-    private fun actionIntent(action: String, callId: String): PendingIntent {
+    private fun declineIntent(callId: String): PendingIntent {
         val intent = Intent(context, CallActionReceiver::class.java)
-            .setAction(action)
+            .setAction(ACTION_DECLINE)
             .putExtra(EXTRA_CALL_ID, callId)
         return PendingIntent.getBroadcast(
-            context, action.hashCode(), intent,
+            context, ACTION_DECLINE.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /** Answering opens the in-call screen directly; the activity performs the answer. */
+    private fun answerIntent(callId: String): PendingIntent {
+        val intent = InCallActivity.intent(context)
+            .setAction(ACTION_ANSWER)
+            .putExtra(EXTRA_CALL_ID, callId)
+        return PendingIntent.getActivity(
+            context, ACTION_ANSWER.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
