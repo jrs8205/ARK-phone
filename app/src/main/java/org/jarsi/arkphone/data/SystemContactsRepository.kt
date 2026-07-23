@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.util.PermissionChecker
@@ -26,7 +27,7 @@ class SystemContactsRepository @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ContactsRepository {
 
-    override fun contacts(): Flow<List<Contact>> = callbackFlow {
+    override fun contacts(): Flow<List<Contact>> {
         val resolver = context.contentResolver
         fun query(): List<Contact> {
             if (!permissionChecker.has(Manifest.permission.READ_CONTACTS)) return emptyList()
@@ -55,15 +56,17 @@ class SystemContactsRepository @Inject constructor(
             return dedupeByContactId(rows)
         }
 
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                trySend(query())
+        return callbackFlow {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    trySend(Unit)
+                }
             }
-        }
-        if (permissionChecker.has(Manifest.permission.READ_CONTACTS)) {
-            resolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, observer)
-        }
-        trySend(query())
-        awaitClose { resolver.unregisterContentObserver(observer) }
-    }.flowOn(ioDispatcher)
+            if (permissionChecker.has(Manifest.permission.READ_CONTACTS)) {
+                resolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, observer)
+            }
+            send(Unit)
+            awaitClose { resolver.unregisterContentObserver(observer) }
+        }.map { query() }.flowOn(ioDispatcher)
+    }
 }

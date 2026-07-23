@@ -15,7 +15,8 @@ class TelecomCallHandle(private val call: Call) : CallHandle {
     override val displayName: String?
         get() {
             val contactName = if (Build.VERSION.SDK_INT >= 30) call.details?.contactDisplayName else null
-            return contactName ?: call.details?.callerDisplayName
+            return contactName?.takeUnless(String::isBlank)
+                ?: call.details?.callerDisplayName?.takeUnless(String::isBlank)
         }
 
     override val telecomState: Int

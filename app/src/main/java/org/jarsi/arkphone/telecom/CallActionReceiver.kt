@@ -14,10 +14,7 @@ class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val callId = intent.getStringExtra(CallNotifications.EXTRA_CALL_ID) ?: return
         when (intent.action) {
-            CallNotifications.ACTION_ANSWER -> {
-                callController.answer(callId)
-                context.startActivity(org.jarsi.arkphone.ui.incall.InCallActivity.intent(context))
-            }
+            CallNotifications.ACTION_ANSWER -> callController.answer(callId)
             CallNotifications.ACTION_DECLINE -> callController.reject(callId)
         }
     }

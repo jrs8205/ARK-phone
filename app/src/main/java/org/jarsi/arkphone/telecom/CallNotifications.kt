@@ -72,6 +72,7 @@ class CallNotifications @Inject constructor(
             .addAction(0, context.getString(R.string.incall_decline), actionIntent(ACTION_DECLINE, info.id))
             .addAction(0, context.getString(R.string.incall_answer), actionIntent(ACTION_ANSWER, info.id))
             .build()
+            .apply { flags = flags or Notification.FLAG_INSISTENT }
         notify(notification)
     }
 
