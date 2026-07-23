@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.dialpad
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
@@ -25,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,20 +83,28 @@ fun DialpadContent(
                 )
             }
         }
-        Row(
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = uiState.number,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Backspace,
-                    contentDescription = stringResource(R.string.dialpad_delete),
+            Row(
+                modifier = Modifier.padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = uiState.number,
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Backspace,
+                        contentDescription = stringResource(R.string.dialpad_delete),
+                    )
+                }
             }
         }
         DialpadGrid(onKey = onKey)

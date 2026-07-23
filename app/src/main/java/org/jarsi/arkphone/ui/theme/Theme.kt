@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 /** Fallback scheme for devices without dynamic color (API 26-30). */
-private val ArkDarkColorScheme = darkColorScheme(
+internal val ArkDarkColorScheme = darkColorScheme(
     primary = Color(0xFF9ECAFF),
     onPrimary = Color(0xFF003258),
     primaryContainer = Color(0xFF00497D),

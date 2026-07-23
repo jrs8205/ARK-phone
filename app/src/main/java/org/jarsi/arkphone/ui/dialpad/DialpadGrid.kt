@@ -68,7 +68,7 @@ private fun DialpadKey(
 ) {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
