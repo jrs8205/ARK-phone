@@ -35,7 +35,9 @@ fun HomeScreen(
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
     recentsViewModel: RecentsViewModel = hiltViewModel(),
-    contactsViewModel: ContactsViewModel = hiltViewModel(),
+    // Own instance: sharing the contacts tab's ViewModel would filter the
+    // favorites row by whatever search query is active on that tab.
+    contactsViewModel: ContactsViewModel = hiltViewModel(key = "home-favorites"),
 ) {
     val recentsUiState by recentsViewModel.uiState.collectAsStateWithLifecycle()
     val contactsUiState by contactsViewModel.uiState.collectAsStateWithLifecycle()

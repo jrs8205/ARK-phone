@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.telecom
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +15,7 @@ class PhoneCaller @Inject constructor(
     private val permissionChecker: PermissionChecker,
 ) {
     /** Returns false when the CALL_PHONE permission is missing; the caller should surface onboarding. */
+    @SuppressLint("MissingPermission") // Guarded by the PermissionChecker check below.
     fun placeCall(number: String): Boolean {
         if (number.isBlank()) return false
         if (!permissionChecker.has(Manifest.permission.CALL_PHONE)) return false
