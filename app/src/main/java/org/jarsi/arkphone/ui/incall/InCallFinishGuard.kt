@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 
@@ -22,17 +23,18 @@ fun InCallFinishGuard(
     onFinish: () -> Unit,
 ) {
     var sawCall by remember { mutableStateOf(false) }
+    val currentOnFinish by rememberUpdatedState(onFinish)
     LaunchedEffect(hasCall) {
         if (hasCall) {
             sawCall = true
         } else if (sawCall) {
-            onFinish()
+            currentOnFinish()
         }
     }
     LaunchedEffect(Unit) {
         delay(graceMillis)
         if (!sawCall) {
-            onFinish()
+            currentOnFinish()
         }
     }
 }

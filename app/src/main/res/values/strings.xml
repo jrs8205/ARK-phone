@@ -20,6 +20,7 @@
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>
     <string name="dialpad_delete">Delete digit</string>
+    <string name="dialpad_long_press_plus">Type plus sign</string>
     <string name="incall_unknown_caller">Unknown number</string>
     <string name="incall_state_ringing">Incoming call</string>
     <string name="incall_state_dialing">Calling…</string>

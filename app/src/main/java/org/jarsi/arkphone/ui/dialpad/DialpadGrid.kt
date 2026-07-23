@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import org.jarsi.arkphone.R
 
 private val dialpadRows = listOf(
     listOf('1' to "", '2' to "ABC", '3' to "DEF"),
@@ -44,6 +46,11 @@ fun DialpadGrid(onKey: (Char) -> Unit) {
                             // gesture instead of falling through to a plain click on release.
                             {}
                         },
+                        onLongPressLabel = if (digit == '0') {
+                            stringResource(R.string.dialpad_long_press_plus)
+                        } else {
+                            null
+                        },
                     )
                 }
             }
@@ -56,7 +63,8 @@ private fun DialpadKey(
     digit: Char,
     letters: String,
     onKey: (Char) -> Unit,
-    onLongPress: (() -> Unit)? = null,
+    onLongPress: () -> Unit,
+    onLongPressLabel: String? = null,
 ) {
     Surface(
         shape = CircleShape,
@@ -67,6 +75,7 @@ private fun DialpadKey(
             .combinedClickable(
                 onClick = { onKey(digit) },
                 onLongClick = onLongPress,
+                onLongClickLabel = onLongPressLabel,
             ),
     ) {
         Box(contentAlignment = Alignment.Center) {
