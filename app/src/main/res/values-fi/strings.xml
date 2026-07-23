@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="recents_empty">Ei vielä puheluita</string>
-    <string name="recents_no_permission">ARK Phone tarvitsee pääsyn puhelulokiin näyttääkseen viimeisimmät puhelut.</string>
+    <string name="recents_no_permission">ARK-phone tarvitsee pääsyn puhelulokiin näyttääkseen viimeisimmät puhelut.</string>
     <string name="common_grant_access">Myönnä käyttöoikeus</string>
     <string name="call_type_incoming">Saapunut puhelu</string>
     <string name="call_type_outgoing">Soitettu puhelu</string>
@@ -10,11 +10,11 @@
     <string name="contacts_search_hint">Hae yhteystietoja</string>
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
-    <string name="contacts_no_permission">ARK Phone tarvitsee pääsyn yhteystietoihin näyttääkseen ne tässä.</string>
+    <string name="contacts_no_permission">ARK-phone tarvitsee pääsyn yhteystietoihin näyttääkseen ne tässä.</string>
     <string name="tab_recents">Viimeisimmät</string>
     <string name="tab_contacts">Yhteystiedot</string>
     <string name="open_dialpad">Avaa näppäimistö</string>
-    <string name="banner_not_default">ARK Phone ei ole oletuspuhelinsovelluksesi.</string>
+    <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>
     <string name="dialpad_delete">Poista numero</string>
@@ -34,8 +34,8 @@
     <string name="notification_channel_ongoing">Käynnissä olevat puhelut</string>
     <string name="notification_incoming_title">Saapuva puhelu</string>
     <string name="notification_ongoing_title">Käynnissä oleva puhelu</string>
-    <string name="onboarding_title">Tervetuloa ARK Phoneen</string>
-    <string name="onboarding_body">Hoitaakseen puhelusi ARK Phonen pitää olla oletuspuhelinsovellus, ja se tarvitsee pääsyn puhelulokiin, yhteystietoihin ja puhelimeen.</string>
+    <string name="onboarding_title">Tervetuloa ARK-phoneen</string>
+    <string name="onboarding_body">Hoitaakseen puhelusi ARK-phonen pitää olla oletuspuhelinsovellus, ja se tarvitsee pääsyn puhelulokiin, yhteystietoihin ja puhelimeen.</string>
     <string name="onboarding_set_default">Aseta oletuspuhelinsovellukseksi</string>
     <string name="onboarding_grant_permissions">Myönnä luvat</string>
     <string name="onboarding_done">Jatka</string>

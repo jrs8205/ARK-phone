@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">ARK Phone</string>
+    <string name="app_name" translatable="false">ARK-phone</string>
     <string name="recents_empty">No calls yet</string>
-    <string name="recents_no_permission">ARK Phone needs access to your call log to show recent calls.</string>
+    <string name="recents_no_permission">ARK-phone needs access to your call log to show recent calls.</string>
     <string name="common_grant_access">Grant access</string>
     <string name="call_type_incoming">Incoming call</string>
     <string name="call_type_outgoing">Outgoing call</string>
@@ -11,11 +11,11 @@
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>
     <string name="contacts_empty">No contacts</string>
-    <string name="contacts_no_permission">ARK Phone needs access to your contacts to show them here.</string>
+    <string name="contacts_no_permission">ARK-phone needs access to your contacts to show them here.</string>
     <string name="tab_recents">Recents</string>
     <string name="tab_contacts">Contacts</string>
     <string name="open_dialpad">Open dial pad</string>
-    <string name="banner_not_default">ARK Phone is not your default phone app.</string>
+    <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>
     <string name="dialpad_delete">Delete digit</string>
@@ -35,8 +35,8 @@
     <string name="notification_channel_ongoing">Ongoing calls</string>
     <string name="notification_incoming_title">Incoming call</string>
     <string name="notification_ongoing_title">Ongoing call</string>
-    <string name="onboarding_title">Welcome to ARK Phone</string>
-    <string name="onboarding_body">To handle your calls, ARK Phone needs to be your default phone app and needs access to your call log, contacts, and phone.</string>
+    <string name="onboarding_title">Welcome to ARK-phone</string>
+    <string name="onboarding_body">To handle your calls, ARK-phone needs to be your default phone app and needs access to your call log, contacts, and phone.</string>
     <string name="onboarding_set_default">Set as default phone app</string>
     <string name="onboarding_grant_permissions">Grant permissions</string>
     <string name="onboarding_done">Continue</string>

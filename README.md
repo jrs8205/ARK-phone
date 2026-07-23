@@ -1,7 +1,7 @@
-# ARK Phone
+# ARK-phone
 
 A modern Android phone app built with Kotlin, Jetpack Compose, and Material 3.
-ARK Phone can replace your device's default phone app: it provides a dial pad,
+ARK-phone can replace your device's default phone app: it provides a dial pad,
 incoming and ongoing call screens, recent calls, and contacts.
 
 ## Features
