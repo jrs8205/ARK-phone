@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
@@ -27,6 +28,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.rememberHaptics
 
 @Composable
 fun ContactsScreen(
@@ -58,11 +60,18 @@ fun ContactsContent(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val haptics = rememberHaptics()
             Text(
                 text = stringResource(R.string.contacts_no_permission),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Button(onClick = onRequestPermissions, modifier = Modifier.padding(top = 16.dp)) {
+            Button(
+                onClick = {
+                    haptics.click()
+                    onRequestPermissions()
+                },
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
                 Text(stringResource(R.string.common_grant_access))
             }
         }
@@ -73,6 +82,7 @@ fun ContactsContent(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text(stringResource(R.string.contacts_search_hint)) },
                 singleLine = true,
+                shape = RoundedCornerShape(28.dp),
             )
             if (uiState.favorites.isEmpty() && uiState.others.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

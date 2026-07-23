@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
+import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsViewModel
 import org.jarsi.arkphone.ui.recents.RecentsContent
 import org.jarsi.arkphone.ui.recents.RecentsUiState
@@ -93,12 +94,14 @@ fun HomeContent(
 
 @Composable
 private fun FavoriteItem(contact: Contact, onCall: (String) -> Unit) {
+    val haptics = rememberHaptics()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(horizontal = 4.dp)
             .width(72.dp)
             .clickable(enabled = contact.phoneNumber != null) {
+                haptics.confirm()
                 contact.phoneNumber?.let(onCall)
             }
             .padding(4.dp),

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.ui.components.rememberHaptics
 
 @Composable
 fun OnboardingScreen(
@@ -26,6 +27,7 @@ fun OnboardingScreen(
     isDefaultDialer: Boolean,
     hasPermissions: Boolean,
 ) {
+    val haptics = rememberHaptics()
     Surface(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -42,7 +44,10 @@ fun OnboardingScreen(
                 modifier = Modifier.padding(top = 16.dp, bottom = 32.dp),
             )
             Button(
-                onClick = onRequestRole,
+                onClick = {
+                    haptics.click()
+                    onRequestRole()
+                },
                 enabled = !isDefaultDialer,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -52,7 +57,10 @@ fun OnboardingScreen(
                 )
             }
             OutlinedButton(
-                onClick = onRequestPermissions,
+                onClick = {
+                    haptics.click()
+                    onRequestPermissions()
+                },
                 enabled = !hasPermissions,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
@@ -61,7 +69,13 @@ fun OnboardingScreen(
                     else stringResource(R.string.onboarding_grant_permissions),
                 )
             }
-            TextButton(onClick = onDone, modifier = Modifier.padding(top = 24.dp)) {
+            TextButton(
+                onClick = {
+                    haptics.click()
+                    onDone()
+                },
+                modifier = Modifier.padding(top = 24.dp),
+            ) {
                 Text(stringResource(R.string.onboarding_done))
             }
         }

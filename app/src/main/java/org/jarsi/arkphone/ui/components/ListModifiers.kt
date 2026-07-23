@@ -5,4 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-fun clickableListItemModifier(onClick: () -> Unit): Modifier = Modifier.clickable(onClick = onClick)
+fun clickableListItemModifier(onClick: () -> Unit): Modifier {
+    val haptics = rememberHaptics()
+    return Modifier.clickable {
+        haptics.click()
+        onClick()
+    }
+}

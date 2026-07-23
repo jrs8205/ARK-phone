@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.rememberHaptics
 
 @Composable
 fun DialpadScreen(
@@ -67,6 +68,7 @@ fun DialpadContent(
     onCall: () -> Unit,
     onSuggestion: (String) -> Unit,
 ) {
+    val haptics = rememberHaptics()
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Bottom,
@@ -99,7 +101,12 @@ fun DialpadContent(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = {
+                        haptics.click()
+                        onDelete()
+                    },
+                ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Backspace,
                         contentDescription = stringResource(R.string.dialpad_delete),
@@ -109,7 +116,10 @@ fun DialpadContent(
         }
         DialpadGrid(onKey = onKey)
         FloatingActionButton(
-            onClick = onCall,
+            onClick = {
+                haptics.confirm()
+                onCall()
+            },
             modifier = Modifier.padding(top = 16.dp).size(72.dp),
         ) {
             Icon(Icons.Filled.Call, contentDescription = stringResource(R.string.dialpad_call))

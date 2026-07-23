@@ -32,6 +32,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.rememberHaptics
 
 @StringRes
 internal fun callTypeLabelRes(type: CallType): Int = when (type) {
@@ -71,11 +72,18 @@ fun RecentsContent(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val haptics = rememberHaptics()
             Text(
                 text = stringResource(R.string.recents_no_permission),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Button(onClick = onRequestPermissions, modifier = Modifier.padding(top = 16.dp)) {
+            Button(
+                onClick = {
+                    haptics.click()
+                    onRequestPermissions()
+                },
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
                 Text(stringResource(R.string.common_grant_access))
             }
         }

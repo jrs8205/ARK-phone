@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadGrid
 
 @Composable
@@ -78,12 +79,16 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
 
 @Composable
 private fun IncomingCallActions(actions: InCallActions) {
+    val haptics = rememberHaptics()
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         FloatingActionButton(
-            onClick = actions::onReject,
+            onClick = {
+                haptics.reject()
+                actions.onReject()
+            },
             containerColor = MaterialTheme.colorScheme.error,
             modifier = Modifier.size(72.dp),
         ) {
@@ -93,7 +98,10 @@ private fun IncomingCallActions(actions: InCallActions) {
             )
         }
         FloatingActionButton(
-            onClick = actions::onAnswer,
+            onClick = {
+                haptics.confirm()
+                actions.onAnswer()
+            },
             containerColor = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(72.dp),
         ) {
@@ -104,11 +112,15 @@ private fun IncomingCallActions(actions: InCallActions) {
 
 @Composable
 private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
+    val haptics = rememberHaptics()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             FilledIconToggleButton(
                 checked = uiState.muted,
-                onCheckedChange = { actions.onToggleMute() },
+                onCheckedChange = {
+                    haptics.click()
+                    actions.onToggleMute()
+                },
             ) {
                 Icon(
                     if (uiState.muted) Icons.Filled.MicOff else Icons.Filled.Mic,
@@ -117,7 +129,10 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
             }
             FilledIconToggleButton(
                 checked = uiState.speakerOn,
-                onCheckedChange = { actions.onToggleSpeaker() },
+                onCheckedChange = {
+                    haptics.click()
+                    actions.onToggleSpeaker()
+                },
             ) {
                 Icon(
                     Icons.Filled.VolumeUp,
@@ -126,19 +141,28 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
             }
             FilledIconToggleButton(
                 checked = uiState.call?.status == CallStatus.HOLDING,
-                onCheckedChange = { actions.onToggleHold() },
+                onCheckedChange = {
+                    haptics.click()
+                    actions.onToggleHold()
+                },
             ) {
                 Icon(Icons.Filled.Pause, contentDescription = stringResource(R.string.incall_hold))
             }
             FilledIconToggleButton(
                 checked = uiState.showKeypad,
-                onCheckedChange = { actions.onToggleKeypad() },
+                onCheckedChange = {
+                    haptics.click()
+                    actions.onToggleKeypad()
+                },
             ) {
                 Icon(Icons.Filled.Dialpad, contentDescription = stringResource(R.string.incall_keypad))
             }
         }
         FloatingActionButton(
-            onClick = actions::onHangUp,
+            onClick = {
+                haptics.reject()
+                actions.onHangUp()
+            },
             containerColor = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 24.dp, bottom = 32.dp).size(72.dp),
         ) {

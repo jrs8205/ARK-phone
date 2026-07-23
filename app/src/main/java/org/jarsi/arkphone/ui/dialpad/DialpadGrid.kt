@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.ui.components.rememberHaptics
 
 private val dialpadRows = listOf(
     listOf('1' to "", '2' to "ABC", '3' to "DEF"),
@@ -28,6 +29,7 @@ private val dialpadRows = listOf(
 
 @Composable
 fun DialpadGrid(onKey: (Char) -> Unit) {
+    val haptics = rememberHaptics()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         dialpadRows.forEach { row ->
             Row(
@@ -38,9 +40,15 @@ fun DialpadGrid(onKey: (Char) -> Unit) {
                     DialpadKey(
                         digit = digit,
                         letters = letters,
-                        onKey = onKey,
+                        onKey = { key ->
+                            haptics.keyTap()
+                            onKey(key)
+                        },
                         onLongPress = if (digit == '0') {
-                            { onKey('+') }
+                            {
+                                haptics.longPress()
+                                onKey('+')
+                            }
                         } else {
                             // A no-op (not null) so combinedClickable consumes the long-press
                             // gesture instead of falling through to a plain click on release.

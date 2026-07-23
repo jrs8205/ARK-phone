@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
 import org.jarsi.arkphone.ui.dialpad.DialpadScreen
 import org.jarsi.arkphone.ui.home.HomeScreen
@@ -72,22 +73,27 @@ fun MainScreen(
 
 @Composable
 fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
+    val haptics = rememberHaptics()
+    val select: (MainTab) -> Unit = { tab ->
+        haptics.click()
+        onSelect(tab)
+    }
     NavigationBar {
         NavigationBarItem(
             selected = selected == MainTab.HOME,
-            onClick = { onSelect(MainTab.HOME) },
+            onClick = { select(MainTab.HOME) },
             icon = { Icon(Icons.Filled.Home, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_home)) },
         )
         NavigationBarItem(
             selected = selected == MainTab.KEYPAD,
-            onClick = { onSelect(MainTab.KEYPAD) },
+            onClick = { select(MainTab.KEYPAD) },
             icon = { Icon(Icons.Filled.Dialpad, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_keypad)) },
         )
         NavigationBarItem(
             selected = selected == MainTab.CONTACTS,
-            onClick = { onSelect(MainTab.CONTACTS) },
+            onClick = { select(MainTab.CONTACTS) },
             icon = { Icon(Icons.Filled.Contacts, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_contacts)) },
         )
@@ -96,6 +102,7 @@ fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
 
 @Composable
 private fun DefaultDialerBanner(onRequestDefaultDialer: () -> Unit) {
+    val haptics = rememberHaptics()
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -105,7 +112,12 @@ private fun DefaultDialerBanner(onRequestDefaultDialer: () -> Unit) {
                 text = stringResource(R.string.banner_not_default),
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onRequestDefaultDialer) {
+            TextButton(
+                onClick = {
+                    haptics.click()
+                    onRequestDefaultDialer()
+                },
+            ) {
                 Text(stringResource(R.string.banner_set_default))
             }
         }
