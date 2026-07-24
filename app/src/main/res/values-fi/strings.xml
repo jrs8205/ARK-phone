@@ -43,4 +43,16 @@
     <string name="onboarding_grant_permissions">Myönnä luvat</string>
     <string name="onboarding_done">Jatka</string>
     <string name="onboarding_step_done">Valmis</string>
+    <string name="settings_title">Asetukset</string>
+    <string name="settings_back">Takaisin</string>
+    <string name="settings_announce_caller_title">Soittajan puheilmoitus</string>
+    <string name="settings_announce_caller_description">Sanoo soittajan nimen ääneen kahdesti puhelimen soidessa</string>
+    <string name="announce_caller">%1$s soittaa</string>
+    <string name="announce_unknown_caller">Tuntematon soittaja soittaa</string>
+    <string name="notification_channel_missed">Vastaamattomat puhelut</string>
+    <plurals name="notification_missed_calls_title">
+        <item quantity="one">Vastaamaton puhelu</item>
+        <item quantity="other">%d vastaamatonta puhelua</item>
+    </plurals>
+    <string name="notification_missed_call_back">Soita takaisin</string>
 </resources>

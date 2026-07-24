@@ -3,9 +3,11 @@ package org.jarsi.arkphone.ui.incall
 import android.telecom.Call
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallHandle
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.Clock
 import org.junit.Assert.assertEquals
@@ -42,7 +44,7 @@ class InCallViewModelTest {
         val controller = CallController()
         val handle = TestCallHandle()
         controller.onCallAdded(handle)
-        val viewModel = InCallViewModel(controller, clock)
+        val viewModel = InCallViewModel(controller, FakeContactsRepository(), clock)
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.call == null) state = awaitItem()
@@ -55,12 +57,27 @@ class InCallViewModelTest {
         val controller = CallController()
         val handle = TestCallHandle()
         controller.onCallAdded(handle)
-        val viewModel = InCallViewModel(controller, clock)
+        val viewModel = InCallViewModel(controller, FakeContactsRepository(), clock)
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.call == null) state = awaitItem()
             viewModel.onAnswer()
             assertTrue(handle.answered)
+        }
+    }
+
+    @Test
+    fun exposesCallerPhotoFromContactLookup() = runTest {
+        val controller = CallController()
+        controller.onCallAdded(TestCallHandle())
+        val contacts = FakeContactsRepository().apply {
+            matchesByNumber["0401234567"] = ContactMatch("Alice", "content://photo/1")
+        }
+        val viewModel = InCallViewModel(controller, contacts, clock)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.callerPhotoUri == null) state = awaitItem()
+            assertEquals("content://photo/1", state.callerPhotoUri)
         }
     }
 }

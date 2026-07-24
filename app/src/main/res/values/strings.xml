@@ -44,4 +44,16 @@
     <string name="onboarding_grant_permissions">Grant permissions</string>
     <string name="onboarding_done">Continue</string>
     <string name="onboarding_step_done">Done</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_announce_caller_title">Spoken caller announcement</string>
+    <string name="settings_announce_caller_description">Says the caller\'s name aloud twice while the phone is ringing</string>
+    <string name="announce_caller">%1$s is calling</string>
+    <string name="announce_unknown_caller">Unknown caller is calling</string>
+    <string name="notification_channel_missed">Missed calls</string>
+    <plurals name="notification_missed_calls_title">
+        <item quantity="one">Missed call</item>
+        <item quantity="other">%d missed calls</item>
+    </plurals>
+    <string name="notification_missed_call_back">Call back</string>
 </resources>

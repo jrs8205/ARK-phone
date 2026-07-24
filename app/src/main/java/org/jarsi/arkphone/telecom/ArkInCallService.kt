@@ -16,6 +16,7 @@ class ArkInCallService : InCallService() {
 
     @Inject lateinit var callController: CallController
     @Inject lateinit var callNotifications: CallNotifications
+    @Inject lateinit var callerAnnouncer: CallerAnnouncer
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
     private val callbacksByCall = mutableMapOf<Call, Call.Callback>()
@@ -55,6 +56,7 @@ class ArkInCallService : InCallService() {
         callbacksByCall.remove(call)?.let(call::unregisterCallback)
         handlesByCall.remove(call)?.let { handle ->
             lastStatus.remove(handle.id)
+            callerAnnouncer.onRingingStopped(handle.id)
             callController.onCallRemoved(handle.id)
         }
         if (calls.isEmpty()) callNotifications.clear()
@@ -74,8 +76,10 @@ class ArkInCallService : InCallService() {
         val previous = lastStatus[handle.id]
         lastStatus[handle.id] = status
         val info = callController.calls.value.firstOrNull { it.id == handle.id } ?: return
+        if (status != CallStatus.RINGING) callerAnnouncer.onRingingStopped(info.id)
         when (status) {
             CallStatus.RINGING -> {
+                callerAnnouncer.onRinging(info)
                 callNotifications.showIncomingCall(info)
                 if (shouldLaunchIncomingUiDirectly()) {
                     startActivity(InCallActivity.intent(this))

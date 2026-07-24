@@ -12,6 +12,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.telecom.DefaultDialerManager
+import org.jarsi.arkphone.telecom.MissedCallNotifier
 import org.jarsi.arkphone.telecom.PhoneCaller
 import org.jarsi.arkphone.ui.navigation.MainScreen
 import org.jarsi.arkphone.ui.onboarding.OnboardingScreen
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var phoneCaller: PhoneCaller
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
+    @Inject lateinit var missedCallNotifier: MissedCallNotifier
 
     private val dialRequest = mutableStateOf<String?>(null)
     private val isDefault = mutableStateOf(false)
@@ -74,6 +76,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshSetupState()
+        missedCallNotifier.onCallLogSeen()
     }
 
     override fun onNewIntent(intent: Intent) {

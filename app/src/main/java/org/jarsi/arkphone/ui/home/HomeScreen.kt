@@ -1,20 +1,28 @@
 package org.jarsi.arkphone.ui.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +38,7 @@ import org.jarsi.arkphone.ui.contacts.ContactsViewModel
 import org.jarsi.arkphone.ui.recents.RecentsContent
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.jarsi.arkphone.ui.recents.RecentsViewModel
+import org.jarsi.arkphone.ui.settings.SettingsActivity
 
 @Composable
 fun HomeScreen(
@@ -47,11 +56,13 @@ fun HomeScreen(
         contactsViewModel.refreshPermissionState()
         onPauseOrDispose { }
     }
+    val context = LocalContext.current
     HomeContent(
         favorites = contactsUiState.favorites,
         recentsUiState = recentsUiState,
         onCall = onCall,
         onRequestPermissions = onRequestPermissions,
+        onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
     )
 }
 
@@ -61,8 +72,24 @@ fun HomeContent(
     recentsUiState: RecentsUiState,
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
+    val haptics = rememberHaptics()
     Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    haptics.click()
+                    onOpenSettings()
+                },
+                modifier = Modifier.padding(horizontal = 4.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Settings,
+                    contentDescription = stringResource(R.string.settings_title),
+                )
+            }
+        }
         if (favorites.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.contacts_favorites),

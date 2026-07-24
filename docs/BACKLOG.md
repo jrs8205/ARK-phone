@@ -6,10 +6,12 @@ may be re-scoped or dropped.
 
 ## Under discussion (next up)
 
-- [ ] Spoken caller announcement (TTS): speak the contact name for saved contacts,
+- [x] Spoken caller announcement (TTS): speak the contact name for saved contacts,
       "unknown caller" otherwise; offered as an opt-in setting
-- [ ] Contact photo on the incoming-call screen, including on the lock screen
-- [ ] In-app settings screen with SIM card settings and information
+- [x] Contact photo on the incoming-call screen, including on the lock screen
+- [x] In-app settings screen (gear on the Home tab)
+- [x] App-owned missed-call notification with launcher badge and call-back action
+- [ ] SIM card settings and information page under settings
 - [ ] SMS / messaging support
 
 ## Keypad
@@ -49,7 +51,7 @@ may be re-scoped or dropped.
 ## Incoming call view
 
 - [x] Large caller name and number
-- [ ] Caller photo (under discussion, see above)
+- [x] Caller photo
 - [~] Indication of whether the number is a saved contact (name shown when saved)
 - [ ] Spam-call suspicion indicator
 - [ ] SIM used for the incoming call

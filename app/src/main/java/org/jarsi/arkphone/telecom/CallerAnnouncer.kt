@@ -1,0 +1,83 @@
+package org.jarsi.arkphone.telecom
+
+import android.app.NotificationManager
+import android.content.Context
+import android.media.AudioManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.di.ApplicationScope
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Environment check for the announcement: silent/vibrate and Do Not Disturb suppress it. */
+fun interface AnnounceGate {
+    fun canAnnounce(): Boolean
+}
+
+class AndroidAnnounceGate @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : AnnounceGate {
+    override fun canAnnounce(): Boolean {
+        val audioManager = context.getSystemService(AudioManager::class.java) ?: return false
+        val notificationManager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL &&
+            notificationManager.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL
+    }
+}
+
+/**
+ * Speaks the caller's name while a call is ringing: once immediately and once
+ * more after [REPEAT_DELAY_MILLIS] if still ringing. Opt-in via settings.
+ */
+@Singleton
+class CallerAnnouncer @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val settingsRepository: SettingsRepository,
+    private val contactsRepository: ContactsRepository,
+    private val speechEngine: SpeechEngine,
+    private val announceGate: AnnounceGate,
+    @ApplicationScope private val scope: CoroutineScope,
+) {
+    companion object {
+        const val REPEAT_DELAY_MILLIS = 8_000L
+    }
+
+    private var ringingCallId: String? = null
+    private var job: Job? = null
+
+    fun onRinging(info: CallInfo) {
+        if (ringingCallId == info.id) return
+        ringingCallId = info.id
+        job?.cancel()
+        job = scope.launch {
+            if (!settingsRepository.settings.first().announceCaller) return@launch
+            if (!announceGate.canAnnounce()) return@launch
+            val name = info.displayName?.takeIf { it.isNotBlank() }
+                ?: info.number?.let { number ->
+                    contactsRepository.lookupContact(number)?.displayName?.takeIf { it.isNotBlank() }
+                }
+            val text = if (name != null) {
+                context.getString(R.string.announce_caller, name)
+            } else {
+                context.getString(R.string.announce_unknown_caller)
+            }
+            speechEngine.speak(text)
+            delay(REPEAT_DELAY_MILLIS)
+            speechEngine.speak(text)
+        }
+    }
+
+    fun onRingingStopped(callId: String) {
+        if (ringingCallId != callId) return
+        ringingCallId = null
+        job?.cancel()
+        speechEngine.stop()
+    }
+}

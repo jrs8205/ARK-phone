@@ -27,10 +27,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadGrid
 import org.jarsi.arkphone.ui.theme.CallAnswerGreen
@@ -49,6 +51,15 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 48.dp),
             ) {
+                ContactAvatar(
+                    displayName = call?.displayName,
+                    photoUri = uiState.callerPhotoUri,
+                    size = 112.dp,
+                    initialTextStyle = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .testTag("callerAvatar"),
+                )
                 Text(
                     text = call?.displayName ?: call?.number
                         ?: stringResource(R.string.incall_unknown_caller),

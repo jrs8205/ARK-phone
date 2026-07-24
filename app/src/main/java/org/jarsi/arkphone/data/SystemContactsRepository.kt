@@ -3,6 +3,7 @@ package org.jarsi.arkphone.data
 import android.Manifest
 import android.content.Context
 import android.database.ContentObserver
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.ContactsContract
@@ -14,7 +15,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Inject
@@ -69,5 +72,30 @@ class SystemContactsRepository @Inject constructor(
             send(Unit)
             awaitClose { resolver.unregisterContentObserver(observer) }
         }.conflate().map { query() }.flowOn(ioDispatcher)
+    }
+
+    override suspend fun lookupContact(number: String): ContactMatch? = withContext(ioDispatcher) {
+        if (number.isBlank()) return@withContext null
+        if (!permissionChecker.has(Manifest.permission.READ_CONTACTS)) return@withContext null
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(number),
+        )
+        val projection = arrayOf(
+            ContactsContract.PhoneLookup.DISPLAY_NAME,
+            ContactsContract.PhoneLookup.PHOTO_URI,
+        )
+        runCatching {
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    ContactMatch(
+                        displayName = cursor.getString(0),
+                        photoUri = cursor.getString(1),
+                    )
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
     }
 }

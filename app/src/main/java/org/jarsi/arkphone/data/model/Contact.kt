@@ -7,3 +7,9 @@ data class Contact(
     val photoUri: String?,
     val starred: Boolean,
 )
+
+/** Result of resolving a phone number against the device contacts. */
+data class ContactMatch(
+    val displayName: String?,
+    val photoUri: String?,
+)

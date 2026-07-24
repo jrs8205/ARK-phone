@@ -10,11 +10,18 @@ import javax.inject.Inject
 class CallActionReceiver : BroadcastReceiver() {
 
     @Inject lateinit var callController: CallController
+    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var missedCallNotifier: MissedCallNotifier
 
     override fun onReceive(context: Context, intent: Intent) {
-        val callId = intent.getStringExtra(CallNotifications.EXTRA_CALL_ID) ?: return
-        if (intent.action == CallNotifications.ACTION_DECLINE) {
-            callController.reject(callId)
+        when (intent.action) {
+            CallNotifications.ACTION_DECLINE -> {
+                intent.getStringExtra(CallNotifications.EXTRA_CALL_ID)?.let(callController::reject)
+            }
+            MissedCallNotifier.ACTION_CALL_BACK -> {
+                missedCallNotifier.onCallLogSeen()
+                intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(phoneCaller::placeCall)
+            }
         }
     }
 }
