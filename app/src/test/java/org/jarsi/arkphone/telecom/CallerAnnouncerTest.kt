@@ -41,9 +41,16 @@ class CallerAnnouncerTest {
         intervalSeconds: Int = 4,
         gate: Boolean = true,
         contacts: FakeContactsRepository = FakeContactsRepository(),
+        announceWhatsApp: Boolean = false,
     ) = CallerAnnouncer(
         context,
-        FakeSettingsRepository(Settings(announceMode = mode, announceIntervalSeconds = intervalSeconds)),
+        FakeSettingsRepository(
+            Settings(
+                announceMode = mode,
+                announceIntervalSeconds = intervalSeconds,
+                announceWhatsApp = announceWhatsApp,
+            ),
+        ),
         contacts,
         speech,
         { gate },
@@ -119,6 +126,57 @@ class CallerAnnouncerTest {
         announcer(speech).onRinging(ringingCall(name = null, number = null))
         runCurrent()
         assertEquals(listOf("Unknown caller is calling"), speech.spoken)
+    }
+
+    @Test
+    fun whatsAppRepeatsAtTheSliderIntervalUntilStopped() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, mode = AnnounceMode.OFF, intervalSeconds = 6, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa-key-1", "Jarsi")
+        runCurrent()
+        assertEquals(listOf("Jarsi is calling on WhatsApp"), speech.spoken)
+        advanceTimeBy(6_000)
+        runCurrent()
+        assertEquals(2, speech.spoken.size)
+        announcer.onWhatsAppRingingStopped("wa-key-1")
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(2, speech.spoken.size)
+        assertEquals(1, speech.stops)
+    }
+
+    @Test
+    fun whatsAppAnnouncementStopsAtTheSafetyWindow() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, mode = AnnounceMode.OFF, intervalSeconds = 10, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa-key-1", "Jarsi")
+        advanceTimeBy(600_000)
+        runCurrent()
+        val spokenAfterWindow = speech.spoken.size
+        advanceTimeBy(600_000)
+        runCurrent()
+        assertEquals(spokenAfterWindow, speech.spoken.size)
+        announcer.onWhatsAppRingingStopped("wa-key-1")
+    }
+
+    @Test
+    fun whatsAppToggleOffSpeaksNothing() = runTest {
+        val speech = FakeSpeechEngine()
+        announcer(speech, announceWhatsApp = false)
+            .onWhatsAppRinging("wa-key-1", "Jarsi")
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(0, speech.spoken.size)
+    }
+
+    @Test
+    fun unknownWhatsAppCallerGetsTheUnknownText() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa-key-1", null)
+        runCurrent()
+        assertEquals(listOf("Unknown caller is calling on WhatsApp"), speech.spoken)
+        announcer.onWhatsAppRingingStopped("wa-key-1")
     }
 
     @Test

@@ -5,6 +5,7 @@ enum class AnnounceMode { OFF, WITH_RINGTONE, VOICE_ONLY }
 data class Settings(
     val announceMode: AnnounceMode = AnnounceMode.OFF,
     val announceIntervalSeconds: Int = DEFAULT_ANNOUNCE_INTERVAL_SECONDS,
+    val announceWhatsApp: Boolean = false,
 ) {
     companion object {
         const val MIN_ANNOUNCE_INTERVAL_SECONDS = 4

@@ -14,6 +14,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -36,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.AnnounceMode
@@ -50,11 +54,25 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasNotificationAccess by viewModel.hasNotificationAccess.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshNotificationAccess()
+        onPauseOrDispose { }
+    }
     SettingsContent(
         settings = settings,
+        hasNotificationAccess = hasNotificationAccess,
         onAnnounceModeChanged = viewModel::onAnnounceModeChanged,
         onAnnounceIntervalChanged = viewModel::onAnnounceIntervalChanged,
+        onAnnounceWhatsAppChanged = viewModel::onAnnounceWhatsAppChanged,
+        onGrantNotificationAccess = {
+            runCatching {
+                context.startActivity(
+                    Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                )
+            }
+        },
         onOpenSimInfo = onOpenSimInfo,
         onOpenCallSettings = {
             runCatching {
@@ -74,6 +92,9 @@ fun SettingsContent(
     onOpenSimInfo: () -> Unit,
     onOpenCallSettings: () -> Unit,
     onBack: () -> Unit,
+    hasNotificationAccess: Boolean = true,
+    onAnnounceWhatsAppChanged: (Boolean) -> Unit = {},
+    onGrantNotificationAccess: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -135,11 +156,57 @@ fun SettingsContent(
                     onAnnounceModeChanged(AnnounceMode.VOICE_ONLY)
                 },
             )
-            if (settings.announceMode == AnnounceMode.VOICE_ONLY) {
+            if (settings.announceMode == AnnounceMode.VOICE_ONLY || settings.announceWhatsApp) {
                 IntervalSlider(
                     intervalSeconds = settings.announceIntervalSeconds,
                     onIntervalChanged = onAnnounceIntervalChanged,
                 )
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                text = stringResource(R.string.settings_whatsapp_section),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = settings.announceWhatsApp,
+                        role = Role.Switch,
+                        onValueChange = {
+                            haptics.click()
+                            onAnnounceWhatsAppChanged(it)
+                        },
+                    )
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Column(Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        stringResource(R.string.settings_announce_whatsapp_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        stringResource(R.string.settings_announce_whatsapp_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // The toggleable row is the single accessible target.
+                Switch(checked = settings.announceWhatsApp, onCheckedChange = null)
+            }
+            if (settings.announceWhatsApp && !hasNotificationAccess) {
+                Button(
+                    onClick = {
+                        haptics.click()
+                        onGrantNotificationAccess()
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Text(stringResource(R.string.settings_grant_notification_access))
+                }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SettingsLinkRow(

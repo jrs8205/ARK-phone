@@ -16,9 +16,10 @@ may be re-scoped or dropped.
 - [x] Call history round (agreed 2026-07-24): per-number detail view opened from
       the log, with a 3-dot menu (copy number, edit before call, block number,
       delete history), per-person statistics, and WhatsApp calls labeled in the log
-- [ ] WhatsApp announcement round: notification listener + spoken caller
-      announcement for WhatsApp calls, opt-in settings toggle
-      (WhatsApp's own ringtone cannot be silenced programmatically)
+- [x] WhatsApp announcement round: notification listener + spoken caller
+      announcement for WhatsApp calls at the 4–10 s repeat interval, opt-in
+      settings toggle (WhatsApp's own ringtone cannot be silenced
+      programmatically)
 - [ ] SMS / messaging support
 
 Play policy note: call-log permissions are restricted on Google Play; the

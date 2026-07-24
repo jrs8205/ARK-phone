@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.AnnounceMode
@@ -28,8 +29,11 @@ class SettingsContentTest {
 
     private fun setContent(
         settings: Settings = Settings(),
+        hasNotificationAccess: Boolean = true,
         onModeChanged: (AnnounceMode) -> Unit = {},
         onIntervalChanged: (Int) -> Unit = {},
+        onWhatsAppChanged: (Boolean) -> Unit = {},
+        onGrantNotificationAccess: () -> Unit = {},
         onOpenSimInfo: () -> Unit = {},
         onOpenCallSettings: () -> Unit = {},
         onBack: () -> Unit = {},
@@ -37,8 +41,11 @@ class SettingsContentTest {
         composeRule.setContent {
             SettingsContent(
                 settings = settings,
+                hasNotificationAccess = hasNotificationAccess,
                 onAnnounceModeChanged = onModeChanged,
                 onAnnounceIntervalChanged = onIntervalChanged,
+                onAnnounceWhatsAppChanged = onWhatsAppChanged,
+                onGrantNotificationAccess = onGrantNotificationAccess,
                 onOpenSimInfo = onOpenSimInfo,
                 onOpenCallSettings = onOpenCallSettings,
                 onBack = onBack,
@@ -75,10 +82,36 @@ class SettingsContentTest {
     }
 
     @Test
+    fun whatsAppToggleWritesTheSetting() {
+        val changes = mutableListOf<Boolean>()
+        setContent(onWhatsAppChanged = { changes.add(it) })
+        composeRule.onNodeWithText("Announce WhatsApp calls").performScrollTo().performClick()
+        assertEquals(listOf(true), changes)
+    }
+
+    @Test
+    fun whatsAppEnabledShowsTheSliderEvenWithModeOff() {
+        setContent(settings = Settings(announceMode = AnnounceMode.OFF, announceWhatsApp = true))
+        composeRule.onNodeWithText("Repeat every 6 seconds").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun missingNotificationAccessShowsTheGrantButton() {
+        var asked = false
+        setContent(
+            settings = Settings(announceWhatsApp = true),
+            hasNotificationAccess = false,
+            onGrantNotificationAccess = { asked = true },
+        )
+        composeRule.onNodeWithText("Grant notification access").performScrollTo().performClick()
+        assertTrue(asked)
+    }
+
+    @Test
     fun simRowOpensSimInfo() {
         var opened = false
         setContent(onOpenSimInfo = { opened = true })
-        composeRule.onNodeWithText("SIM cards").performClick()
+        composeRule.onNodeWithText("SIM cards").performScrollTo().performClick()
         assertTrue(opened)
     }
 
@@ -86,7 +119,7 @@ class SettingsContentTest {
     fun callSettingsRowOpensSystemCallSettings() {
         var opened = false
         setContent(onOpenCallSettings = { opened = true })
-        composeRule.onNodeWithText("Call settings").performClick()
+        composeRule.onNodeWithText("Call settings").performScrollTo().performClick()
         assertTrue(opened)
     }
 

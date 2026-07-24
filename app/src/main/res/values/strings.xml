@@ -92,6 +92,13 @@
     <string name="duration_hours_minutes">%1$d h %2$d min</string>
     <string name="duration_minutes_seconds">%1$d min %2$d s</string>
     <string name="duration_seconds">%1$d s</string>
+    <string name="settings_whatsapp_section" translatable="false">WhatsApp</string>
+    <string name="settings_announce_whatsapp_title">Announce WhatsApp calls</string>
+    <string name="settings_announce_whatsapp_description">Says the caller\'s name at the repeat interval while a WhatsApp call rings. WhatsApp\'s own ringtone can be silenced in WhatsApp\'s settings.</string>
+    <string name="settings_grant_notification_access">Grant notification access</string>
+    <string name="notification_listener_label">WhatsApp call announcement</string>
+    <string name="announce_whatsapp_caller">%1$s is calling on WhatsApp</string>
+    <string name="announce_whatsapp_unknown_caller">Unknown caller is calling on WhatsApp</string>
     <string name="announce_caller">%1$s is calling</string>
     <string name="announce_unknown_caller">Unknown caller is calling</string>
     <string name="notification_channel_missed">Missed calls</string>

@@ -24,6 +24,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val ANNOUNCE_CALLER = booleanPreferencesKey("announce_caller")
         val ANNOUNCE_MODE = stringPreferencesKey("announce_mode")
         val ANNOUNCE_INTERVAL = intPreferencesKey("announce_interval_seconds")
+        val ANNOUNCE_WHATSAPP = booleanPreferencesKey("announce_whatsapp")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -45,6 +46,7 @@ class DataStoreSettingsRepository @Inject constructor(
                     Settings.MIN_ANNOUNCE_INTERVAL_SECONDS,
                     Settings.MAX_ANNOUNCE_INTERVAL_SECONDS,
                 ),
+                announceWhatsApp = preferences[Keys.ANNOUNCE_WHATSAPP] ?: false,
             )
         }
 
@@ -59,5 +61,9 @@ class DataStoreSettingsRepository @Inject constructor(
                 Settings.MAX_ANNOUNCE_INTERVAL_SECONDS,
             )
         }
+    }
+
+    override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
+        dataStore.edit { it[Keys.ANNOUNCE_WHATSAPP] = enabled }
     }
 }

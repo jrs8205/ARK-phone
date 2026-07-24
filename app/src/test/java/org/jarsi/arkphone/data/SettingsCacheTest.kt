@@ -48,6 +48,7 @@ class SettingsCacheTest {
             override val settings: Flow<Settings> = emissions
             override suspend fun setAnnounceMode(mode: AnnounceMode) = Unit
             override suspend fun setAnnounceIntervalSeconds(seconds: Int) = Unit
+            override suspend fun setAnnounceWhatsApp(enabled: Boolean) = Unit
         }
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val cache = SettingsCache(repository, CoroutineScope(dispatcher))

@@ -8,4 +8,5 @@ interface SettingsRepository {
     val settings: Flow<Settings>
     suspend fun setAnnounceMode(mode: AnnounceMode)
     suspend fun setAnnounceIntervalSeconds(seconds: Int)
+    suspend fun setAnnounceWhatsApp(enabled: Boolean)
 }

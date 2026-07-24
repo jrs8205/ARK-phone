@@ -49,10 +49,15 @@ class CallerAnnouncer @Inject constructor(
 ) {
     companion object {
         const val REPEAT_DELAY_MILLIS = 8_000L
+
+        /** Stops the WhatsApp repeat loop even if a removal event is lost. */
+        const val WHATSAPP_ANNOUNCE_WINDOW_MILLIS = 120_000L
     }
 
     private var ringingCallId: String? = null
     private var job: Job? = null
+    private var whatsAppKey: String? = null
+    private var whatsAppJob: Job? = null
 
     fun onRinging(info: CallInfo) {
         if (ringingCallId == info.id) return
@@ -92,6 +97,36 @@ class CallerAnnouncer @Inject constructor(
         if (ringingCallId != callId) return
         ringingCallId = null
         job?.cancel()
+        speechEngine.stop()
+    }
+
+    fun onWhatsAppRinging(notificationKey: String, callerName: String?) {
+        if (whatsAppKey == notificationKey) return
+        whatsAppKey = notificationKey
+        whatsAppJob?.cancel()
+        whatsAppJob = scope.launch {
+            val settings = settingsRepository.settings.first()
+            if (!settings.announceWhatsApp) return@launch
+            if (!announceGate.canAnnounce()) return@launch
+            val text = if (callerName != null) {
+                context.getString(R.string.announce_whatsapp_caller, callerName)
+            } else {
+                context.getString(R.string.announce_whatsapp_unknown_caller)
+            }
+            val intervalMillis = settings.announceIntervalSeconds * 1_000L
+            var elapsedMillis = 0L
+            while (elapsedMillis <= WHATSAPP_ANNOUNCE_WINDOW_MILLIS) {
+                speechEngine.speak(text)
+                delay(intervalMillis)
+                elapsedMillis += intervalMillis
+            }
+        }
+    }
+
+    fun onWhatsAppRingingStopped(notificationKey: String) {
+        if (whatsAppKey != notificationKey) return
+        whatsAppKey = null
+        whatsAppJob?.cancel()
         speechEngine.stop()
     }
 }

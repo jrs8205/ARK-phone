@@ -51,6 +51,9 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setAnnounceIntervalSeconds(seconds: Int) {
         state.value = state.value.copy(announceIntervalSeconds = seconds)
     }
+    override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
+        state.value = state.value.copy(announceWhatsApp = enabled)
+    }
 }
 
 class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {

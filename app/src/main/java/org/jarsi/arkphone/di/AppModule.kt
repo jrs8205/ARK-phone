@@ -29,8 +29,10 @@ import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.SpeechEngine
 import org.jarsi.arkphone.telecom.TtsSpeechEngine
+import org.jarsi.arkphone.util.AndroidNotificationAccessChecker
 import org.jarsi.arkphone.util.AndroidPermissionChecker
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.NotificationAccessChecker
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -80,6 +82,12 @@ abstract class AppModule {
     abstract fun bindBlockedNumbersRepository(
         impl: AndroidBlockedNumbersRepository,
     ): BlockedNumbersRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationAccessChecker(
+        impl: AndroidNotificationAccessChecker,
+    ): NotificationAccessChecker
 
     companion object {
         @Provides

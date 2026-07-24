@@ -88,6 +88,12 @@
     <string name="duration_hours_minutes">%1$d t %2$d min</string>
     <string name="duration_minutes_seconds">%1$d min %2$d s</string>
     <string name="duration_seconds">%1$d s</string>
+    <string name="settings_announce_whatsapp_title">WhatsApp-puheluiden puheilmoitus</string>
+    <string name="settings_announce_whatsapp_description">Sanoo soittajan nimen toistovälin mukaan WhatsApp-puhelun soidessa. WhatsAppin oman soittoäänen voi hiljentää WhatsAppin asetuksista.</string>
+    <string name="settings_grant_notification_access">Myönnä ilmoitusten käyttöoikeus</string>
+    <string name="notification_listener_label">WhatsApp-puheluiden puheilmoitus</string>
+    <string name="announce_whatsapp_caller">%1$s soittaa WhatsApp-puhelun</string>
+    <string name="announce_whatsapp_unknown_caller">Tuntematon soittaja soittaa WhatsApp-puhelun</string>
     <string name="announce_caller">%1$s soittaa</string>
     <string name="announce_unknown_caller">Tuntematon soittaja soittaa</string>
     <string name="notification_channel_missed">Vastaamattomat puhelut</string>
