@@ -8,6 +8,8 @@ import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
 import dagger.hilt.android.AndroidEntryPoint
+import org.jarsi.arkphone.data.SettingsCache
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.ui.incall.InCallActivity
 import javax.inject.Inject
 
@@ -17,6 +19,7 @@ class ArkInCallService : InCallService() {
     @Inject lateinit var callController: CallController
     @Inject lateinit var callNotifications: CallNotifications
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
+    @Inject lateinit var settingsCache: SettingsCache
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
     private val callbacksByCall = mutableMapOf<Call, Call.Callback>()
@@ -80,7 +83,10 @@ class ArkInCallService : InCallService() {
         when (status) {
             CallStatus.RINGING -> {
                 callerAnnouncer.onRinging(info)
-                callNotifications.showIncomingCall(info)
+                callNotifications.showIncomingCall(
+                    info,
+                    silentRing = settingsCache.current.announceMode == AnnounceMode.VOICE_ONLY,
+                )
                 if (shouldLaunchIncomingUiDirectly()) {
                     startActivity(InCallActivity.intent(this))
                 }

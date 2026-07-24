@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,8 +34,9 @@ class AndroidAnnounceGate @Inject constructor(
 }
 
 /**
- * Speaks the caller's name while a call is ringing: once immediately and once
- * more after [REPEAT_DELAY_MILLIS] if still ringing. Opt-in via settings.
+ * Speaks the caller's name while a call is ringing. WITH_RINGTONE speaks
+ * twice (immediately and at [REPEAT_DELAY_MILLIS]); VOICE_ONLY keeps
+ * repeating at the user-set interval until ringing stops.
  */
 @Singleton
 class CallerAnnouncer @Inject constructor(
@@ -57,7 +59,8 @@ class CallerAnnouncer @Inject constructor(
         ringingCallId = info.id
         job?.cancel()
         job = scope.launch {
-            if (!settingsRepository.settings.first().announceCaller) return@launch
+            val settings = settingsRepository.settings.first()
+            if (settings.announceMode == AnnounceMode.OFF) return@launch
             if (!announceGate.canAnnounce()) return@launch
             val name = info.displayName?.takeIf { it.isNotBlank() }
                 ?: info.number?.let { number ->
@@ -68,9 +71,20 @@ class CallerAnnouncer @Inject constructor(
             } else {
                 context.getString(R.string.announce_unknown_caller)
             }
-            speechEngine.speak(text)
-            delay(REPEAT_DELAY_MILLIS)
-            speechEngine.speak(text)
+            when (settings.announceMode) {
+                AnnounceMode.WITH_RINGTONE -> {
+                    speechEngine.speak(text)
+                    delay(REPEAT_DELAY_MILLIS)
+                    speechEngine.speak(text)
+                }
+                AnnounceMode.VOICE_ONLY -> {
+                    while (true) {
+                        speechEngine.speak(text)
+                        delay(settings.announceIntervalSeconds * 1_000L)
+                    }
+                }
+                AnnounceMode.OFF -> Unit
+            }
         }
     }
 

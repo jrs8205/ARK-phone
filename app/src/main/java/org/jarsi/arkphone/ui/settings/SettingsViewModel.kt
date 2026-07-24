@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
 import javax.inject.Inject
 
@@ -22,7 +23,11 @@ class SettingsViewModel @Inject constructor(
         initialValue = Settings(),
     )
 
-    fun onAnnounceCallerChanged(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setAnnounceCaller(enabled) }
+    fun onAnnounceModeChanged(mode: AnnounceMode) {
+        viewModelScope.launch { settingsRepository.setAnnounceMode(mode) }
+    }
+
+    fun onAnnounceIntervalChanged(seconds: Int) {
+        viewModelScope.launch { settingsRepository.setAnnounceIntervalSeconds(seconds) }
     }
 }

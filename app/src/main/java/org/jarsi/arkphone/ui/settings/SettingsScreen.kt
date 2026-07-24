@@ -1,23 +1,32 @@
 package org.jarsi.arkphone.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -26,18 +35,23 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenSimInfo: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
     SettingsContent(
         settings = settings,
-        onAnnounceCallerChanged = viewModel::onAnnounceCallerChanged,
+        onAnnounceModeChanged = viewModel::onAnnounceModeChanged,
+        onAnnounceIntervalChanged = viewModel::onAnnounceIntervalChanged,
+        onOpenSimInfo = onOpenSimInfo,
         onBack = onBack,
     )
 }
@@ -46,7 +60,9 @@ fun SettingsScreen(
 @Composable
 fun SettingsContent(
     settings: Settings,
-    onAnnounceCallerChanged: (Boolean) -> Unit,
+    onAnnounceModeChanged: (AnnounceMode) -> Unit,
+    onAnnounceIntervalChanged: (Int) -> Unit,
+    onOpenSimInfo: () -> Unit,
     onBack: () -> Unit,
 ) {
     val haptics = rememberHaptics()
@@ -70,44 +86,125 @@ fun SettingsContent(
             )
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            SwitchRow(
-                title = stringResource(R.string.settings_announce_caller_title),
-                description = stringResource(R.string.settings_announce_caller_description),
-                checked = settings.announceCaller,
-                onCheckedChange = {
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_announce_caller_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            AnnounceModeRow(
+                title = stringResource(R.string.announce_mode_off),
+                description = null,
+                selected = settings.announceMode == AnnounceMode.OFF,
+                onSelect = {
                     haptics.click()
-                    onAnnounceCallerChanged(it)
+                    onAnnounceModeChanged(AnnounceMode.OFF)
                 },
             )
+            AnnounceModeRow(
+                title = stringResource(R.string.announce_mode_with_ringtone),
+                description = stringResource(R.string.announce_mode_with_ringtone_description),
+                selected = settings.announceMode == AnnounceMode.WITH_RINGTONE,
+                onSelect = {
+                    haptics.click()
+                    onAnnounceModeChanged(AnnounceMode.WITH_RINGTONE)
+                },
+            )
+            AnnounceModeRow(
+                title = stringResource(R.string.announce_mode_voice_only),
+                description = stringResource(R.string.announce_mode_voice_only_description),
+                selected = settings.announceMode == AnnounceMode.VOICE_ONLY,
+                onSelect = {
+                    haptics.click()
+                    onAnnounceModeChanged(AnnounceMode.VOICE_ONLY)
+                },
+            )
+            if (settings.announceMode == AnnounceMode.VOICE_ONLY) {
+                IntervalSlider(
+                    intervalSeconds = settings.announceIntervalSeconds,
+                    onIntervalChanged = onAnnounceIntervalChanged,
+                )
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.click()
+                        onOpenSimInfo()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.sim_cards_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.sim_cards_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
         }
     }
 }
 
 @Composable
-private fun SwitchRow(
+private fun AnnounceModeRow(
     title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    description: String?,
+    selected: Boolean,
+    onSelect: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        Column(Modifier.weight(1f).padding(end = 16.dp)) {
+        // The selectable row is the single accessible target; a clickable
+        // RadioButton inside it would double-report to accessibility services.
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 12.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (description != null) {
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        // The toggleable row is the single accessible target; a clickable
-        // Switch inside it would double-report to accessibility services.
-        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun IntervalSlider(
+    intervalSeconds: Int,
+    onIntervalChanged: (Int) -> Unit,
+) {
+    var sliderValue by remember(intervalSeconds) { mutableFloatStateOf(intervalSeconds.toFloat()) }
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            text = stringResource(R.string.announce_interval_label, sliderValue.roundToInt()),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = sliderValue,
+            onValueChange = { sliderValue = it },
+            onValueChangeFinished = { onIntervalChanged(sliderValue.roundToInt()) },
+            valueRange = Settings.MIN_ANNOUNCE_INTERVAL_SECONDS.toFloat()..
+                Settings.MAX_ANNOUNCE_INTERVAL_SECONDS.toFloat(),
+            steps = Settings.MAX_ANNOUNCE_INTERVAL_SECONDS - Settings.MIN_ANNOUNCE_INTERVAL_SECONDS - 1,
+        )
     }
 }

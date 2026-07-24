@@ -11,7 +11,8 @@ may be re-scoped or dropped.
 - [x] Contact photo on the incoming-call screen, including on the lock screen
 - [x] In-app settings screen (gear on the Home tab)
 - [x] App-owned missed-call notification with launcher badge and call-back action
-- [ ] SIM card settings and information page under settings
+- [x] SIM card information page under settings (read-only + link to system settings)
+- [x] Voice-only announcement mode with an adjustable repeat interval (4–10 s)
 - [ ] SMS / messaging support
 
 ## Keypad

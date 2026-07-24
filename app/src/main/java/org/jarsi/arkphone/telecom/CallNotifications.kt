@@ -23,6 +23,7 @@ class CallNotifications @Inject constructor(
 ) {
     companion object {
         const val CHANNEL_INCOMING = "incoming_calls"
+        const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent"
         const val CHANNEL_ONGOING = "ongoing_calls"
         const val NOTIFICATION_ID = 1
         const val ACTION_ANSWER = "org.jarsi.arkphone.action.ANSWER"
@@ -48,6 +49,17 @@ class CallNotifications @Inject constructor(
             enableVibration(true)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
+        // Voice-only announcement mode: the ringtone comes from the incoming
+        // channel, so ringing silently means posting on this channel instead.
+        val incomingSilent = NotificationChannel(
+            CHANNEL_INCOMING_SILENT,
+            context.getString(R.string.notification_channel_incoming_silent),
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            setSound(null, null)
+            enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
         val ongoing = NotificationChannel(
             CHANNEL_ONGOING,
             context.getString(R.string.notification_channel_ongoing),
@@ -56,14 +68,15 @@ class CallNotifications @Inject constructor(
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(incoming)
+        notificationManager.createNotificationChannel(incomingSilent)
         notificationManager.createNotificationChannel(ongoing)
     }
 
-    fun showIncomingCall(info: CallInfo) {
-        notify(buildIncomingCall(info))
+    fun showIncomingCall(info: CallInfo, silentRing: Boolean = false) {
+        notify(buildIncomingCall(info, silentRing))
     }
 
-    internal fun buildIncomingCall(info: CallInfo): Notification {
+    internal fun buildIncomingCall(info: CallInfo, silentRing: Boolean = false): Notification {
         val fullScreen = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -72,7 +85,8 @@ class CallNotifications @Inject constructor(
             .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setImportant(true)
             .build()
-        return NotificationCompat.Builder(context, CHANNEL_INCOMING)
+        val channel = if (silentRing) CHANNEL_INCOMING_SILENT else CHANNEL_INCOMING
+        return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))

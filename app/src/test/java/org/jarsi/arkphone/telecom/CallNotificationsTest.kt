@@ -75,4 +75,17 @@ class CallNotificationsTest {
         val named = CallNotifications(context).buildIncomingCall(incomingCall())
         assertTrue(named.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.contains("Alice") == true)
     }
+
+    @Test
+    fun voiceOnlyModePostsOnTheSilentChannel() {
+        val notifications = CallNotifications(context)
+        assertEquals(
+            CallNotifications.CHANNEL_INCOMING,
+            notifications.buildIncomingCall(incomingCall()).channelId,
+        )
+        assertEquals(
+            CallNotifications.CHANNEL_INCOMING_SILENT,
+            notifications.buildIncomingCall(incomingCall(), silentRing = true).channelId,
+        )
+    }
 }

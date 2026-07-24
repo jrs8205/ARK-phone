@@ -1,14 +1,20 @@
 package org.jarsi.arkphone.data
 
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.Settings
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -19,22 +25,61 @@ class DataStoreSettingsRepositoryTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
-    private fun TestScope.createRepository(): DataStoreSettingsRepository {
-        val dataStore = PreferenceDataStoreFactory.create(
+    private fun TestScope.createDataStore(): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create(
             scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job()),
         ) { File(tmp.root, "settings.preferences_pb") }
-        return DataStoreSettingsRepository(dataStore)
+
+    @Test
+    fun defaultsToOffWithSixSecondInterval() = runTest {
+        val settings = DataStoreSettingsRepository(createDataStore()).settings.first()
+        assertEquals(AnnounceMode.OFF, settings.announceMode)
+        assertEquals(Settings.DEFAULT_ANNOUNCE_INTERVAL_SECONDS, settings.announceIntervalSeconds)
     }
 
     @Test
-    fun announceCallerDefaultsToOff() = runTest {
-        assertFalse(createRepository().settings.first().announceCaller)
+    fun announceModePersists() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setAnnounceMode(AnnounceMode.VOICE_ONLY)
+        assertEquals(AnnounceMode.VOICE_ONLY, repository.settings.first().announceMode)
+    }
+
+    // Each test performs a single DataStore write: on Windows a second
+    // rename-over write to the same open store file fails with an IOException.
+
+    @Test
+    fun intervalPersists() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setAnnounceIntervalSeconds(7)
+        assertEquals(7, repository.settings.first().announceIntervalSeconds)
     }
 
     @Test
-    fun setAnnounceCallerPersists() = runTest {
-        val repository = createRepository()
-        repository.setAnnounceCaller(true)
-        assertTrue(repository.settings.first().announceCaller)
+    fun outOfRangeIntervalIsClamped() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setAnnounceIntervalSeconds(99)
+        assertEquals(
+            Settings.MAX_ANNOUNCE_INTERVAL_SECONDS,
+            repository.settings.first().announceIntervalSeconds,
+        )
+    }
+
+    @Test
+    fun legacyBooleanMigratesToWithRingtone() = runTest {
+        val dataStore = createDataStore()
+        dataStore.edit { it[booleanPreferencesKey("announce_caller")] = true }
+        val repository = DataStoreSettingsRepository(dataStore)
+        assertEquals(AnnounceMode.WITH_RINGTONE, repository.settings.first().announceMode)
+    }
+
+    @Test
+    fun newModeKeyWinsOverLegacyBoolean() = runTest {
+        val dataStore = createDataStore()
+        dataStore.edit {
+            it[booleanPreferencesKey("announce_caller")] = true
+            it[stringPreferencesKey("announce_mode")] = AnnounceMode.OFF.name
+        }
+        val repository = DataStoreSettingsRepository(dataStore)
+        assertEquals(AnnounceMode.OFF, repository.settings.first().announceMode)
     }
 }

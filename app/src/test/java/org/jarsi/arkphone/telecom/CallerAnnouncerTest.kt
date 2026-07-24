@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.testing.FakeContactsRepository
@@ -36,12 +37,13 @@ class CallerAnnouncerTest {
 
     private fun TestScope.announcer(
         speech: FakeSpeechEngine,
-        enabled: Boolean = true,
+        mode: AnnounceMode = AnnounceMode.WITH_RINGTONE,
+        intervalSeconds: Int = 4,
         gate: Boolean = true,
         contacts: FakeContactsRepository = FakeContactsRepository(),
     ) = CallerAnnouncer(
         context,
-        FakeSettingsRepository(Settings(announceCaller = enabled)),
+        FakeSettingsRepository(Settings(announceMode = mode, announceIntervalSeconds = intervalSeconds)),
         contacts,
         speech,
         { gate },
@@ -49,34 +51,55 @@ class CallerAnnouncerTest {
     )
 
     @Test
-    fun speaksTwiceWhileRinging() = runTest {
+    fun withRingtoneSpeaksExactlyTwice() = runTest {
         val speech = FakeSpeechEngine()
         announcer(speech).onRinging(ringingCall())
         runCurrent()
         assertEquals(listOf("Alice is calling"), speech.spoken)
         advanceTimeBy(CallerAnnouncer.REPEAT_DELAY_MILLIS)
         runCurrent()
-        assertEquals(listOf("Alice is calling", "Alice is calling"), speech.spoken)
+        assertEquals(2, speech.spoken.size)
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(2, speech.spoken.size)
     }
 
     @Test
-    fun stopsSpeakingWhenRingingStops() = runTest {
+    fun voiceOnlyRepeatsAtTheConfiguredInterval() = runTest {
         val speech = FakeSpeechEngine()
-        val announcer = announcer(speech)
+        val announcer = announcer(speech, mode = AnnounceMode.VOICE_ONLY, intervalSeconds = 5)
+        announcer.onRinging(ringingCall())
+        runCurrent()
+        assertEquals(1, speech.spoken.size)
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(2, speech.spoken.size)
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals(4, speech.spoken.size)
+        // The repeat loop never completes on its own; without this, runTest's
+        // final advanceUntilIdle spins the virtual clock forever.
+        announcer.onRingingStopped("call-1")
+    }
+
+    @Test
+    fun voiceOnlyStopsWhenRingingStops() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, mode = AnnounceMode.VOICE_ONLY, intervalSeconds = 4)
         announcer.onRinging(ringingCall())
         runCurrent()
         announcer.onRingingStopped("call-1")
-        advanceTimeBy(CallerAnnouncer.REPEAT_DELAY_MILLIS)
+        advanceTimeBy(60_000)
         runCurrent()
         assertEquals(1, speech.spoken.size)
         assertEquals(1, speech.stops)
     }
 
     @Test
-    fun disabledSettingSpeaksNothing() = runTest {
+    fun offSpeaksNothing() = runTest {
         val speech = FakeSpeechEngine()
-        announcer(speech, enabled = false).onRinging(ringingCall())
-        advanceTimeBy(CallerAnnouncer.REPEAT_DELAY_MILLIS)
+        announcer(speech, mode = AnnounceMode.OFF).onRinging(ringingCall())
+        advanceTimeBy(60_000)
         runCurrent()
         assertEquals(0, speech.spoken.size)
     }
@@ -85,7 +108,7 @@ class CallerAnnouncerTest {
     fun silentOrDndModeSpeaksNothing() = runTest {
         val speech = FakeSpeechEngine()
         announcer(speech, gate = false).onRinging(ringingCall())
-        advanceTimeBy(CallerAnnouncer.REPEAT_DELAY_MILLIS)
+        advanceTimeBy(60_000)
         runCurrent()
         assertEquals(0, speech.spoken.size)
     }

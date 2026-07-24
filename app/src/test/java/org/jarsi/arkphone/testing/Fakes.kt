@@ -5,10 +5,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.SimRepository
+import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimCard
 import org.jarsi.arkphone.util.PermissionChecker
 
 class FakeCallLogRepository : CallLogRepository {
@@ -26,9 +29,16 @@ class FakeContactsRepository : ContactsRepository {
 class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepository {
     val state = MutableStateFlow(initial)
     override val settings: Flow<Settings> = state
-    override suspend fun setAnnounceCaller(enabled: Boolean) {
-        state.value = state.value.copy(announceCaller = enabled)
+    override suspend fun setAnnounceMode(mode: AnnounceMode) {
+        state.value = state.value.copy(announceMode = mode)
     }
+    override suspend fun setAnnounceIntervalSeconds(seconds: Int) {
+        state.value = state.value.copy(announceIntervalSeconds = seconds)
+    }
+}
+
+class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {
+    override suspend fun activeSims(): List<SimCard> = sims
 }
 
 class FakePermissionChecker(private val granted: MutableSet<String> = mutableSetOf()) : PermissionChecker {

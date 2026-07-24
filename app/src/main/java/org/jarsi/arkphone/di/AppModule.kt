@@ -19,8 +19,10 @@ import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.DataStoreSettingsRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.SimRepository
 import org.jarsi.arkphone.data.SystemCallLogRepository
 import org.jarsi.arkphone.data.SystemContactsRepository
+import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.SpeechEngine
@@ -66,6 +68,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindAnnounceGate(impl: AndroidAnnounceGate): AnnounceGate
+
+    @Binds
+    @Singleton
+    abstract fun bindSimRepository(impl: SystemSimRepository): SimRepository
 
     companion object {
         @Provides
