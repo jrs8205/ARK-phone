@@ -289,7 +289,7 @@ private fun StatsCard(stats: CallStats) {
             StatRow(stringResource(R.string.detail_stat_missed), stats.missed.toString())
             StatRow(
                 stringResource(R.string.detail_stat_talk_time),
-                formatDuration(stats.totalDurationSeconds),
+                formatTalkTime(stats.totalDurationSeconds),
             )
             stats.latestMillis?.let { latest ->
                 StatRow(
@@ -298,6 +298,18 @@ private fun StatsCard(stats: CallStats) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun formatTalkTime(totalSeconds: Long): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return when {
+        hours > 0 -> stringResource(R.string.duration_hours_minutes, hours, minutes)
+        minutes > 0 -> stringResource(R.string.duration_minutes_seconds, minutes, seconds)
+        else -> stringResource(R.string.duration_seconds, seconds)
     }
 }
 

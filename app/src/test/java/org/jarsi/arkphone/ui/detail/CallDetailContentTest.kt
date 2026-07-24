@@ -74,6 +74,7 @@ class CallDetailContentTest {
         composeRule.onNodeWithText("Alice").assertIsDisplayed()
         composeRule.onNodeWithText("Statistics").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Talk time").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("2 min 0 s").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Incoming call · WhatsApp").performScrollTo().assertIsDisplayed()
     }
 

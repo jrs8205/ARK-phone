@@ -85,6 +85,9 @@
     <string name="detail_delete_confirm_text">Kaikki tämän numeron puhelut poistetaan puhelulokista.</string>
     <string name="common_delete">Poista</string>
     <string name="common_cancel">Peruuta</string>
+    <string name="duration_hours_minutes">%1$d t %2$d min</string>
+    <string name="duration_minutes_seconds">%1$d min %2$d s</string>
+    <string name="duration_seconds">%1$d s</string>
     <string name="announce_caller">%1$s soittaa</string>
     <string name="announce_unknown_caller">Tuntematon soittaja soittaa</string>
     <string name="notification_channel_missed">Vastaamattomat puhelut</string>
