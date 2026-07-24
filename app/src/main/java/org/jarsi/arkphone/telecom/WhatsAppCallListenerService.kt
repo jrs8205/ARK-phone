@@ -5,6 +5,7 @@ import android.app.Person
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import androidx.core.os.BundleCompat
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -47,10 +48,31 @@ internal fun whatsAppIncomingCall(
 @AndroidEntryPoint
 class WhatsAppCallListenerService : NotificationListenerService() {
 
+    private companion object {
+        const val TAG = "ArkPhone"
+    }
+
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
 
+    override fun onListenerConnected() {
+        Log.i(TAG, "WhatsApp listener connected")
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val call = whatsAppIncomingCall(sbn.packageName, sbn.notification) ?: return
+        val notification = sbn.notification
+        if (sbn.packageName.startsWith("com.whatsapp") &&
+            notification.category == Notification.CATEGORY_CALL
+        ) {
+            Log.i(
+                TAG,
+                "WhatsApp call notification: callType=" +
+                    notification.extras.getInt(EXTRA_CALL_TYPE, -1) +
+                    " fullScreen=" + (notification.fullScreenIntent != null) +
+                    " extras=" + notification.extras.keySet().joinToString(","),
+            )
+        }
+        val call = whatsAppIncomingCall(sbn.packageName, notification) ?: return
+        Log.i(TAG, "WhatsApp incoming call detected, announcing")
         callerAnnouncer.onWhatsAppRinging(sbn.key, call.callerName)
     }
 
