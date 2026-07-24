@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
@@ -95,6 +96,7 @@ private fun IncomingCallActions(actions: InCallActions) {
             },
             containerColor = CallDeclineRed,
             contentColor = Color.White,
+            shape = CircleShape,
             modifier = Modifier.size(72.dp),
         ) {
             Icon(
@@ -109,6 +111,7 @@ private fun IncomingCallActions(actions: InCallActions) {
             },
             containerColor = CallAnswerGreen,
             contentColor = Color.White,
+            shape = CircleShape,
             modifier = Modifier.size(72.dp),
         ) {
             Icon(Icons.Filled.Call, contentDescription = stringResource(R.string.incall_answer))
@@ -171,6 +174,7 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
             },
             containerColor = CallDeclineRed,
             contentColor = Color.White,
+            shape = CircleShape,
             modifier = Modifier.padding(top = 24.dp, bottom = 72.dp).size(72.dp),
         ) {
             Icon(
