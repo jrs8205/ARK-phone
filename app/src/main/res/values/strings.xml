@@ -60,6 +60,9 @@
     <string name="sim_number">Phone number</string>
     <string name="sim_slot">Slot</string>
     <string name="sim_slot_physical" translatable="false">SIM %1$d</string>
+    <string name="sim_slot_esim" translatable="false">eSIM (SIM %1$d)</string>
+    <string name="settings_call_settings_title">Call settings</string>
+    <string name="settings_call_settings_description">Call waiting, caller ID and call forwarding (carrier)</string>
     <string name="sim_country">Country</string>
     <string name="sim_empty">SIM information is not available.</string>
     <string name="sim_show_numbers">Show phone numbers</string>

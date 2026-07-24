@@ -59,7 +59,7 @@ class SimInfoContentTest {
         )
         composeRule.onNodeWithText("+358401234567").assertIsDisplayed()
         composeRule.onNodeWithText("SIM 1").assertIsDisplayed()
-        composeRule.onNodeWithText("eSIM").assertIsDisplayed()
+        composeRule.onNodeWithText("eSIM (SIM 2)").assertIsDisplayed()
     }
 
     @Test

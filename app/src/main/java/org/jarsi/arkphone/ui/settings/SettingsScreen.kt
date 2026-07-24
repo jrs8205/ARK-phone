@@ -1,5 +1,7 @@
 package org.jarsi.arkphone.ui.settings
 
+import android.content.Intent
+import android.telecom.TelecomManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -47,11 +50,17 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     SettingsContent(
         settings = settings,
         onAnnounceModeChanged = viewModel::onAnnounceModeChanged,
         onAnnounceIntervalChanged = viewModel::onAnnounceIntervalChanged,
         onOpenSimInfo = onOpenSimInfo,
+        onOpenCallSettings = {
+            runCatching {
+                context.startActivity(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
+            }
+        },
         onBack = onBack,
     )
 }
@@ -63,6 +72,7 @@ fun SettingsContent(
     onAnnounceModeChanged: (AnnounceMode) -> Unit,
     onAnnounceIntervalChanged: (Int) -> Unit,
     onOpenSimInfo: () -> Unit,
+    onOpenCallSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
     val haptics = rememberHaptics()
@@ -132,27 +142,48 @@ fun SettingsContent(
                 )
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        haptics.click()
-                        onOpenSimInfo()
-                    }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.sim_cards_title), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.sim_cards_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-            }
+            SettingsLinkRow(
+                title = stringResource(R.string.sim_cards_title),
+                description = stringResource(R.string.sim_cards_description),
+                onClick = {
+                    haptics.click()
+                    onOpenSimInfo()
+                },
+            )
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_call_settings_title),
+                description = stringResource(R.string.settings_call_settings_description),
+                onClick = {
+                    haptics.click()
+                    onOpenCallSettings()
+                },
+            )
         }
+    }
+}
+
+@Composable
+private fun SettingsLinkRow(
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
 

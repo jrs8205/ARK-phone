@@ -31,6 +31,7 @@ class SettingsContentTest {
         onModeChanged: (AnnounceMode) -> Unit = {},
         onIntervalChanged: (Int) -> Unit = {},
         onOpenSimInfo: () -> Unit = {},
+        onOpenCallSettings: () -> Unit = {},
         onBack: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -39,6 +40,7 @@ class SettingsContentTest {
                 onAnnounceModeChanged = onModeChanged,
                 onAnnounceIntervalChanged = onIntervalChanged,
                 onOpenSimInfo = onOpenSimInfo,
+                onOpenCallSettings = onOpenCallSettings,
                 onBack = onBack,
             )
         }
@@ -77,6 +79,14 @@ class SettingsContentTest {
         var opened = false
         setContent(onOpenSimInfo = { opened = true })
         composeRule.onNodeWithText("SIM cards").performClick()
+        assertTrue(opened)
+    }
+
+    @Test
+    fun callSettingsRowOpensSystemCallSettings() {
+        var opened = false
+        setContent(onOpenCallSettings = { opened = true })
+        composeRule.onNodeWithText("Call settings").performClick()
         assertTrue(opened)
     }
 

@@ -135,10 +135,12 @@ fun SimInfoContent(
 
 @Composable
 private fun SimCardItem(sim: SimCard) {
-    val slotLabel = if (sim.isEmbedded) {
-        "eSIM"
-    } else {
-        stringResource(R.string.sim_slot_physical, sim.slotIndex + 1)
+    val slotLabel = when {
+        // Embedded profiles can report -1 while inactive; skip the number then.
+        sim.isEmbedded && sim.slotIndex >= 0 ->
+            stringResource(R.string.sim_slot_esim, sim.slotIndex + 1)
+        sim.isEmbedded -> "eSIM"
+        else -> stringResource(R.string.sim_slot_physical, sim.slotIndex + 1)
     }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
