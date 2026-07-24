@@ -8,8 +8,13 @@ import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.ui.incall.InCallActivity
 import javax.inject.Inject
 
@@ -20,6 +25,7 @@ class ArkInCallService : InCallService() {
     @Inject lateinit var callNotifications: CallNotifications
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
     @Inject lateinit var settingsCache: SettingsCache
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
     private val callbacksByCall = mutableMapOf<Call, Call.Callback>()
@@ -83,10 +89,7 @@ class ArkInCallService : InCallService() {
         when (status) {
             CallStatus.RINGING -> {
                 callerAnnouncer.onRinging(info)
-                callNotifications.showIncomingCall(
-                    info,
-                    silentRing = settingsCache.current.announceMode == AnnounceMode.VOICE_ONLY,
-                )
+                showIncomingCallWhenSettingsLoaded(info)
                 if (shouldLaunchIncomingUiDirectly()) {
                     startActivity(InCallActivity.intent(this))
                 }
@@ -100,6 +103,33 @@ class ArkInCallService : InCallService() {
             CallStatus.DISCONNECTED -> callNotifications.clear()
             else -> Unit
         }
+    }
+
+    /**
+     * The ringing channel choice needs the persisted settings, and on a cold
+     * start (telecom spawns the process for the incoming call) they have not
+     * loaded by the time the call rings — a synchronous read is always the
+     * default then. Waiting costs milliseconds; the timeout covers a broken
+     * settings store so the call can never end up without a notification.
+     */
+    private fun showIncomingCallWhenSettingsLoaded(info: CallInfo) {
+        appScope.launch {
+            val settings = withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MILLIS) {
+                settingsCache.await()
+            } ?: Settings()
+            val stillRinging = callController.calls.value
+                .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
+            if (stillRinging) {
+                callNotifications.showIncomingCall(
+                    info,
+                    silentRing = settings.announceMode == AnnounceMode.VOICE_ONLY,
+                )
+            }
+        }
+    }
+
+    private companion object {
+        const val SETTINGS_WAIT_TIMEOUT_MILLIS = 500L
     }
 
     /**
