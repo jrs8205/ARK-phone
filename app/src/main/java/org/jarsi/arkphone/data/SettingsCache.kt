@@ -1,10 +1,10 @@
 package org.jarsi.arkphone.data
 
+import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
@@ -25,9 +25,23 @@ class SettingsCache @Inject constructor(
 ) {
     private val firstLoad = CompletableDeferred<Unit>()
 
-    private val state = settingsRepository.settings
-        .onEach { firstLoad.complete(Unit) }
-        .stateIn(scope, SharingStarted.Eagerly, Settings())
+    private val state = MutableStateFlow(Settings())
+
+    init {
+        scope.launch {
+            settingsRepository.settings.collect { settings ->
+                // Write BEFORE signaling: complete() resumes an await()er
+                // undispatched on this very call stack, so the value must
+                // already be readable — signaling from an upstream onEach
+                // handed out the default (v1.4.1's loud "voice only").
+                state.value = settings
+                if (!firstLoad.isCompleted) {
+                    Log.i("ArkPhone", "Settings first load: $settings")
+                    firstLoad.complete(Unit)
+                }
+            }
+        }
+    }
 
     val current: Settings get() = state.value
 

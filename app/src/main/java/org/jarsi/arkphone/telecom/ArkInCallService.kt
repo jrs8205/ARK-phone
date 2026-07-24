@@ -7,6 +7,7 @@ import android.os.PowerManager
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
+import android.util.Log
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -114,11 +115,17 @@ class ArkInCallService : InCallService() {
      */
     private fun showIncomingCallWhenSettingsLoaded(info: CallInfo) {
         appScope.launch {
-            val settings = withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MILLIS) {
+            val loaded = withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MILLIS) {
                 settingsCache.await()
-            } ?: Settings()
+            }
+            val settings = loaded ?: Settings()
             val stillRinging = callController.calls.value
                 .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
+            Log.i(
+                TAG,
+                "Ring channel decision: loadedInTime=${loaded != null} " +
+                    "mode=${settings.announceMode} stillRinging=$stillRinging",
+            )
             if (stillRinging) {
                 callNotifications.showIncomingCall(
                     info,
@@ -129,6 +136,7 @@ class ArkInCallService : InCallService() {
     }
 
     private companion object {
+        const val TAG = "ArkPhone"
         const val SETTINGS_WAIT_TIMEOUT_MILLIS = 500L
     }
 
