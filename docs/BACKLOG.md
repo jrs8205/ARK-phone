@@ -13,7 +13,17 @@ may be re-scoped or dropped.
 - [x] App-owned missed-call notification with launcher badge and call-back action
 - [x] SIM card information page under settings (read-only + link to system settings)
 - [x] Voice-only announcement mode with an adjustable repeat interval (4–10 s)
+- [ ] Call history round (agreed 2026-07-24): per-number detail view opened from
+      the log, with a 3-dot menu (copy number, edit before call, block number,
+      delete history), per-person statistics, and WhatsApp calls labeled in the log
+- [ ] WhatsApp announcement round: notification listener + spoken caller
+      announcement for WhatsApp calls, opt-in settings toggle
+      (WhatsApp's own ringtone cannot be silenced programmatically)
 - [ ] SMS / messaging support
+
+Play policy note: call-log permissions are restricted on Google Play; the
+default-dialer role is an accepted use. The app must hold the role before
+requesting them and stop using them if the role is revoked.
 
 ## Keypad
 
@@ -45,8 +55,11 @@ may be re-scoped or dropped.
 - [x] Call date, time and duration
 - [ ] SIM used per call
 - [ ] Search by name, number or date
+- [ ] Custom filters
 - [ ] Grouping of consecutive calls from the same number
 - [ ] Call statistics
+- [ ] Contact counts per person
+- [ ] Per-person latest call and total talk time
 - [ ] Callback reminders
 
 ## Incoming call view
@@ -55,7 +68,12 @@ may be re-scoped or dropped.
 - [x] Caller photo
 - [~] Indication of whether the number is a saved contact (name shown when saved)
 - [ ] Spam-call suspicion indicator
+- [ ] Business/CNAP caller name when the network provides one
+- [ ] "Last called ..." info on the incoming screen
 - [ ] SIM used for the incoming call
+- [ ] Full-screen vs compact heads-up preference
+- [ ] AMOLED black theme option
+- [ ] Color coding for known, unknown and suspected-spam callers
 - [x] Answer
 - [x] Decline
 - [ ] Silence the ringer without declining
@@ -77,7 +95,9 @@ may be re-scoped or dropped.
 - [ ] Conference call
 - [x] DTMF keypad
 - [x] Call duration display
+- [ ] Open the caller's contact card during a call
 - [ ] Notes during a call
+- [ ] Post-call reminder prompt
 
 ## Call blocking and screening
 
