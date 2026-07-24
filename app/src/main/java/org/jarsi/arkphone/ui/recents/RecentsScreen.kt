@@ -13,9 +13,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallMissed
 import androidx.compose.material.icons.automirrored.filled.CallReceived
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +33,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -40,6 +44,7 @@ internal fun callTypeLabelRes(type: CallType): Int = when (type) {
     CallType.OUTGOING -> R.string.call_type_outgoing
     CallType.MISSED -> R.string.call_type_missed
     CallType.REJECTED -> R.string.call_type_rejected
+    CallType.BLOCKED -> R.string.call_type_blocked
     CallType.OTHER -> R.string.call_type_other
 }
 
@@ -47,6 +52,7 @@ internal fun callTypeLabelRes(type: CallType): Int = when (type) {
 fun RecentsScreen(
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
+    onOpenDetails: (String) -> Unit = {},
     viewModel: RecentsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -54,7 +60,7 @@ fun RecentsScreen(
         viewModel.refreshPermissionState()
         onPauseOrDispose { }
     }
-    RecentsContent(uiState, onCall, onRequestPermissions)
+    RecentsContent(uiState, onCall, onRequestPermissions, onOpenDetails)
 }
 
 @Composable
@@ -62,6 +68,7 @@ fun RecentsContent(
     uiState: RecentsUiState,
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
+    onOpenDetails: (String) -> Unit = {},
 ) {
     when {
         uiState.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -92,21 +99,32 @@ fun RecentsContent(
         }
         else -> LazyColumn(Modifier.fillMaxSize()) {
             items(uiState.entries, key = { it.id }) { entry ->
-                RecentsRow(entry = entry, onCall = onCall)
+                RecentsRow(entry = entry, onCall = onCall, onOpenDetails = onOpenDetails)
             }
         }
     }
 }
 
 @Composable
-private fun RecentsRow(entry: CallLogEntry, onCall: (String) -> Unit) {
+private fun RecentsRow(
+    entry: CallLogEntry,
+    onCall: (String) -> Unit,
+    onOpenDetails: (String) -> Unit,
+) {
+    val haptics = rememberHaptics()
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
+    val sourceSuffix = if (entry.source == CallSource.WHATSAPP) {
+        " · " + stringResource(R.string.call_source_whatsapp)
+    } else {
+        ""
+    }
     ListItem(
-        modifier = clickableListItemModifier { onCall(entry.number) },
+        modifier = clickableListItemModifier { onOpenDetails(entry.number) },
         headlineContent = { Text(entry.displayName ?: entry.number) },
         supportingContent = {
             Text(
-                text = typeLabel + " · " + DateUtils.getRelativeTimeSpanString(entry.timestampMillis),
+                text = typeLabel + " · " +
+                    DateUtils.getRelativeTimeSpanString(entry.timestampMillis) + sourceSuffix,
                 color = if (entry.type == CallType.MISSED) {
                     MaterialTheme.colorScheme.error
                 } else {
@@ -117,10 +135,25 @@ private fun RecentsRow(entry: CallLogEntry, onCall: (String) -> Unit) {
         leadingContent = {
             val icon = when (entry.type) {
                 CallType.OUTGOING -> Icons.AutoMirrored.Filled.CallMade
+                CallType.BLOCKED -> Icons.Filled.Block
                 CallType.MISSED, CallType.REJECTED -> Icons.AutoMirrored.Filled.CallMissed
                 else -> Icons.AutoMirrored.Filled.CallReceived
             }
             Icon(icon, contentDescription = typeLabel)
+        },
+        trailingContent = {
+            IconButton(
+                onClick = {
+                    haptics.confirm()
+                    onCall(entry.number)
+                },
+            ) {
+                Icon(
+                    Icons.Filled.Call,
+                    contentDescription = stringResource(R.string.dialpad_call),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         },
     )
 }

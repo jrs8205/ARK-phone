@@ -35,6 +35,7 @@ import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsViewModel
+import org.jarsi.arkphone.ui.detail.CallDetailActivity
 import org.jarsi.arkphone.ui.recents.RecentsContent
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.jarsi.arkphone.ui.recents.RecentsViewModel
@@ -63,6 +64,7 @@ fun HomeScreen(
         onCall = onCall,
         onRequestPermissions = onRequestPermissions,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
+        onOpenDetails = { number -> context.startActivity(CallDetailActivity.intent(context, number)) },
     )
 }
 
@@ -73,6 +75,7 @@ fun HomeContent(
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenDetails: (String) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Column(Modifier.fillMaxSize()) {
@@ -114,6 +117,7 @@ fun HomeContent(
                 uiState = recentsUiState,
                 onCall = onCall,
                 onRequestPermissions = onRequestPermissions,
+                onOpenDetails = onOpenDetails,
             )
         }
     }

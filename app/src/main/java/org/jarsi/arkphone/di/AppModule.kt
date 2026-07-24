@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.jarsi.arkphone.data.AndroidBlockedNumbersRepository
+import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.DataStoreSettingsRepository
@@ -72,6 +74,12 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSimRepository(impl: SystemSimRepository): SimRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBlockedNumbersRepository(
+        impl: AndroidBlockedNumbersRepository,
+    ): BlockedNumbersRepository
 
     companion object {
         @Provides

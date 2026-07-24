@@ -2,9 +2,12 @@ package org.jarsi.arkphone.ui.home
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.junit.Assert.assertEquals
@@ -57,5 +60,33 @@ class HomeContentTest {
         }
         composeRule.onNodeWithText("Favorites").assertDoesNotExist()
         composeRule.onNodeWithText("No calls yet").assertIsDisplayed()
+    }
+
+    @Test
+    fun recentsRowOpensDetailsAndTheTrailingIconCalls() {
+        val called = mutableListOf<String>()
+        val opened = mutableListOf<String>()
+        val entry = CallLogEntry(
+            id = 1,
+            number = "0401234567",
+            displayName = "Alice",
+            type = CallType.INCOMING,
+            timestampMillis = 1_720_000_000_000,
+            durationSeconds = 60,
+        )
+        composeRule.setContent {
+            HomeContent(
+                favorites = emptyList(),
+                recentsUiState = RecentsUiState(loading = false, entries = listOf(entry)),
+                onCall = { called.add(it) },
+                onRequestPermissions = {},
+                onOpenDetails = { opened.add(it) },
+            )
+        }
+        composeRule.onNodeWithText("Alice").performClick()
+        assertEquals(listOf("0401234567"), opened)
+        assertEquals(emptyList<String>(), called)
+        composeRule.onNodeWithContentDescription("Call").performClick()
+        assertEquals(listOf("0401234567"), called)
     }
 }

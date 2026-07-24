@@ -2,6 +2,7 @@ package org.jarsi.arkphone.testing
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
@@ -16,7 +17,22 @@ import org.jarsi.arkphone.util.PermissionChecker
 
 class FakeCallLogRepository : CallLogRepository {
     val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
+    val deletedNumbers = mutableListOf<String>()
     override fun callLog(): Flow<List<CallLogEntry>> = entries
+    override suspend fun deleteCallsFor(number: String): Boolean {
+        deletedNumbers += number
+        return true
+    }
+}
+
+class FakeBlockedNumbersRepository(
+    private val canBlock: Boolean = true,
+) : BlockedNumbersRepository {
+    val blocked = mutableSetOf<String>()
+    override suspend fun canBlock(): Boolean = canBlock
+    override suspend fun isBlocked(number: String): Boolean = number in blocked
+    override suspend fun block(number: String): Boolean = blocked.add(number)
+    override suspend fun unblock(number: String): Boolean = blocked.remove(number)
 }
 
 class FakeContactsRepository : ContactsRepository {

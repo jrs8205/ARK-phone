@@ -14,7 +14,10 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import android.telephony.PhoneNumberUtils
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.util.PermissionChecker
@@ -25,7 +28,16 @@ internal fun callTypeFrom(systemType: Int): CallType = when (systemType) {
     CallLog.Calls.OUTGOING_TYPE -> CallType.OUTGOING
     CallLog.Calls.MISSED_TYPE -> CallType.MISSED
     CallLog.Calls.REJECTED_TYPE -> CallType.REJECTED
+    CallLog.Calls.BLOCKED_TYPE -> CallType.BLOCKED
     else -> CallType.OTHER
+}
+
+internal fun callSourceFrom(phoneAccountComponent: String?): CallSource = when {
+    phoneAccountComponent == null -> CallSource.PHONE
+    phoneAccountComponent.contains("com.whatsapp") -> CallSource.WHATSAPP
+    phoneAccountComponent.contains("telephony", ignoreCase = true) ||
+        phoneAccountComponent.startsWith("com.android.phone") -> CallSource.PHONE
+    else -> CallSource.OTHER
 }
 
 class SystemCallLogRepository @Inject constructor(
@@ -45,6 +57,7 @@ class SystemCallLogRepository @Inject constructor(
                 CallLog.Calls.TYPE,
                 CallLog.Calls.DATE,
                 CallLog.Calls.DURATION,
+                CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
             )
             val entries = mutableListOf<CallLogEntry>()
             resolver.query(
@@ -59,6 +72,7 @@ class SystemCallLogRepository @Inject constructor(
                         type = callTypeFrom(cursor.getInt(3)),
                         timestampMillis = cursor.getLong(4),
                         durationSeconds = cursor.getLong(5),
+                        source = callSourceFrom(cursor.getString(6)),
                     )
                 }
             }
@@ -77,5 +91,28 @@ class SystemCallLogRepository @Inject constructor(
             send(Unit)
             awaitClose { resolver.unregisterContentObserver(observer) }
         }.conflate().map { query() }.flowOn(ioDispatcher)
+    }
+
+    override suspend fun deleteCallsFor(number: String): Boolean = withContext(ioDispatcher) {
+        if (!permissionChecker.has(Manifest.permission.WRITE_CALL_LOG)) return@withContext false
+        runCatching {
+            // Number formats vary (+358 40 vs 040), so matching rows are
+            // resolved client-side and deleted by id.
+            val ids = mutableListOf<Long>()
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER),
+                null, null, null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (PhoneNumberUtils.compare(cursor.getString(1).orEmpty(), number)) {
+                        ids += cursor.getLong(0)
+                    }
+                }
+            }
+            if (ids.isEmpty()) return@runCatching true
+            val where = CallLog.Calls._ID + " IN (" + ids.joinToString(",") + ")"
+            context.contentResolver.delete(CallLog.Calls.CONTENT_URI, where, null) >= 0
+        }.getOrDefault(false)
     }
 }

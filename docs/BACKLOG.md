@@ -13,7 +13,7 @@ may be re-scoped or dropped.
 - [x] App-owned missed-call notification with launcher badge and call-back action
 - [x] SIM card information page under settings (read-only + link to system settings)
 - [x] Voice-only announcement mode with an adjustable repeat interval (4–10 s)
-- [ ] Call history round (agreed 2026-07-24): per-number detail view opened from
+- [x] Call history round (agreed 2026-07-24): per-number detail view opened from
       the log, with a 3-dot menu (copy number, edit before call, block number,
       delete history), per-person statistics, and WhatsApp calls labeled in the log
 - [ ] WhatsApp announcement round: notification listener + spoken caller
@@ -50,7 +50,7 @@ requesting them and stop using them if the role is revoked.
 ## Call history
 
 - [x] Incoming, outgoing, missed and rejected calls
-- [ ] Blocked calls in the log
+- [x] Blocked calls in the log
 - [ ] Calls handled by an AI agent in the log
 - [x] Call date, time and duration
 - [ ] SIM used per call
@@ -58,8 +58,8 @@ requesting them and stop using them if the role is revoked.
 - [ ] Custom filters
 - [ ] Grouping of consecutive calls from the same number
 - [ ] Call statistics
-- [ ] Contact counts per person
-- [ ] Per-person latest call and total talk time
+- [x] Contact counts per person (detail-view statistics)
+- [x] Per-person latest call and total talk time (detail-view statistics)
 - [ ] Callback reminders
 
 ## Incoming call view
@@ -101,7 +101,7 @@ requesting them and stop using them if the role is revoked.
 
 ## Call blocking and screening
 
-- [ ] Block a single number
+- [x] Block a single number (from the call detail view; system-wide block list)
 - [ ] Block unknown numbers
 - [ ] Block private/hidden numbers
 - [ ] Block numbers not in contacts

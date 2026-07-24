@@ -8,6 +8,8 @@
     <string name="call_type_outgoing">Outgoing call</string>
     <string name="call_type_missed">Missed call</string>
     <string name="call_type_rejected">Rejected call</string>
+    <string name="call_type_blocked">Blocked call</string>
+    <string name="call_source_whatsapp" translatable="false">WhatsApp</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>
@@ -67,6 +69,26 @@
     <string name="sim_empty">SIM information is not available.</string>
     <string name="sim_show_numbers">Show phone numbers</string>
     <string name="sim_open_system_settings">Open system SIM settings</string>
+    <string name="detail_more_options">More options</string>
+    <string name="detail_message">Message</string>
+    <string name="detail_blocked_badge">Blocked</string>
+    <string name="detail_stats_title">Statistics</string>
+    <string name="detail_stat_calls">Calls</string>
+    <string name="detail_stat_outgoing">Outgoing</string>
+    <string name="detail_stat_incoming">Incoming</string>
+    <string name="detail_stat_missed">Missed</string>
+    <string name="detail_stat_talk_time">Talk time</string>
+    <string name="detail_stat_latest">Latest call</string>
+    <string name="detail_history_title">History</string>
+    <string name="detail_copy_number">Copy number</string>
+    <string name="detail_edit_before_call">Edit number before call</string>
+    <string name="detail_block">Block number</string>
+    <string name="detail_unblock">Unblock number</string>
+    <string name="detail_delete_history">Delete history</string>
+    <string name="detail_delete_confirm_title">Delete call history?</string>
+    <string name="detail_delete_confirm_text">All calls with this number will be removed from the call log.</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_cancel">Cancel</string>
     <string name="announce_caller">%1$s is calling</string>
     <string name="announce_unknown_caller">Unknown caller is calling</string>
     <string name="notification_channel_missed">Missed calls</string>
