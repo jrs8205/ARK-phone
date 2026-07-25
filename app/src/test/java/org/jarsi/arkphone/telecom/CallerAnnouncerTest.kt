@@ -180,6 +180,29 @@ class CallerAnnouncerTest {
     }
 
     @Test
+    fun whatsAppCallerNumberIsResolvedFromContacts() = runTest {
+        val speech = FakeSpeechEngine()
+        val contacts = FakeContactsRepository().apply {
+            matchesByNumber["+358 44 5552841"] = ContactMatch("Bob", null)
+        }
+        val announcer = announcer(speech, contacts = contacts, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa-key-1", null, "+358 44 5552841")
+        runCurrent()
+        assertEquals(listOf("Bob is calling on WhatsApp"), speech.spoken)
+        announcer.onWhatsAppRingingStopped("wa-key-1")
+    }
+
+    @Test
+    fun unmatchedWhatsAppCallerNumberIsSpokenAsTheNumber() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa-key-1", null, "+358 44 5552841")
+        runCurrent()
+        assertEquals(listOf("+358 44 5552841 is calling on WhatsApp"), speech.spoken)
+        announcer.onWhatsAppRingingStopped("wa-key-1")
+    }
+
+    @Test
     fun missingDisplayNameIsResolvedFromContacts() = runTest {
         val speech = FakeSpeechEngine()
         val contacts = FakeContactsRepository().apply {

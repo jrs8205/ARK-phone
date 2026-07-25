@@ -100,7 +100,7 @@ class CallerAnnouncer @Inject constructor(
         speechEngine.stop()
     }
 
-    fun onWhatsAppRinging(notificationKey: String, callerName: String?) {
+    fun onWhatsAppRinging(notificationKey: String, callerName: String?, callerNumber: String? = null) {
         if (whatsAppKey == notificationKey) return
         whatsAppKey = notificationKey
         whatsAppJob?.cancel()
@@ -108,8 +108,13 @@ class CallerAnnouncer @Inject constructor(
             val settings = settingsRepository.settings.first()
             if (!settings.announceWhatsApp) return@launch
             if (!announceGate.canAnnounce()) return@launch
-            val text = if (callerName != null) {
-                context.getString(R.string.announce_whatsapp_caller, callerName)
+            val name = callerName
+                ?: callerNumber?.let { number ->
+                    contactsRepository.lookupContact(number)?.displayName?.takeIf { it.isNotBlank() }
+                }
+                ?: callerNumber
+            val text = if (name != null) {
+                context.getString(R.string.announce_whatsapp_caller, name)
             } else {
                 context.getString(R.string.announce_whatsapp_unknown_caller)
             }

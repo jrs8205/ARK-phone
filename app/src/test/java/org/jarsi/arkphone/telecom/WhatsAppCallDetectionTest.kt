@@ -21,12 +21,14 @@ class WhatsAppCallDetectionTest {
     private fun notification(
         category: String? = Notification.CATEGORY_CALL,
         title: String? = "Jarsi",
+        text: String? = null,
         callType: Int? = 1,
         fullScreen: Boolean = false,
     ): Notification {
         val builder = Notification.Builder(context, "test")
             .setSmallIcon(android.R.drawable.sym_call_incoming)
             .setContentTitle(title)
+        text?.let { builder.setContentText(it) }
         category?.let { builder.setCategory(it) }
         callType?.let { builder.extras.putInt("android.callType", it) }
         if (fullScreen) {
@@ -103,6 +105,56 @@ class WhatsAppCallDetectionTest {
                 tag = "ringing_call_notification",
             ),
         )
+    }
+
+    @Test
+    fun accountTitleYieldsTheCallerNumberFromTheText() {
+        val call = whatsAppIncomingCall(
+            "com.whatsapp",
+            notification(
+                title = "[ +358 45 76387898 ]",
+                text = "Äänipuhelu henkilöltä +358 44 5552841",
+                callType = null,
+            ),
+            tag = "0045E9B0ringing_call3c30ab12",
+        )
+        assertNull(call?.callerName)
+        assertEquals("+358 44 5552841", call?.callerNumber)
+    }
+
+    @Test
+    fun accountTitleYieldsTheCallerNameFromTheText() {
+        val call = whatsAppIncomingCall(
+            "com.whatsapp",
+            notification(
+                title = "[ +358 45 76387898 ]",
+                text = "Videopuhelu henkilöltä Matti Meikäläinen",
+                callType = null,
+            ),
+            tag = "ringing_call",
+        )
+        assertEquals("Matti Meikäläinen", call?.callerName)
+        assertNull(call?.callerNumber)
+    }
+
+    @Test
+    fun englishCallerTextIsRecognizedToo() {
+        val call = whatsAppIncomingCall(
+            "com.whatsapp",
+            notification(title = "[ +358 45 76387898 ]", text = "Incoming voice call from Bob"),
+        )
+        assertEquals("Bob", call?.callerName)
+    }
+
+    @Test
+    fun accountTitleWithoutACallerInTheTextMeansAnUnknownCaller() {
+        val call = whatsAppIncomingCall(
+            "com.whatsapp",
+            notification(title = "[ +358 45 76387898 ]", text = null),
+        )
+        assertEquals(true, call != null)
+        assertNull(call?.callerName)
+        assertNull(call?.callerNumber)
     }
 
     @Test

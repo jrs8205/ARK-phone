@@ -10,11 +10,17 @@ import androidx.core.os.BundleCompat
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
-internal data class WhatsAppCall(val callerName: String?)
+internal data class WhatsAppCall(val callerName: String?, val callerNumber: String? = null)
 
 private const val EXTRA_CALL_TYPE = "android.callType"
 private const val EXTRA_CALL_PERSON = "android.callPerson"
 private const val CALL_TYPE_INCOMING = 1
+
+/** Multi-account WhatsApp titles the ringing notification with the receiving
+ *  account as "[ +358 45 ... ]" — the caller is only on the text line. */
+private val ACCOUNT_TITLE = Regex("""^\[.*]$""")
+private val PHONE_NUMBER = Regex("""\+?\d[\d\s()\-]{5,}\d""")
+private val CALLER_SEPARATORS = listOf(" henkilöltä ", " from ")
 
 /**
  * Recognizes a ringing WhatsApp call notification, or null for everything
@@ -43,9 +49,30 @@ internal fun whatsAppIncomingCall(
     } else {
         null
     }
-    val name = personName
-        ?: notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-    return WhatsAppCall(callerName = name?.takeIf { it.isNotBlank() })
+    val title = notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        ?.trim()?.takeIf { it.isNotBlank() }
+    val name = personName?.takeIf { it.isNotBlank() }
+        ?: title?.takeUnless { ACCOUNT_TITLE.matches(it) }
+    if (name != null) return WhatsAppCall(callerName = name)
+    val text = notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+    return text?.let(::callerFromText) ?: WhatsAppCall(callerName = null)
+}
+
+/** "Äänipuhelu henkilöltä X" / "Incoming voice call from X" → X, split into
+ *  a name or a number so the announcer can resolve numbers against contacts. */
+private fun callerFromText(text: String): WhatsAppCall {
+    for (separator in CALLER_SEPARATORS) {
+        val index = text.lastIndexOf(separator)
+        if (index < 0) continue
+        val caller = text.substring(index + separator.length).trim().trimEnd('.')
+        if (caller.isEmpty()) continue
+        return if (PHONE_NUMBER.matches(caller)) {
+            WhatsAppCall(callerName = null, callerNumber = caller)
+        } else {
+            WhatsAppCall(callerName = caller)
+        }
+    }
+    return WhatsAppCall(callerName = null, callerNumber = PHONE_NUMBER.find(text)?.value)
 }
 
 @AndroidEntryPoint
@@ -77,7 +104,7 @@ class WhatsAppCallListenerService : NotificationListenerService() {
         }
         val call = whatsAppIncomingCall(sbn.packageName, notification, sbn.tag) ?: return
         Log.i(TAG, "WhatsApp incoming call detected, announcing")
-        callerAnnouncer.onWhatsAppRinging(sbn.key, call.callerName)
+        callerAnnouncer.onWhatsAppRinging(sbn.key, call.callerName, call.callerNumber)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
