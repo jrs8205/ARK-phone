@@ -8,22 +8,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import android.text.format.DateUtils
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Message
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconToggleButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.ui.components.ContactAvatar
+import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadGrid
 import org.jarsi.arkphone.ui.theme.CallAnswerGreen
@@ -78,6 +90,27 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                if (call?.status == CallStatus.RINGING) {
+                    if (!uiState.knownCaller && call.displayName == null) {
+                        Text(
+                            text = stringResource(R.string.incall_unknown_number),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                    uiState.lastCalledMillis?.let { lastCalled ->
+                        Text(
+                            text = stringResource(
+                                R.string.incall_last_called,
+                                DateUtils.getRelativeTimeSpanString(lastCalled),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
 
             if (uiState.showKeypad) {
@@ -95,6 +128,74 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
 
 @Composable
 private fun IncomingCallActions(actions: InCallActions) {
+    val haptics = rememberHaptics()
+    var showReplies by remember { mutableStateOf(false) }
+    if (showReplies) {
+        val replies = listOf(
+            stringResource(R.string.incall_reject_reply_1),
+            stringResource(R.string.incall_reject_reply_2),
+            stringResource(R.string.incall_reject_reply_3),
+        )
+        AlertDialog(
+            onDismissRequest = { showReplies = false },
+            title = { Text(stringResource(R.string.incall_reject_message_title)) },
+            text = {
+                Column {
+                    replies.forEach { reply ->
+                        ListItem(
+                            modifier = clickableListItemModifier {
+                                showReplies = false
+                                actions.onRejectWithMessage(reply)
+                            },
+                            headlineContent = { Text(reply) },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showReplies = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(bottom = 24.dp),
+        ) {
+            FilledTonalButton(
+                onClick = {
+                    haptics.click()
+                    actions.onSilence()
+                },
+            ) {
+                Icon(Icons.Filled.NotificationsOff, contentDescription = null)
+                Text(
+                    stringResource(R.string.incall_silence),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            FilledTonalButton(
+                onClick = {
+                    haptics.click()
+                    showReplies = true
+                },
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.Message, contentDescription = null)
+                Text(
+                    stringResource(R.string.incall_reject_message),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+        IncomingAnswerButtons(actions)
+    }
+}
+
+@Composable
+private fun IncomingAnswerButtons(actions: InCallActions) {
     val haptics = rememberHaptics()
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 72.dp),

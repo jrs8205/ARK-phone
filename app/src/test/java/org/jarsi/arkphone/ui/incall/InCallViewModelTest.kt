@@ -3,10 +3,13 @@ package org.jarsi.arkphone.ui.incall
 import android.telecom.Call
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallHandle
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.Clock
@@ -23,8 +26,9 @@ private class TestCallHandle(
     override val displayName: String? = null
     override val connectTimeMillis = 0L
     var answered = false
+    var rejected = false
     override fun answer() { answered = true }
-    override fun reject() {}
+    override fun reject() { rejected = true }
     override fun disconnect() {}
     override fun hold() {}
     override fun unhold() {}
@@ -38,13 +42,31 @@ class InCallViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val clock = Clock { 100_000L }
+    private val silencedCalls = mutableListOf<String>()
+    private val sentMessages = mutableListOf<Pair<String, String>>()
+
+    private fun viewModel(
+        controller: CallController,
+        contacts: FakeContactsRepository = FakeContactsRepository(),
+        callLog: FakeCallLogRepository = FakeCallLogRepository(),
+    ) = InCallViewModel(
+        controller,
+        contacts,
+        callLog,
+        clock,
+        { info -> silencedCalls.add(info.id) },
+        { number, message ->
+            sentMessages.add(number to message)
+            true
+        },
+    )
 
     @Test
     fun exposesPrimaryCall() = runTest {
         val controller = CallController()
         val handle = TestCallHandle()
         controller.onCallAdded(handle)
-        val viewModel = InCallViewModel(controller, FakeContactsRepository(), clock)
+        val viewModel = viewModel(controller)
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.call == null) state = awaitItem()
@@ -57,7 +79,7 @@ class InCallViewModelTest {
         val controller = CallController()
         val handle = TestCallHandle()
         controller.onCallAdded(handle)
-        val viewModel = InCallViewModel(controller, FakeContactsRepository(), clock)
+        val viewModel = viewModel(controller)
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.call == null) state = awaitItem()
@@ -73,11 +95,67 @@ class InCallViewModelTest {
         val contacts = FakeContactsRepository().apply {
             matchesByNumber["0401234567"] = ContactMatch("Alice", "content://photo/1")
         }
-        val viewModel = InCallViewModel(controller, contacts, clock)
+        val viewModel = viewModel(controller, contacts = contacts)
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.callerPhotoUri == null) state = awaitItem()
             assertEquals("content://photo/1", state.callerPhotoUri)
+            assertTrue(state.knownCaller)
+        }
+    }
+
+    @Test
+    fun silenceStopsTheRingWithoutRejecting() = runTest {
+        val controller = CallController()
+        val handle = TestCallHandle()
+        controller.onCallAdded(handle)
+        val viewModel = viewModel(controller)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            viewModel.onSilence()
+            assertEquals(listOf("call-1"), silencedCalls)
+            assertEquals(false, handle.rejected)
+        }
+    }
+
+    @Test
+    fun rejectWithMessageSendsTheSmsAndRejects() = runTest {
+        val controller = CallController()
+        val handle = TestCallHandle()
+        controller.onCallAdded(handle)
+        val viewModel = viewModel(controller)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            viewModel.onRejectWithMessage("Soitan kohta.")
+            assertEquals(listOf("0401234567" to "Soitan kohta."), sentMessages)
+            assertTrue(handle.rejected)
+        }
+    }
+
+    @Test
+    fun unknownCallerAndLastCallAreExposed() = runTest {
+        val controller = CallController()
+        controller.onCallAdded(TestCallHandle())
+        val callLog = FakeCallLogRepository().apply {
+            entries.value = listOf(
+                CallLogEntry(
+                    id = 9,
+                    number = "0401234567",
+                    displayName = null,
+                    type = CallType.OUTGOING,
+                    timestampMillis = 55_000L,
+                    durationSeconds = 10,
+                ),
+            )
+        }
+        val viewModel = viewModel(controller, callLog = callLog)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.lastCalledMillis == null) state = awaitItem()
+            assertEquals(55_000L, state.lastCalledMillis)
+            assertEquals(false, state.knownCaller)
         }
     }
 }

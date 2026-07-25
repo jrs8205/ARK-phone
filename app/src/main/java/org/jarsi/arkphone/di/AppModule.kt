@@ -34,7 +34,11 @@ import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
+import org.jarsi.arkphone.telecom.AndroidRingSilencer
 import org.jarsi.arkphone.telecom.AnnounceGate
+import org.jarsi.arkphone.telecom.RejectMessageSender
+import org.jarsi.arkphone.telecom.RingSilencer
+import org.jarsi.arkphone.telecom.SmsRejectMessageSender
 import org.jarsi.arkphone.telecom.SpeechEngine
 import org.jarsi.arkphone.telecom.TtsSpeechEngine
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
@@ -108,6 +112,14 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSpeedDialRepository(impl: DataStoreSpeedDialRepository): SpeedDialRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRingSilencer(impl: AndroidRingSilencer): RingSilencer
+
+    @Binds
+    @Singleton
+    abstract fun bindRejectMessageSender(impl: SmsRejectMessageSender): RejectMessageSender
 
     companion object {
         @Provides

@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
                 if (!setupComplete && !onboardingDismissed) {
                     OnboardingScreen(
                         onRequestRole = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
-                        onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.corePermissions()) },
+                        onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.requestablePermissions()) },
                         onDone = { onboardingDismissed = true },
                         isDefaultDialer = defaultDialer,
                         hasPermissions = permissionsGranted,
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     MainScreen(
                         onCall = { number -> phoneCaller.placeCall(number) },
                         onVoicemail = { phoneCaller.placeVoicemailCall() },
-                        onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.corePermissions()) },
+                        onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.requestablePermissions()) },
                         showDefaultDialerBanner = !defaultDialer,
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
                         requestedNumber = requestedNumber,

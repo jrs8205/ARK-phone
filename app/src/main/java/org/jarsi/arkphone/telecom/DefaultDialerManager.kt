@@ -42,4 +42,9 @@ class DefaultDialerManager @Inject constructor(
     }
 
     fun hasCorePermissions(): Boolean = corePermissions().all(permissionChecker::has)
+
+    /** The core set plus optional extras (SEND_SMS for decline-with-message):
+     *  asked together, but only the core set is ever required. */
+    fun requestablePermissions(): Array<String> =
+        corePermissions() + Manifest.permission.SEND_SMS
 }

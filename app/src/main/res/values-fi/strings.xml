@@ -42,6 +42,14 @@
     <string name="recents_filter_missed">Vastaamattomat</string>
     <string name="recents_filter_outgoing">Soitetut</string>
     <string name="recents_search_clear">Tyhjennä haku</string>
+    <string name="incall_silence">Hiljennä</string>
+    <string name="incall_reject_message">Viesti</string>
+    <string name="incall_reject_message_title">Hylkää viestillä</string>
+    <string name="incall_unknown_number">Tuntematon numero</string>
+    <string name="incall_last_called">Edellinen puhelu: %1$s</string>
+    <string name="incall_reject_reply_1">En voi vastata juuri nyt, soitan takaisin.</string>
+    <string name="incall_reject_reply_2">Laita viestiä.</string>
+    <string name="incall_reject_reply_3">Soitan kohta.</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

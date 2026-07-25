@@ -128,6 +128,13 @@ class CallNotifications @Inject constructor(
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
+    /** Re-posts the ringing notification on the silent channel: the insistent
+     *  ringtone dies with the cancel, the call stays ringing and answerable. */
+    fun silenceRinging(info: CallInfo) {
+        clear()
+        showIncomingCall(info, silentRing = true)
+    }
+
     private fun declineIntent(callId: String): PendingIntent {
         val intent = Intent(context, CallActionReceiver::class.java)
             .setAction(ACTION_DECLINE)
