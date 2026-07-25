@@ -56,26 +56,23 @@ class ArkCallScreeningService : CallScreeningService() {
                 ?: settingsCache.current
             val number = callDetails.handle?.schemeSpecificPart
             val now = minutesOfDay(clock.nowMillis())
-            val block = if (number.isNullOrBlank()) {
-                shouldBlockCall(
-                    number = number,
-                    isInContacts = false,
-                    isFavorite = false,
-                    isRepeatCaller = false,
-                    minutesOfDay = now,
-                    settings = settings,
-                )
-            } else {
-                val match = contactsRepository.lookupContact(number)
-                shouldBlockCall(
-                    number = number,
-                    isInContacts = match != null,
-                    isFavorite = match?.starred == true,
-                    isRepeatCaller = isRepeatCaller(number),
-                    minutesOfDay = now,
-                    settings = settings,
-                )
-            }
+            val match = if (number.isNullOrBlank()) null else contactsRepository.lookupContact(number)
+            val repeat = !number.isNullOrBlank() && isRepeatCaller(number)
+            val block = shouldBlockCall(
+                number = number,
+                isInContacts = match != null,
+                isFavorite = match?.starred == true,
+                isRepeatCaller = repeat,
+                minutesOfDay = now,
+                settings = settings,
+            )
+            Log.i(
+                TAG,
+                "Screening decision: block=$block hidden=${number.isNullOrBlank()}" +
+                    " inContacts=${match != null} favorite=${match?.starred == true}" +
+                    " repeat=$repeat scheduleActive=${blockingScheduleActive(now, settings)}" +
+                    " blockAll=${settings.blockAllCallers} blockUnknown=${settings.blockUnknownCallers}",
+            )
             val response = if (block) {
                 Log.i(TAG, "Screening blocked an incoming call")
                 CallResponse.Builder()
