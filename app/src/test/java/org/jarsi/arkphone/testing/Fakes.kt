@@ -77,6 +77,9 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
         state.value = state.value.copy(announceWhatsApp = enabled)
     }
+    override suspend fun setBlockAllCallers(enabled: Boolean) {
+        state.value = state.value.copy(blockAllCallers = enabled)
+    }
     override suspend fun setBlockHiddenNumbers(enabled: Boolean) {
         state.value = state.value.copy(blockHiddenNumbers = enabled)
     }

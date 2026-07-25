@@ -57,6 +57,8 @@
     <string name="incall_reject_reply_3">Soitan kohta.</string>
     <string name="settings_blocking_title">Puheluiden esto</string>
     <string name="settings_blocking_description">Säännöt ei-toivottujen puheluiden hiljaiseen estoon</string>
+    <string name="blocking_all_title">Estä kaikki puhelut</string>
+    <string name="blocking_all_description">Vain suosikit, sallitut numerot ja toistuvat soittajat pääsevät läpi — yhdistä aikatauluun, niin saat yörauhan.</string>
     <string name="blocking_hidden_title">Estä piilotetut numerot</string>
     <string name="blocking_hidden_description">Puhelut ilman numeronäyttöä eivät soi koskaan.</string>
     <string name="blocking_unknown_title">Estä numerot, jotka eivät ole yhteystiedoissa</string>

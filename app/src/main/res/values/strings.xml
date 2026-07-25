@@ -47,6 +47,8 @@
     <string name="incall_reject_reply_3">I\'ll call you soon.</string>
     <string name="settings_blocking_title">Call blocking</string>
     <string name="settings_blocking_description">Rules for silently blocking unwanted calls</string>
+    <string name="blocking_all_title">Block all calls</string>
+    <string name="blocking_all_description">Only favorites, allowed numbers and repeat callers get through — combine with the schedule for quiet nights.</string>
     <string name="blocking_hidden_title">Block hidden numbers</string>
     <string name="blocking_hidden_description">Calls without a caller number never ring.</string>
     <string name="blocking_unknown_title">Block callers not in your contacts</string>

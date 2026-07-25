@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -36,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,6 +66,7 @@ fun BlockingScreen(
         settings = settings,
         hasScreeningRole = hasScreeningRole,
         onBack = onBack,
+        onBlockAllCallersChanged = viewModel::onBlockAllCallersChanged,
         onBlockHiddenNumbersChanged = viewModel::onBlockHiddenNumbersChanged,
         onBlockUnknownCallersChanged = viewModel::onBlockUnknownCallersChanged,
         onAllowRepeatCallersChanged = viewModel::onAllowRepeatCallersChanged,
@@ -88,6 +91,7 @@ fun BlockingContent(
     settings: Settings,
     onBack: () -> Unit,
     hasScreeningRole: Boolean = true,
+    onBlockAllCallersChanged: (Boolean) -> Unit = {},
     onBlockHiddenNumbersChanged: (Boolean) -> Unit = {},
     onBlockUnknownCallersChanged: (Boolean) -> Unit = {},
     onAllowRepeatCallersChanged: (Boolean) -> Unit = {},
@@ -147,6 +151,12 @@ fun BlockingContent(
                 }
             }
             BlockingSwitchRow(
+                title = stringResource(R.string.blocking_all_title),
+                description = stringResource(R.string.blocking_all_description),
+                checked = settings.blockAllCallers,
+                onCheckedChange = onBlockAllCallersChanged,
+            )
+            BlockingSwitchRow(
                 title = stringResource(R.string.blocking_hidden_title),
                 description = stringResource(R.string.blocking_hidden_description),
                 checked = settings.blockHiddenNumbers,
@@ -183,12 +193,12 @@ fun BlockingContent(
                 ListItem(
                     modifier = clickableListItemModifier { editStart = true },
                     headlineContent = { Text(stringResource(R.string.blocking_schedule_start)) },
-                    trailingContent = { Text(formatMinutes(settings.blockingScheduleStartMinutes)) },
+                    trailingContent = { Text(formatScheduleTime(settings.blockingScheduleStartMinutes)) },
                 )
                 ListItem(
                     modifier = clickableListItemModifier { editEnd = true },
                     headlineContent = { Text(stringResource(R.string.blocking_schedule_end)) },
-                    trailingContent = { Text(formatMinutes(settings.blockingScheduleEndMinutes)) },
+                    trailingContent = { Text(formatScheduleTime(settings.blockingScheduleEndMinutes)) },
                 )
                 if (editStart) {
                     BlockingTimePickerDialog(
@@ -333,8 +343,16 @@ fun BlockingContent(
     }
 }
 
-private fun formatMinutes(minutes: Int): String =
-    "%02d:%02d".format(minutes / 60, minutes % 60)
+/** Formats minutes-of-day honoring the device's 12/24-hour clock setting. */
+@Composable
+private fun formatScheduleTime(minutes: Int): String {
+    val context = LocalContext.current
+    val calendar = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, minutes / 60)
+        set(java.util.Calendar.MINUTE, minutes % 60)
+    }
+    return DateFormat.getTimeFormat(context).format(calendar.time)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -346,7 +364,7 @@ private fun BlockingTimePickerDialog(
     val state = rememberTimePickerState(
         initialHour = initialMinutes / 60,
         initialMinute = initialMinutes % 60,
-        is24Hour = true,
+        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
     )
     AlertDialog(
         onDismissRequest = onDismiss,

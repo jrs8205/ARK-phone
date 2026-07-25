@@ -57,6 +57,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setAnnounceWhatsApp(enabled) }
     }
 
+    fun onBlockAllCallersChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setBlockAllCallers(enabled) }
+    }
+
     fun onBlockHiddenNumbersChanged(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setBlockHiddenNumbers(enabled) }
     }

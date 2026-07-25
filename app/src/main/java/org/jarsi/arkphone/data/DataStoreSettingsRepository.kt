@@ -26,6 +26,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val ANNOUNCE_MODE = stringPreferencesKey("announce_mode")
         val ANNOUNCE_INTERVAL = intPreferencesKey("announce_interval_seconds")
         val ANNOUNCE_WHATSAPP = booleanPreferencesKey("announce_whatsapp")
+        val BLOCK_ALL = booleanPreferencesKey("block_all_callers")
         val BLOCK_HIDDEN = booleanPreferencesKey("block_hidden_numbers")
         val BLOCK_UNKNOWN = booleanPreferencesKey("block_unknown_callers")
         val BLOCKED_PREFIXES = stringSetPreferencesKey("blocked_prefixes")
@@ -57,6 +58,7 @@ class DataStoreSettingsRepository @Inject constructor(
                     Settings.MAX_ANNOUNCE_INTERVAL_SECONDS,
                 ),
                 announceWhatsApp = preferences[Keys.ANNOUNCE_WHATSAPP] ?: false,
+                blockAllCallers = preferences[Keys.BLOCK_ALL] ?: false,
                 blockHiddenNumbers = preferences[Keys.BLOCK_HIDDEN] ?: false,
                 blockUnknownCallers = preferences[Keys.BLOCK_UNKNOWN] ?: false,
                 blockedPrefixes = preferences[Keys.BLOCKED_PREFIXES] ?: emptySet(),
@@ -86,6 +88,10 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
         dataStore.edit { it[Keys.ANNOUNCE_WHATSAPP] = enabled }
+    }
+
+    override suspend fun setBlockAllCallers(enabled: Boolean) {
+        dataStore.edit { it[Keys.BLOCK_ALL] = enabled }
     }
 
     override suspend fun setBlockHiddenNumbers(enabled: Boolean) {

@@ -98,6 +98,32 @@ class BlockingRulesTest {
     }
 
     @Test
+    fun blockAllBlocksEvenSavedContactsAndHiddenNumbers() {
+        val settings = Settings(blockAllCallers = true)
+        assertTrue(blocked(isInContacts = true, settings = settings))
+        assertTrue(blocked(number = null, settings = settings))
+    }
+
+    @Test
+    fun blockAllStillHonorsTheExceptionsAndTheSchedule() {
+        val settings = Settings(blockAllCallers = true)
+        assertFalse(blocked(isFavorite = true, settings = settings))
+        assertFalse(blocked(isRepeatCaller = true, settings = settings))
+        assertFalse(
+            blocked(
+                settings = settings.copy(allowedNumbers = setOf("+358 44 5552841")),
+            ),
+        )
+        val nightOnly = settings.copy(
+            blockingScheduleEnabled = true,
+            blockingScheduleStartMinutes = 20 * 60,
+            blockingScheduleEndMinutes = 7 * 60,
+        )
+        assertFalse(blocked(minutesOfDay = 12 * 60, settings = nightOnly))
+        assertTrue(blocked(minutesOfDay = 22 * 60, isInContacts = true, settings = nightOnly))
+    }
+
+    @Test
     fun scheduleLimitsBlockingToItsWindow() {
         val settings = Settings(
             blockUnknownCallers = true,

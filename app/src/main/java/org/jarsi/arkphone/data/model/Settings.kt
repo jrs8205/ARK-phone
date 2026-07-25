@@ -6,6 +6,7 @@ data class Settings(
     val announceMode: AnnounceMode = AnnounceMode.OFF,
     val announceIntervalSeconds: Int = DEFAULT_ANNOUNCE_INTERVAL_SECONDS,
     val announceWhatsApp: Boolean = false,
+    val blockAllCallers: Boolean = false,
     val blockHiddenNumbers: Boolean = false,
     val blockUnknownCallers: Boolean = false,
     val blockedPrefixes: Set<String> = emptySet(),

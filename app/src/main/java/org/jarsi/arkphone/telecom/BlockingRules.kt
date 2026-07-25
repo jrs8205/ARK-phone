@@ -18,10 +18,13 @@ internal fun shouldBlockCall(
     settings: Settings,
 ): Boolean {
     if (!blockingScheduleActive(minutesOfDay, settings)) return false
-    if (number.isNullOrBlank()) return settings.blockHiddenNumbers
+    if (number.isNullOrBlank()) {
+        return settings.blockHiddenNumbers || settings.blockAllCallers
+    }
     if (settings.allowedNumbers.any { sameCaller(it, number) }) return false
     if (settings.alwaysAllowFavorites && isFavorite) return false
     if (isRepeatCaller && settings.allowRepeatCallers) return false
+    if (settings.blockAllCallers) return true
     if (settings.blockedPrefixes.any { matchesBlockedPrefix(number, it) }) return true
     return settings.blockUnknownCallers && !isInContacts
 }

@@ -10,6 +10,8 @@ interface SettingsRepository {
     suspend fun setAnnounceIntervalSeconds(seconds: Int)
     suspend fun setAnnounceWhatsApp(enabled: Boolean)
 
+    suspend fun setBlockAllCallers(enabled: Boolean)
+
     suspend fun setBlockHiddenNumbers(enabled: Boolean)
 
     suspend fun setBlockUnknownCallers(enabled: Boolean)
