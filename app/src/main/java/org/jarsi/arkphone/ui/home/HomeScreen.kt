@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +40,8 @@ import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsViewModel
 import org.jarsi.arkphone.ui.detail.CallDetailActivity
 import org.jarsi.arkphone.ui.recents.RecentsContent
+import org.jarsi.arkphone.ui.recents.RecentsFilter
+import org.jarsi.arkphone.ui.recents.RecentsFilterChips
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.jarsi.arkphone.ui.recents.RecentsViewModel
 import org.jarsi.arkphone.ui.settings.SettingsActivity
@@ -67,6 +71,8 @@ fun HomeScreen(
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
         onOpenDetails = { number -> context.startActivity(CallDetailActivity.intent(context, number)) },
         onWhatsAppCall = recentsViewModel::onWhatsAppCall,
+        onQueryChange = recentsViewModel::onQueryChange,
+        onFilterChange = recentsViewModel::onFilterChange,
     )
 }
 
@@ -79,10 +85,25 @@ fun HomeContent(
     onOpenSettings: () -> Unit = {},
     onOpenDetails: (String) -> Unit = {},
     onWhatsAppCall: (CallLogEntry) -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onFilterChange: (RecentsFilter) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+        ) {
+            OutlinedTextField(
+                value = recentsUiState.query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(stringResource(R.string.recents_search_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+            )
             IconButton(
                 onClick = {
                     haptics.click()
@@ -95,6 +116,13 @@ fun HomeContent(
                     contentDescription = stringResource(R.string.settings_title),
                 )
             }
+        }
+        if (recentsUiState.hasPermission) {
+            RecentsFilterChips(
+                selected = recentsUiState.filter,
+                onSelect = onFilterChange,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
         }
         if (favorites.isNotEmpty()) {
             Text(

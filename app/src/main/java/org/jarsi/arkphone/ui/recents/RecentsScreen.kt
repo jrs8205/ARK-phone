@@ -59,48 +59,20 @@ internal fun callTypeLabelRes(type: CallType): Int = when (type) {
     CallType.OTHER -> R.string.call_type_other
 }
 
+/** The All / Missed / WhatsApp filter chip row for the call history list. */
 @Composable
-fun RecentsScreen(
-    onCall: (String) -> Unit,
-    onRequestPermissions: () -> Unit,
-    onOpenDetails: (String) -> Unit = {},
-    viewModel: RecentsViewModel = hiltViewModel(),
+fun RecentsFilterChips(
+    selected: RecentsFilter,
+    onSelect: (RecentsFilter) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LifecycleResumeEffect(Unit) {
-        viewModel.refreshPermissionState()
-        onPauseOrDispose { }
-    }
-    Column(Modifier.fillMaxSize()) {
-        if (uiState.hasPermission) {
-            OutlinedTextField(
-                value = uiState.query,
-                onValueChange = viewModel::onQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.recents_search_hint)) },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            ) {
-                RecentsFilterChip(uiState.filter, RecentsFilter.ALL, R.string.recents_filter_all, viewModel::onFilterChange)
-                RecentsFilterChip(uiState.filter, RecentsFilter.MISSED, R.string.recents_filter_missed, viewModel::onFilterChange)
-                RecentsFilterChip(uiState.filter, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, viewModel::onFilterChange)
-            }
-        }
-        Box(Modifier.weight(1f)) {
-            RecentsContent(
-                uiState = uiState,
-                onCall = onCall,
-                onRequestPermissions = onRequestPermissions,
-                onOpenDetails = onOpenDetails,
-                onWhatsAppCall = viewModel::onWhatsAppCall,
-            )
-        }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier,
+    ) {
+        RecentsFilterChip(selected, RecentsFilter.ALL, R.string.recents_filter_all, onSelect)
+        RecentsFilterChip(selected, RecentsFilter.MISSED, R.string.recents_filter_missed, onSelect)
+        RecentsFilterChip(selected, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, onSelect)
     }
 }
 

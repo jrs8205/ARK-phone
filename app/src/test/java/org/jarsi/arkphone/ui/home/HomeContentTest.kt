@@ -33,6 +33,23 @@ class HomeContentTest {
     )
 
     @Test
+    fun searchFieldAndFilterChipsSitOnTop() {
+        var query: String? = null
+        composeRule.setContent {
+            HomeContent(
+                favorites = emptyList(),
+                recentsUiState = RecentsUiState(loading = false),
+                onCall = {},
+                onRequestPermissions = {},
+                onQueryChange = { query = it },
+            )
+        }
+        composeRule.onNodeWithText("Search calls").assertIsDisplayed()
+        composeRule.onNodeWithText("Missed").assertIsDisplayed()
+        composeRule.onNodeWithText("WhatsApp").assertIsDisplayed()
+    }
+
+    @Test
     fun favoritesAreShownAndCallable() {
         val called = mutableListOf<String>()
         composeRule.setContent {
