@@ -93,7 +93,9 @@ class WhatsAppCallMonitorTest {
     fun ongoingAloneRecordsAnOutgoingCall() = runTest {
         val repository = FakeWhatsAppCallLogRepository()
         val monitor = monitor(repository)
-        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(), established = true,
+        )
         advanceTimeBy(30_000)
         monitor.onCallNotificationRemoved("call-1")
         runCurrent()
@@ -107,13 +109,90 @@ class WhatsAppCallMonitorTest {
     fun ongoingUpdateDoesNotRestartTheCall() = runTest {
         val repository = FakeWhatsAppCallLogRepository()
         val monitor = monitor(repository)
-        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(), established = true,
+        )
         advanceTimeBy(10_000)
-        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(), established = true,
+        )
         advanceTimeBy(10_000)
         monitor.onCallNotificationRemoved("call-1")
         runCurrent()
         assertEquals(20L, repository.recorded.single().durationSeconds)
+    }
+
+    @Test
+    fun ringingUpdateDuringAnOngoingCallDoesNotResurrectTheRinging() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val monitor = monitor(repository)
+        // WhatsApp drives the whole call through ONE notification key:
+        // ringing -> connecting -> a stray ringing update -> in-call.
+        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.RINGING, caller())
+        advanceTimeBy(4_000)
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(name = null),
+        )
+        advanceTimeBy(300)
+        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.RINGING, caller())
+        advanceTimeBy(100)
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(name = null), established = true,
+        )
+        advanceTimeBy(20_000)
+        monitor.onCallNotificationRemoved("call-1")
+        advanceTimeBy(WhatsAppCallMonitor.ANSWER_GRACE_MILLIS + 1)
+        runCurrent()
+        val record = repository.recorded.single()
+        assertEquals(CallType.INCOMING, record.type)
+        assertEquals(20L, record.durationSeconds)
+        assertEquals("Matti Meikäläinen", record.callerName)
+    }
+
+    @Test
+    fun postedReportsTheEffectiveKindForAnnouncementDecisions() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val monitor = monitor(repository)
+        assertEquals(
+            WhatsAppCallNotificationKind.RINGING,
+            monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.RINGING, caller()),
+        )
+        assertEquals(
+            WhatsAppCallNotificationKind.ONGOING,
+            monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller()),
+        )
+        assertEquals(
+            WhatsAppCallNotificationKind.ONGOING,
+            monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.RINGING, caller()),
+        )
+    }
+
+    @Test
+    fun outgoingThatWasNeverEstablishedRecordsZeroDuration() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val monitor = monitor(repository)
+        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        advanceTimeBy(30_000)
+        monitor.onCallNotificationRemoved("call-1")
+        runCurrent()
+        val record = repository.recorded.single()
+        assertEquals(CallType.OUTGOING, record.type)
+        assertEquals(0L, record.durationSeconds)
+    }
+
+    @Test
+    fun establishedUpdateStartsTheDurationClock() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val monitor = monitor(repository)
+        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        advanceTimeBy(10_000)
+        monitor.onCallNotificationPosted(
+            "call-1", WhatsAppCallNotificationKind.ONGOING, caller(), established = true,
+        )
+        advanceTimeBy(30_000)
+        monitor.onCallNotificationRemoved("call-1")
+        runCurrent()
+        assertEquals(30L, repository.recorded.single().durationSeconds)
     }
 
     @Test

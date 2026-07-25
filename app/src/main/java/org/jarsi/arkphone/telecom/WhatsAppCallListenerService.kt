@@ -26,13 +26,27 @@ class WhatsAppCallListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         logWhatsAppCallNotification("posted", sbn)
+        val whatsApp = sbn.packageName.startsWith("com.whatsapp")
         val kind = classifyWhatsAppCallNotification(sbn.packageName, sbn.notification, sbn.tag)
-            ?: return
+        if (kind == null) {
+            // Rejecting or ending a call can morph the same notification into
+            // a non-call shape without a removal event — stop a stale announcement.
+            if (whatsApp) callerAnnouncer.onWhatsAppRingingStopped(sbn.key)
+            return
+        }
         val caller = whatsAppCaller(sbn.notification)
-        callMonitor.onCallNotificationPosted(sbn.key, kind, caller)
-        if (kind == WhatsAppCallNotificationKind.RINGING) {
+        val established =
+            sbn.notification.extras.getInt(EXTRA_CALL_TYPE, -1) == 2 ||
+                sbn.notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)
+        // The monitor knows whether a ringing-shaped update really is a new
+        // ring or just WhatsApp refreshing the one notification it keeps
+        // reusing mid-call — announce only true rings, silence the rest.
+        val effective = callMonitor.onCallNotificationPosted(sbn.key, kind, caller, established)
+        if (effective == WhatsAppCallNotificationKind.RINGING) {
             Log.i(TAG, "WhatsApp incoming call detected, announcing")
             callerAnnouncer.onWhatsAppRinging(sbn.key, caller.callerName, caller.callerNumber)
+        } else {
+            callerAnnouncer.onWhatsAppRingingStopped(sbn.key)
         }
     }
 
