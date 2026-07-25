@@ -35,6 +35,17 @@ class DataStoreSettingsRepositoryTest {
         val settings = DataStoreSettingsRepository(createDataStore()).settings.first()
         assertEquals(AnnounceMode.OFF, settings.announceMode)
         assertEquals(Settings.DEFAULT_ANNOUNCE_INTERVAL_SECONDS, settings.announceIntervalSeconds)
+        assertEquals(false, settings.blockHiddenNumbers)
+        assertEquals(false, settings.blockUnknownCallers)
+        assertEquals(emptySet<String>(), settings.blockedPrefixes)
+        assertEquals(true, settings.allowRepeatCallers)
+    }
+
+    @Test
+    fun blockedPrefixesPersistTrimmedAndNonEmpty() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setBlockedPrefixes(setOf(" +358700 ", "0700", "  "))
+        assertEquals(setOf("+358700", "0700"), repository.settings.first().blockedPrefixes)
     }
 
     @Test

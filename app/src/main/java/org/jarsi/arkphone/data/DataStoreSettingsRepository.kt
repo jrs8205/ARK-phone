@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -25,6 +26,10 @@ class DataStoreSettingsRepository @Inject constructor(
         val ANNOUNCE_MODE = stringPreferencesKey("announce_mode")
         val ANNOUNCE_INTERVAL = intPreferencesKey("announce_interval_seconds")
         val ANNOUNCE_WHATSAPP = booleanPreferencesKey("announce_whatsapp")
+        val BLOCK_HIDDEN = booleanPreferencesKey("block_hidden_numbers")
+        val BLOCK_UNKNOWN = booleanPreferencesKey("block_unknown_callers")
+        val BLOCKED_PREFIXES = stringSetPreferencesKey("blocked_prefixes")
+        val ALLOW_REPEAT_CALLERS = booleanPreferencesKey("allow_repeat_callers")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -47,6 +52,10 @@ class DataStoreSettingsRepository @Inject constructor(
                     Settings.MAX_ANNOUNCE_INTERVAL_SECONDS,
                 ),
                 announceWhatsApp = preferences[Keys.ANNOUNCE_WHATSAPP] ?: false,
+                blockHiddenNumbers = preferences[Keys.BLOCK_HIDDEN] ?: false,
+                blockUnknownCallers = preferences[Keys.BLOCK_UNKNOWN] ?: false,
+                blockedPrefixes = preferences[Keys.BLOCKED_PREFIXES] ?: emptySet(),
+                allowRepeatCallers = preferences[Keys.ALLOW_REPEAT_CALLERS] ?: true,
             )
         }
 
@@ -65,5 +74,26 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
         dataStore.edit { it[Keys.ANNOUNCE_WHATSAPP] = enabled }
+    }
+
+    override suspend fun setBlockHiddenNumbers(enabled: Boolean) {
+        dataStore.edit { it[Keys.BLOCK_HIDDEN] = enabled }
+    }
+
+    override suspend fun setBlockUnknownCallers(enabled: Boolean) {
+        dataStore.edit { it[Keys.BLOCK_UNKNOWN] = enabled }
+    }
+
+    override suspend fun setBlockedPrefixes(prefixes: Set<String>) {
+        dataStore.edit {
+            it[Keys.BLOCKED_PREFIXES] = prefixes
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .toSet()
+        }
+    }
+
+    override suspend fun setAllowRepeatCallers(enabled: Boolean) {
+        dataStore.edit { it[Keys.ALLOW_REPEAT_CALLERS] = enabled }
     }
 }

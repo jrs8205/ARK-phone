@@ -9,4 +9,12 @@ interface SettingsRepository {
     suspend fun setAnnounceMode(mode: AnnounceMode)
     suspend fun setAnnounceIntervalSeconds(seconds: Int)
     suspend fun setAnnounceWhatsApp(enabled: Boolean)
+
+    suspend fun setBlockHiddenNumbers(enabled: Boolean)
+
+    suspend fun setBlockUnknownCallers(enabled: Boolean)
+
+    suspend fun setBlockedPrefixes(prefixes: Set<String>)
+
+    suspend fun setAllowRepeatCallers(enabled: Boolean)
 }

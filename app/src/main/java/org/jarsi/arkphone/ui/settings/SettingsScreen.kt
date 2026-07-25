@@ -51,6 +51,7 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenSimInfo: () -> Unit,
+    onOpenBlocking: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
@@ -74,6 +75,7 @@ fun SettingsScreen(
             }
         },
         onOpenSimInfo = onOpenSimInfo,
+        onOpenBlocking = onOpenBlocking,
         onOpenCallSettings = {
             runCatching {
                 context.startActivity(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
@@ -92,6 +94,7 @@ fun SettingsContent(
     onOpenSimInfo: () -> Unit,
     onOpenCallSettings: () -> Unit,
     onBack: () -> Unit,
+    onOpenBlocking: () -> Unit = {},
     hasNotificationAccess: Boolean = true,
     onAnnounceWhatsAppChanged: (Boolean) -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
@@ -209,6 +212,14 @@ fun SettingsContent(
                 }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_blocking_title),
+                description = stringResource(R.string.settings_blocking_description),
+                onClick = {
+                    haptics.click()
+                    onOpenBlocking()
+                },
+            )
             SettingsLinkRow(
                 title = stringResource(R.string.sim_cards_title),
                 description = stringResource(R.string.sim_cards_description),

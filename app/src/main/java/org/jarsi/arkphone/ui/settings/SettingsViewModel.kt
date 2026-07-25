@@ -45,4 +45,30 @@ class SettingsViewModel @Inject constructor(
     fun onAnnounceWhatsAppChanged(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setAnnounceWhatsApp(enabled) }
     }
+
+    fun onBlockHiddenNumbersChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setBlockHiddenNumbers(enabled) }
+    }
+
+    fun onBlockUnknownCallersChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setBlockUnknownCallers(enabled) }
+    }
+
+    fun onAllowRepeatCallersChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAllowRepeatCallers(enabled) }
+    }
+
+    fun onAddBlockedPrefix(prefix: String) {
+        val trimmed = prefix.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            settingsRepository.setBlockedPrefixes(uiState.value.blockedPrefixes + trimmed)
+        }
+    }
+
+    fun onRemoveBlockedPrefix(prefix: String) {
+        viewModelScope.launch {
+            settingsRepository.setBlockedPrefixes(uiState.value.blockedPrefixes - prefix)
+        }
+    }
 }

@@ -77,6 +77,18 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setAnnounceWhatsApp(enabled: Boolean) {
         state.value = state.value.copy(announceWhatsApp = enabled)
     }
+    override suspend fun setBlockHiddenNumbers(enabled: Boolean) {
+        state.value = state.value.copy(blockHiddenNumbers = enabled)
+    }
+    override suspend fun setBlockUnknownCallers(enabled: Boolean) {
+        state.value = state.value.copy(blockUnknownCallers = enabled)
+    }
+    override suspend fun setBlockedPrefixes(prefixes: Set<String>) {
+        state.value = state.value.copy(blockedPrefixes = prefixes)
+    }
+    override suspend fun setAllowRepeatCallers(enabled: Boolean) {
+        state.value = state.value.copy(allowRepeatCallers = enabled)
+    }
 }
 
 class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {

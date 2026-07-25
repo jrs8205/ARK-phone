@@ -73,6 +73,15 @@
             android:name=".ui.contactcard.ContactCardActivity"
             android:exported="false" />
 
+        <service
+            android:name=".telecom.ArkCallScreeningService"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".ui.incall.InCallActivity"
             android:exported="false"

@@ -6,6 +6,10 @@ data class Settings(
     val announceMode: AnnounceMode = AnnounceMode.OFF,
     val announceIntervalSeconds: Int = DEFAULT_ANNOUNCE_INTERVAL_SECONDS,
     val announceWhatsApp: Boolean = false,
+    val blockHiddenNumbers: Boolean = false,
+    val blockUnknownCallers: Boolean = false,
+    val blockedPrefixes: Set<String> = emptySet(),
+    val allowRepeatCallers: Boolean = true,
 ) {
     companion object {
         const val MIN_ANNOUNCE_INTERVAL_SECONDS = 4
