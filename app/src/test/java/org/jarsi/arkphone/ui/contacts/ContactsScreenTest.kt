@@ -86,6 +86,22 @@ class ContactsScreenTest {
     }
 
     @Test
+    fun addContactButtonReportsTheTap() {
+        var adds = 0
+        composeRule.setContent {
+            ContactsContent(
+                uiState = ContactsUiState(loading = false, hasPermission = true, others = listOf(contact)),
+                onQueryChange = {},
+                onCall = {},
+                onRequestPermissions = {},
+                onAddContact = { adds++ },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Add contact").performClick()
+        assertEquals(1, adds)
+    }
+
+    @Test
     fun favoritesAndOthersGetTheirOwnSectionHeaders() {
         composeRule.setContent {
             ContactsContent(

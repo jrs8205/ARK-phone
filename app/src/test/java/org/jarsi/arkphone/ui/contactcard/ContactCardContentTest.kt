@@ -130,6 +130,20 @@ class ContactCardContentTest {
     }
 
     @Test
+    fun editButtonReportsTheTap() {
+        var edits = 0
+        composeRule.setContent {
+            ContactCardContent(
+                uiState = ContactCardUiState(loading = false, details = details()),
+                onBack = {},
+                onEdit = { edits++ },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Edit contact").performClick()
+        assertEquals(1, edits)
+    }
+
+    @Test
     fun connectedAppActionsAreListedAndTappable() {
         var opened: ContactAppAction? = null
         setContent(details(), onOpenAppAction = { opened = it })

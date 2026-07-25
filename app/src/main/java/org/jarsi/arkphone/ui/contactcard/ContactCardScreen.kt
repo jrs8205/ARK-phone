@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Message
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Block
@@ -77,11 +78,13 @@ fun ContactCardScreen(
     onOpenCallHistory: (String) -> Unit,
     onOpenAppAction: (ContactAppAction) -> Unit,
     onShare: (ContactDetails) -> Unit,
+    onEdit: (ContactDetails) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ContactCardContent(
         uiState = uiState,
         onBack = onBack,
+        onEdit = { uiState.details?.let(onEdit) },
         onCall = onCall,
         onMessage = onMessage,
         onEmail = onEmail,
@@ -99,6 +102,7 @@ fun ContactCardScreen(
 fun ContactCardContent(
     uiState: ContactCardUiState,
     onBack: () -> Unit,
+    onEdit: () -> Unit = {},
     onCall: (String) -> Unit = {},
     onMessage: (String) -> Unit = {},
     onEmail: (String) -> Unit = {},
@@ -125,6 +129,21 @@ fun ContactCardContent(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.settings_back),
                         )
+                    }
+                },
+                actions = {
+                    if (uiState.details != null) {
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                onEdit()
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = stringResource(R.string.contact_card_edit),
+                            )
+                        }
                     }
                 },
             )

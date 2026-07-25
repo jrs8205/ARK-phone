@@ -30,10 +30,18 @@ class ContactCardActivity : ComponentActivity() {
 
     private val viewModel: ContactCardViewModel by viewModels()
 
+    private var contactId: Long = -1L
+
+    override fun onResume() {
+        super.onResume()
+        // Reload after a possible edit in the system contact editor.
+        if (contactId >= 0) viewModel.load(contactId)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val contactId = intent.getLongExtra(EXTRA_CONTACT_ID, -1L)
+        contactId = intent.getLongExtra(EXTRA_CONTACT_ID, -1L)
         if (contactId < 0) {
             finish()
             return
@@ -68,6 +76,19 @@ class ContactCardActivity : ComponentActivity() {
                                 ),
                                 action.mimeType,
                             ),
+                        )
+                    },
+                    onEdit = { details ->
+                        val uri = details.lookupKey?.let { key ->
+                            ContactsContract.Contacts.getLookupUri(details.id, key)
+                        } ?: ContentUris.withAppendedId(
+                            ContactsContract.Contacts.CONTENT_URI,
+                            details.id,
+                        )
+                        open(
+                            Intent(Intent.ACTION_EDIT)
+                                .setDataAndType(uri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+                                .putExtra("finishActivityOnSaveCompleted", true),
                         )
                     },
                     onShare = { details ->

@@ -53,7 +53,7 @@ device-only.
 
 - [x] Browse and search device contacts
 - [x] Favorites
-- [ ] Frequently used contacts
+- [x] Frequently used contacts (most-called section on the contacts tab, v1.13)
 - [x] Full contact details view: addresses, emails, birthdays, organization,
       notes, connected apps (WhatsApp/Telegram/Signal actions with real app
       icons), share as vCard, block numbers (v1.8–v1.9)
@@ -88,7 +88,8 @@ device-only.
 - [x] Caller photo
 - [~] Indication of whether the number is a saved contact (name shown when saved)
 - [ ] Spam-call suspicion indicator
-- [ ] Business/CNAP caller name when the network provides one
+- [x] Business/CNAP caller name when the network provides one (was already
+      wired: callerDisplayName is the fallback when the caller isn't saved)
 - [x] "Last called ..." info on the incoming screen (v1.11)
 - [ ] SIM used for the incoming call
 - [ ] Full-screen vs compact heads-up preference
@@ -116,7 +117,7 @@ device-only.
 - [ ] Conference call
 - [x] DTMF keypad
 - [x] Call duration display
-- [ ] Open the caller's contact card during a call
+- [x] Open the caller's contact card during a call (tap the avatar, v1.13)
 - [ ] Notes during a call
 - [ ] Post-call reminder prompt
 

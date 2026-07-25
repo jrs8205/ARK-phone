@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.recents
 
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -35,8 +36,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -175,11 +179,22 @@ private fun RecentsRowItem(
     } else {
         ""
     }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedText = stringResource(R.string.number_copied)
     ListItem(
         colors = transparentListItemColors(),
-        modifier = clickableListItemModifier {
-            if (entry.number.isNotBlank()) onOpenDetails(entry.number)
-        },
+        modifier = clickableListItemModifier(
+            onClick = {
+                if (entry.number.isNotBlank()) onOpenDetails(entry.number)
+            },
+            onLongClick = {
+                if (entry.number.isNotBlank()) {
+                    clipboard.setText(AnnotatedString(entry.number))
+                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                }
+            },
+        ),
         headlineContent = {
             val name = entry.displayName
                 ?: entry.number.takeIf { it.isNotBlank() }

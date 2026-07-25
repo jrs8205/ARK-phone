@@ -34,6 +34,9 @@
     <string name="contact_card_directions">Reittiohjeet</string>
     <string name="contacts_all">Kaikki yhteystiedot</string>
     <string name="contacts_frequent">Usein käytetyt</string>
+    <string name="contacts_add">Lisää yhteystieto</string>
+    <string name="contact_card_edit">Muokkaa yhteystietoa</string>
+    <string name="number_copied">Numero kopioitu</string>
     <string name="dialpad_long_press_voicemail">Soita vastaajaan</string>
     <string name="dialpad_long_press_speed_dial">Pikavalinta</string>
     <string name="dialpad_paste">Liitä numero</string>

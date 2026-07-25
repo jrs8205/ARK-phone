@@ -2,10 +2,13 @@ package org.jarsi.arkphone.ui.recents
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
@@ -56,6 +59,15 @@ class RecentsScreenTest {
                 onWhatsAppCall = onWhatsAppCall,
             )
         }
+    }
+
+    @Test
+    fun longPressOnARowCopiesTheNumber() {
+        setContent(entry())
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        val clipboard = ApplicationProvider.getApplicationContext<android.app.Application>()
+            .getSystemService(android.content.ClipboardManager::class.java)
+        assertEquals("0401234567", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
     }
 
     @Test
