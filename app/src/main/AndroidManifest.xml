@@ -15,6 +15,16 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- Package visibility for connected apps (WhatsApp, Telegram, Signal…):
+         needed to load their real icons for the contact card's app actions.
+         The filter matches exactly the apps that publish contact actions. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/*" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ArkPhoneApp"
         android:label="@string/app_name"
