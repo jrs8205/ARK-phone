@@ -170,6 +170,30 @@ class ContactDetailsMapperTest {
     }
 
     @Test
+    fun identicalAppActionsFromLinkedRawContactsAreDeduped() {
+        // Two WhatsApp accounts (or linked raw contacts) publish the same
+        // actions with different data row ids — only one row should show.
+        val details = details(
+            listOf(
+                ContactDataRow(
+                    id = 41,
+                    mimeType = "vnd.android.cursor.item/vnd.com.whatsapp.voip.call",
+                    data1 = "358445552841@s.whatsapp.net",
+                    customLabel = "Voice call +358 44 5552841",
+                ),
+                ContactDataRow(
+                    id = 91,
+                    mimeType = "vnd.android.cursor.item/vnd.com.whatsapp.voip.call",
+                    data1 = "358445552841@s.whatsapp.net",
+                    customLabel = "Voice call +358 44 5552841",
+                ),
+            ),
+        )
+        assertEquals(1, details.appActions.size)
+        assertEquals(41L, details.appActions.single().dataId)
+    }
+
+    @Test
     fun appActionsFallBackToTheRawTypeText() {
         val details = details(
             listOf(

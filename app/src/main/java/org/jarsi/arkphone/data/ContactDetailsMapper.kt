@@ -98,7 +98,9 @@ internal fun assembleContactDetails(
         organization = organization,
         note = note,
         websites = websites.distinct(),
-        appActions = appActions.distinct(),
+        // Linked raw contacts (or two WhatsApp accounts) publish the same
+        // action under different data row ids — dedupe on what the row does.
+        appActions = appActions.distinctBy { it.mimeType to it.label },
         lookupKey = lookupKey,
     )
 }
