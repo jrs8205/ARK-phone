@@ -24,10 +24,12 @@ class WhatsAppCallDetectionTest {
         text: String? = null,
         callType: Int? = 1,
         fullScreen: Boolean = false,
+        chronometer: Boolean = false,
     ): Notification {
         val builder = Notification.Builder(context, "test")
             .setSmallIcon(android.R.drawable.sym_call_incoming)
             .setContentTitle(title)
+            .setUsesChronometer(chronometer)
         text?.let { builder.setContentText(it) }
         category?.let { builder.setCategory(it) }
         callType?.let { builder.extras.putInt("android.callType", it) }
@@ -188,9 +190,25 @@ class WhatsAppCallDetectionTest {
     }
 
     @Test
-    fun otherCallNotificationsClassifyAsOngoing() {
+    fun aChronometerMarksAnOngoingCall() {
         assertEquals(
             WhatsAppCallNotificationKind.ONGOING,
+            classifyWhatsAppCallNotification(
+                "com.whatsapp",
+                notification(callType = null, chronometer = true),
+                null,
+            ),
+        )
+    }
+
+    @Test
+    fun aPlainUpdateWithoutCallSignalsIsNeutral() {
+        // The lock screen's bigText refresh and the answer-time "connecting"
+        // update share this shape — it must classify as neither kind.
+        assertNull(
+            classifyWhatsAppCallNotification("com.whatsapp", notification(callType = null), null),
+        )
+        assertNull(
             classifyWhatsAppCallNotification(
                 "com.whatsapp",
                 notification(callType = null),

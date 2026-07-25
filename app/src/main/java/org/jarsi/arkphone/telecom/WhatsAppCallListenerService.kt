@@ -26,14 +26,10 @@ class WhatsAppCallListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         logWhatsAppCallNotification("posted", sbn)
-        val whatsApp = sbn.packageName.startsWith("com.whatsapp")
+        // Signal-less transitional updates return null and must fall through
+        // silently: on the lock screen they arrive while the call still rings.
         val kind = classifyWhatsAppCallNotification(sbn.packageName, sbn.notification, sbn.tag)
-        if (kind == null) {
-            // Rejecting or ending a call can morph the same notification into
-            // a non-call shape without a removal event — stop a stale announcement.
-            if (whatsApp) callerAnnouncer.onWhatsAppRingingStopped(sbn.key)
-            return
-        }
+            ?: return
         val caller = whatsAppCaller(sbn.notification)
         val established =
             sbn.notification.extras.getInt(EXTRA_CALL_TYPE, -1) == 2 ||

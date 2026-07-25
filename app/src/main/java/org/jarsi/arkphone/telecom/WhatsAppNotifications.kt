@@ -26,10 +26,11 @@ private val CALLER_SEPARATORS = listOf(" henkilöltä ", " from ")
 
 /**
  * Sorts a WhatsApp call notification into ringing or ongoing, or null for
- * anything that is not a live call (other packages, non-call categories,
- * the missed-call summary). CallStyle notifications carry the call type;
- * plain formats are told apart by full-screen intent and tag — the ongoing
- * shape is the leftover case, verified against field diagnostics.
+ * anything else. Both kinds need a positive signal (call type, full-screen
+ * intent, ringing tag, chronometer): WhatsApp reuses one notification for the
+ * whole call and refreshes it with a signal-less transitional shape that can
+ * mean "connecting" OR just a lock-screen redraw while still ringing — field
+ * data showed it must classify as neither.
  */
 internal fun classifyWhatsAppCallNotification(
     packageName: String,
@@ -45,8 +46,9 @@ internal fun classifyWhatsAppCallNotification(
         callType != -1 -> null
         notification.fullScreenIntent != null -> WhatsAppCallNotificationKind.RINGING
         tag?.contains("ringing_call") == true -> WhatsAppCallNotificationKind.RINGING
-        tag?.contains("missed_calls") == true -> null
-        else -> WhatsAppCallNotificationKind.ONGOING
+        notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) ->
+            WhatsAppCallNotificationKind.ONGOING
+        else -> null
     }
 }
 
