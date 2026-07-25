@@ -84,6 +84,7 @@
     <string name="announce_mode_voice_only_description">Hiljentää soittoäänen ja toistaa nimeä</string>
     <string name="announce_interval_label">Toista %1$d sekunnin välein</string>
     <string name="notification_channel_incoming_silent">Saapuvat puhelut (äänetön)</string>
+    <string name="notification_channel_incoming_silenced">Saapuvat puhelut (hiljennetty)</string>
     <string name="sim_cards_title">SIM-kortit</string>
     <string name="sim_cards_description">Aktiivisten SIM-korttien tiedot</string>
     <string name="sim_operator">Operaattori</string>

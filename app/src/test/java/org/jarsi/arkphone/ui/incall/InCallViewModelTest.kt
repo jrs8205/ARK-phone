@@ -135,6 +135,20 @@ class InCallViewModelTest {
     }
 
     @Test
+    fun callInfoSurvivesRemovalUntilTheScreenCloses() = runTest {
+        val controller = CallController()
+        controller.onCallAdded(TestCallHandle())
+        val viewModel = viewModel(controller)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            controller.onCallRemoved("call-1")
+            while (state.call?.status != CallStatus.DISCONNECTED) state = awaitItem()
+            assertEquals("0401234567", state.call?.number)
+        }
+    }
+
+    @Test
     fun unknownCallerAndLastCallAreExposed() = runTest {
         val controller = CallController()
         controller.onCallAdded(TestCallHandle())

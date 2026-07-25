@@ -93,10 +93,16 @@ class InCallViewModel @Inject constructor(
             )
         }
 
+    // Telecom removes the call before the screen's closing grace ends; keep
+    // the last known caller so the name doesn't flash to "unknown" at hangup.
+    private var lastShownCall: CallInfo? = null
+
     val uiState: StateFlow<InCallUiState> = combine(
         callController.calls, callController.audio, keypadVisible, ticker, callerContext,
     ) { calls, audio, keypad, now, caller ->
-        val call = primaryCall(calls)
+        val live = primaryCall(calls)
+        if (live != null) lastShownCall = live
+        val call = live ?: lastShownCall?.copy(status = CallStatus.DISCONNECTED)
         InCallUiState(
             call = call,
             muted = audio.muted,

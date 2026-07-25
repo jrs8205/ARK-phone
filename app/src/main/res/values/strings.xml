@@ -86,6 +86,7 @@
     <string name="announce_mode_voice_only_description">Silences the ringtone and repeats the name</string>
     <string name="announce_interval_label">Repeat every %1$d seconds</string>
     <string name="notification_channel_incoming_silent">Incoming calls (silent)</string>
+    <string name="notification_channel_incoming_silenced">Incoming calls (silenced by you)</string>
     <string name="sim_cards_title">SIM cards</string>
     <string name="sim_cards_description">Details of the active SIM cards</string>
     <string name="sim_operator">Operator</string>

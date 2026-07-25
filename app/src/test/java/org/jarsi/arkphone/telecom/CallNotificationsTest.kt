@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.telecom
 
 import android.app.Application
+import android.app.Notification
 import android.content.ComponentName
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
@@ -8,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.ui.incall.InCallActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,6 +76,15 @@ class CallNotificationsTest {
     fun callerNameFallsBackToNumberThenUnknown() {
         val named = CallNotifications(context).buildIncomingCall(incomingCall())
         assertTrue(named.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.contains("Alice") == true)
+    }
+
+    @Test
+    fun silencedRingHasNoHeadsUpAndNoInsistentRing() {
+        val notification = CallNotifications(context)
+            .buildIncomingCall(incomingCall(), silentRing = true, quiet = true)
+        assertEquals(CallNotifications.CHANNEL_INCOMING_SILENCED, notification.channelId)
+        assertNull(notification.fullScreenIntent)
+        assertEquals(0, notification.flags and Notification.FLAG_INSISTENT)
     }
 
     @Test

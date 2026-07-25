@@ -24,6 +24,7 @@ class CallNotifications @Inject constructor(
     companion object {
         const val CHANNEL_INCOMING = "incoming_calls"
         const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent"
+        const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
         const val CHANNEL_ONGOING = "ongoing_calls"
         const val NOTIFICATION_ID = 1
         const val ACTION_ANSWER = "org.jarsi.arkphone.action.ANSWER"
@@ -68,7 +69,17 @@ class CallNotifications @Inject constructor(
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(incoming)
+        // User-silenced ring: DEFAULT importance so the re-posted notification
+        // stays in the status bar instead of heads-upping over the call screen.
+        val incomingSilenced = NotificationChannel(
+            CHANNEL_INCOMING_SILENCED,
+            context.getString(R.string.notification_channel_incoming_silenced),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            setSound(null, null)
+        }
         notificationManager.createNotificationChannel(incomingSilent)
+        notificationManager.createNotificationChannel(incomingSilenced)
         notificationManager.createNotificationChannel(ongoing)
     }
 
@@ -76,7 +87,11 @@ class CallNotifications @Inject constructor(
         notify(buildIncomingCall(info, silentRing))
     }
 
-    internal fun buildIncomingCall(info: CallInfo, silentRing: Boolean = false): Notification {
+    internal fun buildIncomingCall(
+        info: CallInfo,
+        silentRing: Boolean = false,
+        quiet: Boolean = false,
+    ): Notification {
         val fullScreen = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -85,7 +100,11 @@ class CallNotifications @Inject constructor(
             .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setImportant(true)
             .build()
-        val channel = if (silentRing) CHANNEL_INCOMING_SILENT else CHANNEL_INCOMING
+        val channel = when {
+            quiet -> CHANNEL_INCOMING_SILENCED
+            silentRing -> CHANNEL_INCOMING_SILENT
+            else -> CHANNEL_INCOMING
+        }
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(caller.name)
@@ -101,10 +120,10 @@ class CallNotifications @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setFullScreenIntent(fullScreen, true)
+            .apply { if (!quiet) setFullScreenIntent(fullScreen, true) }
             .setContentIntent(fullScreen)
             .build()
-            .apply { flags = flags or Notification.FLAG_INSISTENT }
+            .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }
     }
 
     fun showOngoingCall(info: CallInfo) {
@@ -128,11 +147,12 @@ class CallNotifications @Inject constructor(
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
-    /** Re-posts the ringing notification on the silent channel: the insistent
-     *  ringtone dies with the cancel, the call stays ringing and answerable. */
+    /** Re-posts the ringing notification quietly: the insistent ringtone dies
+     *  with the cancel, and the DEFAULT-importance re-post stays in the status
+     *  bar instead of heads-upping duplicate buttons over the call screen. */
     fun silenceRinging(info: CallInfo) {
         clear()
-        showIncomingCall(info, silentRing = true)
+        notify(buildIncomingCall(info, silentRing = true, quiet = true))
     }
 
     private fun declineIntent(callId: String): PendingIntent {
