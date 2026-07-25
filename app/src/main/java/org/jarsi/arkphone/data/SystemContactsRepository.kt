@@ -185,6 +185,7 @@ class SystemContactsRepository @Inject constructor(
         val projection = arrayOf(
             ContactsContract.PhoneLookup.DISPLAY_NAME,
             ContactsContract.PhoneLookup.PHOTO_URI,
+            ContactsContract.PhoneLookup._ID,
         )
         runCatching {
             context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
@@ -192,6 +193,7 @@ class SystemContactsRepository @Inject constructor(
                     ContactMatch(
                         displayName = cursor.getString(0),
                         photoUri = cursor.getString(1),
+                        contactId = cursor.getLong(2),
                     )
                 } else {
                     null

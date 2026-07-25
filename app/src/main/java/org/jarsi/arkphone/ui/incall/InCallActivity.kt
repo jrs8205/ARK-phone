@@ -15,6 +15,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallNotifications
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
 
@@ -52,7 +53,13 @@ class InCallActivity : ComponentActivity() {
                     hasCall = call != null && call.status != CallStatus.DISCONNECTED,
                     onFinish = ::finish,
                 )
-                CallScreen(uiState = uiState, actions = viewModel)
+                CallScreen(
+                    uiState = uiState,
+                    actions = viewModel,
+                    onOpenContactCard = { contactId ->
+                        startActivity(ContactCardActivity.intent(this, contactId))
+                    },
+                )
             }
         }
     }

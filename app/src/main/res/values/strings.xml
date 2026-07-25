@@ -23,6 +23,7 @@
     <string name="contact_card_unblock">Unblock numbers</string>
     <string name="contact_card_directions">Directions</string>
     <string name="contacts_all">All contacts</string>
+    <string name="contacts_frequent">Frequently contacted</string>
     <string name="dialpad_long_press_voicemail">Call voicemail</string>
     <string name="dialpad_long_press_speed_dial">Speed dial</string>
     <string name="dialpad_paste">Paste number</string>

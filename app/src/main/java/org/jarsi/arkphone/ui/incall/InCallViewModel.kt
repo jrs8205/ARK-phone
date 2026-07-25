@@ -35,6 +35,7 @@ data class InCallUiState(
     val callerPhotoUri: String? = null,
     val knownCaller: Boolean = true,
     val lastCalledMillis: Long? = null,
+    val callerContactId: Long? = null,
 )
 
 @Stable
@@ -74,6 +75,7 @@ class InCallViewModel @Inject constructor(
         val photoUri: String? = null,
         val known: Boolean = true,
         val lastCalledMillis: Long? = null,
+        val contactId: Long? = null,
     )
 
     private val callerContext = callController.calls
@@ -91,6 +93,7 @@ class InCallViewModel @Inject constructor(
                 photoUri = match?.photoUri,
                 known = match != null,
                 lastCalledMillis = lastCalled,
+                contactId = match?.contactId,
             )
         }
 
@@ -113,6 +116,7 @@ class InCallViewModel @Inject constructor(
             callerPhotoUri = caller.photoUri,
             knownCaller = caller.known,
             lastCalledMillis = caller.lastCalledMillis,
+            callerContactId = caller.contactId,
         )
     }.stateIn(
         scope = viewModelScope,

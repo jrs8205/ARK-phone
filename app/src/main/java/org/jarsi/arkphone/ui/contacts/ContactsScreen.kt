@@ -120,7 +120,22 @@ fun ContactsContent(
                             ContactRow(contact, onCall, onOpenContact)
                         }
                     }
-                    if (uiState.favorites.isNotEmpty() && uiState.others.isNotEmpty()) {
+                    if (uiState.frequent.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.contacts_frequent),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                        items(uiState.frequent, key = { "freq-" + it.id }) { contact ->
+                            ContactRow(contact, onCall, onOpenContact)
+                        }
+                    }
+                    if ((uiState.favorites.isNotEmpty() || uiState.frequent.isNotEmpty()) &&
+                        uiState.others.isNotEmpty()
+                    ) {
                         item {
                             Text(
                                 text = stringResource(R.string.contacts_all),

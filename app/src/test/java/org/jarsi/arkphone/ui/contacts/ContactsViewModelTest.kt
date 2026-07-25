@@ -4,6 +4,7 @@ import android.Manifest
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakePermissionChecker
 import org.jarsi.arkphone.testing.MainDispatcherRule
@@ -25,7 +26,7 @@ class ContactsViewModelTest {
 
     @Test
     fun separatesFavoritesFromOthers() = runTest {
-        val viewModel = ContactsViewModel(repository, permissions)
+        val viewModel = ContactsViewModel(repository, FakeCallLogRepository(), permissions)
         viewModel.uiState.test {
             awaitItem()
             repository.allContacts.value = listOf(
@@ -41,7 +42,7 @@ class ContactsViewModelTest {
     @Test
     fun filtersByQuery() = runTest {
         repository.allContacts.value = listOf(contact(1, "Alice"), contact(2, "Bob"))
-        val viewModel = ContactsViewModel(repository, permissions)
+        val viewModel = ContactsViewModel(repository, FakeCallLogRepository(), permissions)
         viewModel.onQueryChange("ali")
         viewModel.uiState.test {
             var state = awaitItem()

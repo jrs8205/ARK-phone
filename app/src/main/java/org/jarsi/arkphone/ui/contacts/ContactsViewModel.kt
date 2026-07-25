@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.util.PermissionChecker
@@ -17,6 +18,7 @@ import javax.inject.Inject
 data class ContactsUiState(
     val loading: Boolean = true,
     val favorites: List<Contact> = emptyList(),
+    val frequent: List<Contact> = emptyList(),
     val others: List<Contact> = emptyList(),
     val query: String = "",
     val hasPermission: Boolean = true,
@@ -25,6 +27,7 @@ data class ContactsUiState(
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     repository: ContactsRepository,
+    callLogRepository: CallLogRepository,
     private val permissionChecker: PermissionChecker,
 ) : ViewModel() {
 
@@ -32,7 +35,12 @@ class ContactsViewModel @Inject constructor(
     private val permissionState = MutableStateFlow(hasContactsPermission())
 
     val uiState: StateFlow<ContactsUiState> =
-        combine(repository.contacts(), query, permissionState) { contacts, query, hasPermission ->
+        combine(
+            repository.contacts(),
+            callLogRepository.callLog(),
+            query,
+            permissionState,
+        ) { contacts, log, query, hasPermission ->
             val visible = if (query.isBlank()) {
                 contacts
             } else {
@@ -44,6 +52,7 @@ class ContactsViewModel @Inject constructor(
             ContactsUiState(
                 loading = false,
                 favorites = visible.filter { it.starred },
+                frequent = if (query.isBlank()) frequentContacts(contacts, log) else emptyList(),
                 others = visible.filterNot { it.starred },
                 query = query,
                 hasPermission = hasPermission,

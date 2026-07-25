@@ -12,4 +12,5 @@ data class Contact(
 data class ContactMatch(
     val displayName: String?,
     val photoUri: String?,
+    val contactId: Long? = null,
 )

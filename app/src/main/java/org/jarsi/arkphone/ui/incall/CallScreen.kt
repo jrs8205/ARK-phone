@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import android.text.format.DateUtils
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Message
@@ -37,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -51,8 +53,13 @@ import org.jarsi.arkphone.ui.theme.CallAnswerGreen
 import org.jarsi.arkphone.ui.theme.CallDeclineRed
 
 @Composable
-fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
+fun CallScreen(
+    uiState: InCallUiState,
+    actions: InCallActions,
+    onOpenContactCard: (Long) -> Unit = {},
+) {
     val call = uiState.call
+    val haptics = rememberHaptics()
     Surface(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
@@ -63,6 +70,7 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 48.dp),
             ) {
+                val contactId = uiState.callerContactId
                 ContactAvatar(
                     displayName = call?.displayName,
                     photoUri = uiState.callerPhotoUri,
@@ -70,7 +78,19 @@ fun CallScreen(uiState: InCallUiState, actions: InCallActions) {
                     initialTextStyle = MaterialTheme.typography.displaySmall,
                     modifier = Modifier
                         .padding(bottom = 16.dp)
-                        .testTag("callerAvatar"),
+                        .testTag("callerAvatar")
+                        .then(
+                            if (contactId != null) {
+                                Modifier
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        haptics.click()
+                                        onOpenContactCard(contactId)
+                                    }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
                 Text(
                     text = call?.displayName ?: call?.number
