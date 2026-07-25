@@ -1,9 +1,11 @@
 package org.jarsi.arkphone.ui.contactcard
 
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -54,6 +56,35 @@ class ContactCardActivity : ComponentActivity() {
                     },
                     onOpenCallHistory = {
                         startActivity(CallDetailActivity.intent(this, it))
+                    },
+                    onOpenAppAction = { action ->
+                        // The mimetype is registered by exactly one app, so the
+                        // system routes this to WhatsApp/Signal/… without a package.
+                        open(
+                            Intent(Intent.ACTION_VIEW).setDataAndType(
+                                ContentUris.withAppendedId(
+                                    ContactsContract.Data.CONTENT_URI,
+                                    action.dataId,
+                                ),
+                                action.mimeType,
+                            ),
+                        )
+                    },
+                    onShare = { details ->
+                        details.lookupKey?.let { key ->
+                            val vcard = Uri.withAppendedPath(
+                                ContactsContract.Contacts.CONTENT_VCARD_URI,
+                                key,
+                            )
+                            open(
+                                Intent.createChooser(
+                                    Intent(Intent.ACTION_SEND)
+                                        .setType(ContactsContract.Contacts.CONTENT_VCARD_TYPE)
+                                        .putExtra(Intent.EXTRA_STREAM, vcard),
+                                    null,
+                                ),
+                            )
+                        }
                     },
                 )
             }

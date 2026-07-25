@@ -64,4 +64,23 @@ class ContactsScreenTest {
         composeRule.onNodeWithContentDescription("Call").performClick()
         assertEquals("0401234567", called)
     }
+
+    @Test
+    fun favoritesAndOthersGetTheirOwnSectionHeaders() {
+        composeRule.setContent {
+            ContactsContent(
+                uiState = ContactsUiState(
+                    loading = false,
+                    hasPermission = true,
+                    favorites = listOf(contact.copy(id = 1, displayName = "Suosikki Sanna", starred = true)),
+                    others = listOf(contact),
+                ),
+                onQueryChange = {},
+                onCall = {},
+                onRequestPermissions = {},
+            )
+        }
+        composeRule.onNodeWithText("Favorites").assertExists()
+        composeRule.onNodeWithText("All contacts").assertExists()
+    }
 }

@@ -92,6 +92,7 @@ class SystemContactsRepository @Inject constructor(
                 starred = header.starred,
                 rows = queryContactDataRows(contactId),
                 typeLabel = ::typeLabel,
+                lookupKey = header.lookupKey,
             )
         }.getOrNull()
     }
@@ -100,6 +101,7 @@ class SystemContactsRepository @Inject constructor(
         val displayName: String,
         val photoUri: String?,
         val starred: Boolean,
+        val lookupKey: String?,
     )
 
     private fun queryContactHeader(contactId: Long): ContactHeader? =
@@ -109,6 +111,7 @@ class SystemContactsRepository @Inject constructor(
                 ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
                 ContactsContract.Contacts.PHOTO_URI,
                 ContactsContract.Contacts.STARRED,
+                ContactsContract.Contacts.LOOKUP_KEY,
             ),
             null, null, null,
         )?.use { cursor ->
@@ -117,6 +120,7 @@ class SystemContactsRepository @Inject constructor(
                     displayName = cursor.getString(0).orEmpty(),
                     photoUri = cursor.getString(1),
                     starred = cursor.getInt(2) == 1,
+                    lookupKey = cursor.getString(3),
                 )
             } else {
                 null
@@ -128,6 +132,7 @@ class SystemContactsRepository @Inject constructor(
         context.contentResolver.query(
             ContactsContract.Data.CONTENT_URI,
             arrayOf(
+                ContactsContract.Data._ID,
                 ContactsContract.Data.MIMETYPE,
                 ContactsContract.Data.DATA1,
                 ContactsContract.Data.DATA2,
@@ -140,11 +145,12 @@ class SystemContactsRepository @Inject constructor(
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 rows += ContactDataRow(
-                    mimeType = cursor.getString(0) ?: continue,
-                    data1 = cursor.getString(1),
-                    type = if (cursor.isNull(2)) null else cursor.getInt(2),
-                    customLabel = cursor.getString(3),
-                    data4 = cursor.getString(4),
+                    id = cursor.getLong(0),
+                    mimeType = cursor.getString(1) ?: continue,
+                    data1 = cursor.getString(2),
+                    typeRaw = cursor.getString(3),
+                    customLabel = cursor.getString(4),
+                    data4 = cursor.getString(5),
                 )
             }
         }

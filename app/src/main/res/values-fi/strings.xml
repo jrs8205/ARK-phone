@@ -27,6 +27,12 @@
     <string name="contact_card_call_history">Puheluhistoria</string>
     <string name="contact_card_favorite">Suosikki</string>
     <string name="contact_card_not_found">Yhteystietoa ei löytynyt</string>
+    <string name="contact_card_connected_apps">Yhdistetyt sovellukset</string>
+    <string name="contact_card_share">Jaa yhteystieto</string>
+    <string name="contact_card_block">Estä numerot</string>
+    <string name="contact_card_unblock">Poista esto</string>
+    <string name="contact_card_directions">Reittiohjeet</string>
+    <string name="contacts_all">Kaikki yhteystiedot</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

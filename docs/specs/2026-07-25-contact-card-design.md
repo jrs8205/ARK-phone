@@ -55,3 +55,20 @@ Scrollable content:
 Mapper as pure unit tests; the card screen with state + callback Compose
 tests (fields rendered, tap callbacks fire); a contacts list test for the
 new row behavior (tap opens card, icon calls).
+
+## Polish round (same day, per the user's Pixel Contacts screenshot)
+
+- Sections grouped into rounded surface cards so groups read apart.
+- Trailing action icons: a message icon on phone rows, a directions icon on
+  address rows.
+- Connected apps section: third-party contact actions (WhatsApp message /
+  voice / video, Signal, …) read generically from the provider's
+  `vnd.android.cursor.item/vnd.*` data rows and launched via their data row
+  id + mimetype — the mimetype routes to the owning app, so every such app
+  works without app-specific code.
+- Share contact as a vCard through the system share sheet (lookup key).
+- Block/unblock all of the contact's numbers from the card (error-colored
+  row, same BlockedNumbersRepository as the call detail view).
+- Contacts list: an "All contacts" header separates favorites from the rest.
+- Skipped on purpose: weather widget, ringtone/reminders/security rows,
+  VIP/ICE chips, recent-messages preview.

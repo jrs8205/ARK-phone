@@ -7,14 +7,30 @@ import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
+import org.jarsi.arkphone.data.model.ContactAppAction
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.LabeledField
 
+/** Third-party contact actions live under this prefix (vnd.com.whatsapp…). */
+private const val APP_MIME_PREFIX = "vnd.android.cursor.item/vnd."
+
+private val BUILT_IN_MIME_TYPES = setOf(
+    Phone.CONTENT_ITEM_TYPE,
+    Email.CONTENT_ITEM_TYPE,
+    StructuredPostal.CONTENT_ITEM_TYPE,
+    Event.CONTENT_ITEM_TYPE,
+    Organization.CONTENT_ITEM_TYPE,
+    Note.CONTENT_ITEM_TYPE,
+    Website.CONTENT_ITEM_TYPE,
+)
+
 /** One ContactsContract.Data row reduced to what the mapper needs. */
 internal data class ContactDataRow(
+    val id: Long,
     val mimeType: String,
     val data1: String?,
-    val type: Int? = null,
+    /** DATA2 as text — an int type for built-in rows, free text for app rows. */
+    val typeRaw: String? = null,
     val customLabel: String? = null,
     val data4: String? = null,
 )
@@ -31,17 +47,29 @@ internal fun assembleContactDetails(
     starred: Boolean,
     rows: List<ContactDataRow>,
     typeLabel: (mimeType: String, type: Int, customLabel: String?) -> String?,
+    lookupKey: String? = null,
 ): ContactDetails {
     val phones = mutableListOf<LabeledField>()
     val emails = mutableListOf<LabeledField>()
     val addresses = mutableListOf<LabeledField>()
     val events = mutableListOf<LabeledField>()
     val websites = mutableListOf<String>()
+    val appActions = mutableListOf<ContactAppAction>()
     var organization: String? = null
     var note: String? = null
     for (row in rows) {
         val value = row.data1?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-        val label = row.type?.let { typeLabel(row.mimeType, it, row.customLabel) }
+        if (row.mimeType !in BUILT_IN_MIME_TYPES) {
+            if (row.mimeType.startsWith(APP_MIME_PREFIX)) {
+                val actionLabel = row.customLabel?.takeIf { it.isNotBlank() }
+                    ?: row.typeRaw?.takeIf { it.isNotBlank() }
+                if (actionLabel != null) {
+                    appActions += ContactAppAction(row.id, row.mimeType, actionLabel)
+                }
+            }
+            continue
+        }
+        val label = row.typeRaw?.toIntOrNull()?.let { typeLabel(row.mimeType, it, row.customLabel) }
             ?: row.customLabel
         when (row.mimeType) {
             Phone.CONTENT_ITEM_TYPE -> phones += LabeledField(value, label)
@@ -70,5 +98,7 @@ internal fun assembleContactDetails(
         organization = organization,
         note = note,
         websites = websites.distinct(),
+        appActions = appActions.distinct(),
+        lookupKey = lookupKey,
     )
 }
