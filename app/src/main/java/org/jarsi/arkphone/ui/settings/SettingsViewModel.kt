@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import javax.inject.Inject
 
@@ -19,7 +20,17 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val notificationAccessChecker: NotificationAccessChecker,
+    private val callScreeningRole: CallScreeningRole,
 ) : ViewModel() {
+
+    private val _hasScreeningRole = MutableStateFlow(callScreeningRole.isHeld())
+    val hasScreeningRole: StateFlow<Boolean> = _hasScreeningRole.asStateFlow()
+
+    fun refreshScreeningRole() {
+        _hasScreeningRole.value = callScreeningRole.isHeld()
+    }
+
+    fun screeningRoleRequestIntent() = callScreeningRole.requestIntent()
 
     val uiState: StateFlow<Settings> = settingsRepository.settings.stateIn(
         scope = viewModelScope,

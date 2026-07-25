@@ -34,8 +34,10 @@ import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
+import org.jarsi.arkphone.telecom.AndroidCallScreeningRole
 import org.jarsi.arkphone.telecom.AndroidRingSilencer
 import org.jarsi.arkphone.telecom.AnnounceGate
+import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.telecom.RejectMessageSender
 import org.jarsi.arkphone.telecom.RingSilencer
 import org.jarsi.arkphone.telecom.SmsRejectMessageSender
@@ -116,6 +118,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindRingSilencer(impl: AndroidRingSilencer): RingSilencer
+
+    @Binds
+    @Singleton
+    abstract fun bindCallScreeningRole(impl: AndroidCallScreeningRole): CallScreeningRole
 
     @Binds
     @Singleton

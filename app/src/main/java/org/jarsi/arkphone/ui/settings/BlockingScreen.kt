@@ -10,7 +10,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Settings
@@ -44,14 +48,28 @@ fun BlockingScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasScreeningRole by viewModel.hasScreeningRole.collectAsStateWithLifecycle()
+    val roleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { viewModel.refreshScreeningRole() }
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshScreeningRole()
+        onPauseOrDispose { }
+    }
     BlockingContent(
         settings = settings,
+        hasScreeningRole = hasScreeningRole,
         onBack = onBack,
         onBlockHiddenNumbersChanged = viewModel::onBlockHiddenNumbersChanged,
         onBlockUnknownCallersChanged = viewModel::onBlockUnknownCallersChanged,
         onAllowRepeatCallersChanged = viewModel::onAllowRepeatCallersChanged,
         onAddBlockedPrefix = viewModel::onAddBlockedPrefix,
         onRemoveBlockedPrefix = viewModel::onRemoveBlockedPrefix,
+        onRequestScreeningRole = {
+            viewModel.screeningRoleRequestIntent()?.let { intent ->
+                runCatching { roleLauncher.launch(intent) }
+            }
+        },
     )
 }
 
@@ -60,11 +78,13 @@ fun BlockingScreen(
 fun BlockingContent(
     settings: Settings,
     onBack: () -> Unit,
+    hasScreeningRole: Boolean = true,
     onBlockHiddenNumbersChanged: (Boolean) -> Unit = {},
     onBlockUnknownCallersChanged: (Boolean) -> Unit = {},
     onAllowRepeatCallersChanged: (Boolean) -> Unit = {},
     onAddBlockedPrefix: (String) -> Unit = {},
     onRemoveBlockedPrefix: (String) -> Unit = {},
+    onRequestScreeningRole: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -93,6 +113,25 @@ fun BlockingContent(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            if (!hasScreeningRole) {
+                Card(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.blocking_role_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(
+                            onClick = {
+                                haptics.click()
+                                onRequestScreeningRole()
+                            },
+                            modifier = Modifier.padding(top = 12.dp),
+                        ) {
+                            Text(stringResource(R.string.blocking_role_button))
+                        }
+                    }
+                }
+            }
             BlockingSwitchRow(
                 title = stringResource(R.string.blocking_hidden_title),
                 description = stringResource(R.string.blocking_hidden_description),

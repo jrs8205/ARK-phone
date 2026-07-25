@@ -23,21 +23,39 @@ class BlockingContentTest {
 
     private fun setContent(
         settings: Settings = Settings(),
+        hasScreeningRole: Boolean = true,
         onBlockHiddenChanged: (Boolean) -> Unit = {},
         onAddPrefix: (String) -> Unit = {},
         onRemovePrefix: (String) -> Unit = {},
+        onRequestScreeningRole: () -> Unit = {},
     ) {
         composeRule.setContent {
             BlockingContent(
                 settings = settings,
+                hasScreeningRole = hasScreeningRole,
                 onBack = {},
                 onBlockHiddenNumbersChanged = onBlockHiddenChanged,
                 onBlockUnknownCallersChanged = {},
                 onAllowRepeatCallersChanged = {},
                 onAddBlockedPrefix = onAddPrefix,
                 onRemoveBlockedPrefix = onRemovePrefix,
+                onRequestScreeningRole = onRequestScreeningRole,
             )
         }
+    }
+
+    @Test
+    fun missingScreeningRoleShowsTheBannerAndRequests() {
+        var requested = 0
+        setContent(hasScreeningRole = false, onRequestScreeningRole = { requested++ })
+        composeRule.onNodeWithText("Set ARK-phone").performClick()
+        assertEquals(1, requested)
+    }
+
+    @Test
+    fun heldScreeningRoleHidesTheBanner() {
+        setContent(hasScreeningRole = true)
+        composeRule.onNodeWithText("Set ARK-phone").assertDoesNotExist()
     }
 
     @Test
