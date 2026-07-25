@@ -27,6 +27,9 @@
     <string name="dialpad_long_press_speed_dial">Speed dial</string>
     <string name="dialpad_paste">Paste number</string>
     <string name="dialpad_clear">Clear number</string>
+    <string name="recents_search_hint">Search calls</string>
+    <string name="recents_filter_all">All</string>
+    <string name="recents_filter_missed">Missed</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>

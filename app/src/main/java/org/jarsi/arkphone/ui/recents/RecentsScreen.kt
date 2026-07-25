@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,11 +20,13 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,12 +71,54 @@ fun RecentsScreen(
         viewModel.refreshPermissionState()
         onPauseOrDispose { }
     }
-    RecentsContent(
-        uiState = uiState,
-        onCall = onCall,
-        onRequestPermissions = onRequestPermissions,
-        onOpenDetails = onOpenDetails,
-        onWhatsAppCall = viewModel::onWhatsAppCall,
+    Column(Modifier.fillMaxSize()) {
+        if (uiState.hasPermission) {
+            OutlinedTextField(
+                value = uiState.query,
+                onValueChange = viewModel::onQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text(stringResource(R.string.recents_search_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                RecentsFilterChip(uiState.filter, RecentsFilter.ALL, R.string.recents_filter_all, viewModel::onFilterChange)
+                RecentsFilterChip(uiState.filter, RecentsFilter.MISSED, R.string.recents_filter_missed, viewModel::onFilterChange)
+                RecentsFilterChip(uiState.filter, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, viewModel::onFilterChange)
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            RecentsContent(
+                uiState = uiState,
+                onCall = onCall,
+                onRequestPermissions = onRequestPermissions,
+                onOpenDetails = onOpenDetails,
+                onWhatsAppCall = viewModel::onWhatsAppCall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentsFilterChip(
+    selected: RecentsFilter,
+    filter: RecentsFilter,
+    @StringRes labelRes: Int,
+    onSelect: (RecentsFilter) -> Unit,
+) {
+    val haptics = rememberHaptics()
+    FilterChip(
+        selected = selected == filter,
+        onClick = {
+            haptics.click()
+            onSelect(filter)
+        },
+        label = { Text(stringResource(labelRes)) },
     )
 }
 
@@ -113,9 +158,9 @@ fun RecentsContent(
             Text(stringResource(R.string.recents_empty), style = MaterialTheme.typography.bodyLarge)
         }
         else -> LazyColumn(Modifier.fillMaxSize()) {
-            items(uiState.entries, key = { it.id }) { entry ->
+            items(uiState.entries, key = { it.entry.id }) { grouped ->
                 RecentsRow(
-                    entry = entry,
+                    grouped = grouped,
                     onCall = onCall,
                     onOpenDetails = onOpenDetails,
                     onWhatsAppCall = onWhatsAppCall,
@@ -127,23 +172,24 @@ fun RecentsContent(
 
 @Composable
 private fun RecentsRow(
-    entry: CallLogEntry,
+    grouped: GroupedCallLogEntry,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
     RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-        RecentsRowItem(entry, onCall, onOpenDetails, onWhatsAppCall)
+        RecentsRowItem(grouped, onCall, onOpenDetails, onWhatsAppCall)
     }
 }
 
 @Composable
 private fun RecentsRowItem(
-    entry: CallLogEntry,
+    grouped: GroupedCallLogEntry,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
+    val entry = grouped.entry
     val haptics = rememberHaptics()
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
     val sourceSuffix = if (entry.source == CallSource.WHATSAPP) {
@@ -157,11 +203,10 @@ private fun RecentsRowItem(
             if (entry.number.isNotBlank()) onOpenDetails(entry.number)
         },
         headlineContent = {
-            Text(
-                entry.displayName
-                    ?: entry.number.takeIf { it.isNotBlank() }
-                    ?: stringResource(R.string.call_log_unknown_caller),
-            )
+            val name = entry.displayName
+                ?: entry.number.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.call_log_unknown_caller)
+            Text(if (grouped.count > 1) "$name (${grouped.count})" else name)
         },
         supportingContent = {
             Text(

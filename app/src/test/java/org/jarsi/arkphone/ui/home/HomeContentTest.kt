@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.ui.recents.GroupedCallLogEntry
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -77,7 +78,10 @@ class HomeContentTest {
         composeRule.setContent {
             HomeContent(
                 favorites = emptyList(),
-                recentsUiState = RecentsUiState(loading = false, entries = listOf(entry)),
+                recentsUiState = RecentsUiState(
+                    loading = false,
+                    entries = listOf(GroupedCallLogEntry(entry)),
+                ),
                 onCall = { called.add(it) },
                 onRequestPermissions = {},
                 onOpenDetails = { opened.add(it) },

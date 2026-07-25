@@ -37,6 +37,9 @@
     <string name="dialpad_long_press_speed_dial">Pikavalinta</string>
     <string name="dialpad_paste">Liitä numero</string>
     <string name="dialpad_clear">Tyhjennä numero</string>
+    <string name="recents_search_hint">Hae puheluista</string>
+    <string name="recents_filter_all">Kaikki</string>
+    <string name="recents_filter_missed">Vastaamattomat</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

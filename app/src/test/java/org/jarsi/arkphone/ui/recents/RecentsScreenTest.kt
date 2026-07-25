@@ -40,18 +40,28 @@ class RecentsScreenTest {
 
     private fun setContent(
         entry: CallLogEntry,
+        count: Int = 1,
         onOpenDetails: (String) -> Unit = {},
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
     ) {
         composeRule.setContent {
             RecentsContent(
-                uiState = RecentsUiState(loading = false, entries = listOf(entry)),
+                uiState = RecentsUiState(
+                    loading = false,
+                    entries = listOf(GroupedCallLogEntry(entry, count)),
+                ),
                 onCall = {},
                 onRequestPermissions = {},
                 onOpenDetails = onOpenDetails,
                 onWhatsAppCall = onWhatsAppCall,
             )
         }
+    }
+
+    @Test
+    fun groupedRowShowsTheCallCount() {
+        setContent(entry(), count = 3)
+        composeRule.onNodeWithText("Matti Meikäläinen (3)").assertExists()
     }
 
     @Test
