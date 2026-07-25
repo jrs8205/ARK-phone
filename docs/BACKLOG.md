@@ -70,9 +70,11 @@ device-only.
 - [ ] Calls handled by an AI agent in the log
 - [x] Call date, time and duration
 - [ ] SIM used per call
-- [ ] Search by name, number or date
-- [ ] Custom filters
-- [ ] Grouping of consecutive calls from the same number
+- [x] Search by name or number (home screen, Pixel-style; digit search
+      matches national and international formats)
+- [x] Filter chips: All / Missed / Outgoing / WhatsApp (horizontally
+      scrollable row)
+- [x] Grouping of consecutive calls from the same number ("Name (3)")
 - [ ] Call statistics
 - [x] Contact counts per person (detail-view statistics)
 - [x] Per-person latest call and total talk time (detail-view statistics)
