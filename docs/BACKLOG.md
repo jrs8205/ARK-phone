@@ -20,7 +20,11 @@ may be re-scoped or dropped.
       announcement for WhatsApp calls at the 4–10 s repeat interval, opt-in
       settings toggle (WhatsApp's own ringtone cannot be silenced
       programmatically)
-- [ ] SMS / messaging support
+- [x] WhatsApp call log round (2026-07-25): app-owned log of incoming, answered
+      and outgoing WhatsApp calls merged into Recents and the detail view, with
+      a WhatsApp button that starts a WhatsApp voice call directly
+- [ ] SMS / messaging support — agreed to be the LAST big project; smaller items
+      below come first (agreed 2026-07-25)
 
 Play policy note: call-log permissions are restricted on Google Play; the
 default-dialer role is an accepted use. The app must hold the role before
@@ -39,10 +43,19 @@ requesting them and stop using them if the role is revoked.
 
 ## Contacts
 
+Agreed direction (2026-07-25): the system ContactsProvider stays the single
+source of truth — the app never keeps its own contact store. Reading shows
+everything the provider holds; edits (when built) write to the provider on the
+user's Google account so they sync to Google like edits made in the Google
+Contacts app. New contacts must be saved on the Google account, not
+device-only.
+
 - [x] Browse and search device contacts
 - [x] Favorites
 - [ ] Frequently used contacts
-- [ ] Add and edit contacts
+- [ ] Full contact details view: addresses, emails, birthdays, organization,
+      notes — everything stored on the contact (read-only first step)
+- [ ] Add and edit contacts (writes to the system provider, Google account)
 - [x] Profile photos (round avatars)
 - [ ] Multiple numbers per contact (model currently holds a single number)
 - [ ] Custom labels, e.g. work, family, customer
@@ -62,6 +75,8 @@ requesting them and stop using them if the role is revoked.
 - [x] Contact counts per person (detail-view statistics)
 - [x] Per-person latest call and total talk time (detail-view statistics)
 - [ ] Callback reminders
+- [ ] Unanswered outgoing WhatsApp calls are not recorded (their notification
+      lifecycle carries no distinguishing signal — known gap from v1.7)
 
 ## Incoming call view
 
