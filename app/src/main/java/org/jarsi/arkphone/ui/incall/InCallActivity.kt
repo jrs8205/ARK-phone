@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallNotifications
+import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
 
@@ -46,7 +47,11 @@ class InCallActivity : ComponentActivity() {
             ArkPhoneTheme {
                 val viewModel: InCallViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                InCallFinishGuard(hasCall = uiState.call != null, onFinish = ::finish)
+                val call = uiState.call
+                InCallFinishGuard(
+                    hasCall = call != null && call.status != CallStatus.DISCONNECTED,
+                    onFinish = ::finish,
+                )
                 CallScreen(uiState = uiState, actions = viewModel)
             }
         }

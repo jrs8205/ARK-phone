@@ -43,7 +43,7 @@ class InCallFinishGuardTest {
     }
 
     @Test
-    fun finishesWhenASeenCallEnds() {
+    fun finishesAfterAShortEndedGraceWhenASeenCallEnds() {
         var finishCount = 0
         var hasCall by mutableStateOf(true)
         composeRule.mainClock.autoAdvance = false
@@ -53,7 +53,10 @@ class InCallFinishGuardTest {
         composeRule.mainClock.advanceTimeBy(500L)
         hasCall = false
         composeRule.waitForIdle()
+        // The "call ended" state stays visible for a moment before closing.
         composeRule.mainClock.advanceTimeBy(500L)
+        assertEquals(0, finishCount)
+        composeRule.mainClock.advanceTimeBy(1_100L)
         assertEquals(1, finishCount)
     }
 
