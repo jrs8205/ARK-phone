@@ -74,6 +74,38 @@ class WhatsAppCallDetectionTest {
     }
 
     @Test
+    fun plainRingingNotificationIsRecognizedByItsTag() {
+        val call = whatsAppIncomingCall(
+            "com.whatsapp",
+            notification(callType = null),
+            tag = "ringing_call_notification:abc@s.whatsapp.net",
+        )
+        assertEquals("Jarsi", call?.callerName)
+    }
+
+    @Test
+    fun unrelatedTagsDoNotMarkACallIncoming() {
+        assertNull(
+            whatsAppIncomingCall(
+                "com.whatsapp",
+                notification(callType = null),
+                tag = "call_notification_group",
+            ),
+        )
+    }
+
+    @Test
+    fun ongoingCallTypeWinsOverARingingTag() {
+        assertNull(
+            whatsAppIncomingCall(
+                "com.whatsapp",
+                notification(callType = 2),
+                tag = "ringing_call_notification",
+            ),
+        )
+    }
+
+    @Test
     fun blankTitleMeansAnUnknownCaller() {
         val call = whatsAppIncomingCall("com.whatsapp.w4b", notification(title = " "))
         assertEquals(null, call?.callerName)
