@@ -1,11 +1,13 @@
 package org.jarsi.arkphone.telecom
 
+import android.Manifest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.util.minutesOfDay
 import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
@@ -23,6 +25,7 @@ class CallRuleEvaluator @Inject constructor(
     private val contactsRepository: ContactsRepository,
     private val callLogRepository: CallLogRepository,
     private val clock: Clock,
+    private val permissionChecker: PermissionChecker,
 ) {
     companion object {
         private const val SETTINGS_TIMEOUT_MILLIS = 1_000L
@@ -34,12 +37,20 @@ class CallRuleEvaluator @Inject constructor(
         val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
             ?: settingsCache.current
         val now = minutesOfDay(clock.nowMillis())
-        val match = if (number.isNullOrBlank()) null else contactsRepository.lookupContact(number)
+        // Without READ_CONTACTS every caller would look unknown and the
+        // unknown-caller rule would reject saved contacts too — fail open
+        // and treat the caller as known instead.
+        val contactsReadable = permissionChecker.has(Manifest.permission.READ_CONTACTS)
+        val match = if (number.isNullOrBlank() || !contactsReadable) {
+            null
+        } else {
+            contactsRepository.lookupContact(number)
+        }
         val repeat = !number.isNullOrBlank() &&
             isRepeatCaller(number, settings.repeatCallerWindowMinutes)
         val block = shouldBlockCall(
             number = number,
-            isInContacts = match != null,
+            isInContacts = if (contactsReadable) match != null else true,
             isFavorite = match?.starred == true,
             isRepeatCaller = repeat,
             minutesOfDay = now,
@@ -48,7 +59,8 @@ class CallRuleEvaluator @Inject constructor(
         return Decision(
             block = block,
             details = "block=$block hidden=${number.isNullOrBlank()}" +
-                " inContacts=${match != null} favorite=${match?.starred == true}" +
+                " inContacts=${match != null} contactsReadable=$contactsReadable" +
+                " favorite=${match?.starred == true}" +
                 " repeat=$repeat scheduleActive=${blockingScheduleActive(now, settings)}" +
                 " blockAll=${settings.blockAllCallers} blockUnknown=${settings.blockUnknownCallers}",
         )

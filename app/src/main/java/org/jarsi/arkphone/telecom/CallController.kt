@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +19,12 @@ class CallController @Inject constructor() {
     private val dtmfExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "dtmf-stop").apply { isDaemon = true }
     }
+
+    internal var scheduleDtmfStop: (Runnable) -> Future<*> = { action ->
+        dtmfExecutor.schedule(action, DTMF_TONE_MILLIS, TimeUnit.MILLISECONDS)
+    }
+
+    private var pendingDtmfStop: Future<*>? = null
 
     private val _calls = MutableStateFlow<List<CallInfo>>(emptyList())
     val calls: StateFlow<List<CallInfo>> = _calls.asStateFlow()
@@ -39,6 +46,8 @@ class CallController @Inject constructor() {
     @Synchronized
     fun onCallRemoved(id: String) {
         handles.remove(id)
+        pendingDtmfStop?.cancel(false)
+        pendingDtmfStop = null
         publish()
     }
 
@@ -66,8 +75,11 @@ class CallController @Inject constructor() {
     @Synchronized
     fun playDtmf(id: String, digit: Char) {
         val handle = handles[id] ?: return
+        // A rapid second digit must not be cut short by the previous digit's
+        // stop task: replace the pending stop and end the old tone now.
+        pendingDtmfStop?.let { if (it.cancel(false)) handle.stopDtmf() }
         handle.playDtmf(digit)
-        dtmfExecutor.schedule({ handle.stopDtmf() }, DTMF_TONE_MILLIS, TimeUnit.MILLISECONDS)
+        pendingDtmfStop = scheduleDtmfStop { handle.stopDtmf() }
     }
 
     fun toggleMute() {

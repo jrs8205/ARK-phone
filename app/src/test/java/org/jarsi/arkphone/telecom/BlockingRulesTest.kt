@@ -124,6 +124,51 @@ class BlockingRulesTest {
     }
 
     @Test
+    fun prefixBlocksStayActiveOutsideTheScheduleWindow() {
+        val settings = Settings(
+            blockedPrefixes = setOf("0700"),
+            blockingScheduleEnabled = true,
+            blockingScheduleStartMinutes = 21 * 60,
+            blockingScheduleEndMinutes = 7 * 60,
+        )
+        assertTrue(blocked(number = "0700 123 456", minutesOfDay = 12 * 60, settings = settings))
+        assertFalse(blocked(number = "+358 44 5552841", minutesOfDay = 12 * 60, settings = settings))
+    }
+
+    @Test
+    fun prefixBlocksOutsideTheScheduleStillHonorTheExceptions() {
+        val settings = Settings(
+            blockedPrefixes = setOf("0700"),
+            allowRepeatCallers = true,
+            blockingScheduleEnabled = true,
+            blockingScheduleStartMinutes = 21 * 60,
+            blockingScheduleEndMinutes = 7 * 60,
+        )
+        assertFalse(
+            blocked(number = "0700 123 456", isFavorite = true, minutesOfDay = 12 * 60, settings = settings),
+        )
+        assertFalse(
+            blocked(number = "0700 123 456", isRepeatCaller = true, minutesOfDay = 12 * 60, settings = settings),
+        )
+        assertFalse(
+            blocked(
+                number = "0700 123 456",
+                minutesOfDay = 12 * 60,
+                settings = settings.copy(allowedNumbers = setOf("0700 123 456")),
+            ),
+        )
+    }
+
+    @Test
+    fun prefixesMatchAcrossNationalAndInternationalForms() {
+        val national = Settings(blockedPrefixes = setOf("0700"))
+        assertTrue(blocked(number = "+358 700 123 456", settings = national))
+        val international = Settings(blockedPrefixes = setOf("+358700"))
+        assertTrue(blocked(number = "0700 123 456", settings = international))
+        assertFalse(blocked(number = "+358 44 5552841", settings = national))
+    }
+
+    @Test
     fun scheduleLimitsBlockingToItsWindow() {
         val settings = Settings(
             blockUnknownCallers = true,

@@ -35,6 +35,17 @@ class CallNotifications @Inject constructor(
     private val notificationManager =
         context.getSystemService(NotificationManager::class.java)
 
+    /** False when the user has turned off notifications or an incoming-call
+     *  channel: the incoming notification (and its full-screen intent) would
+     *  never appear, so the call UI must be launched directly instead. */
+    fun incomingNotificationsUsable(): Boolean {
+        val manager = notificationManager ?: return false
+        if (!manager.areNotificationsEnabled()) return false
+        return listOf(CHANNEL_INCOMING, CHANNEL_INCOMING_SILENT).all { id ->
+            manager.getNotificationChannel(id)?.importance != NotificationManager.IMPORTANCE_NONE
+        }
+    }
+
     fun ensureChannels() {
         val ringtone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         val audioAttributes = AudioAttributes.Builder()

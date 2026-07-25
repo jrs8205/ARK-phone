@@ -39,6 +39,14 @@ class RecentsViewModelTest {
     )
 
     @Test
+    fun aLoneTrunkZeroDoesNotMatchEveryNumber() {
+        val noZero = entry(1, number = "+358 44 5552841")
+        assertFalse(matchesCallQuery(noZero, "0"))
+        assertTrue(matchesCallQuery(noZero, "0445"))
+        assertTrue(matchesCallQuery(entry(2, number = "0401234567"), "0"))
+    }
+
+    @Test
     fun whatsAppCallPassesTheNumberAndName() {
         val viewModel = RecentsViewModel(repository, permissions, launcher)
         viewModel.onWhatsAppCall(

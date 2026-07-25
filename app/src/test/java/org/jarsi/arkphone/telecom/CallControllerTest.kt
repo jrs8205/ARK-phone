@@ -4,6 +4,8 @@ import android.telecom.Call
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 
 private class FakeCallHandle(
     override val id: String = "call-1",
@@ -16,7 +18,8 @@ private class FakeCallHandle(
     var rejected = false
     var disconnected = false
     var held = false
-    var dtmfStopped = false
+    var dtmfStops = 0
+    val dtmfStopped get() = dtmfStops > 0
     val dtmf = StringBuilder()
     override fun answer() { answered = true }
     override fun reject() { rejected = true }
@@ -24,7 +27,19 @@ private class FakeCallHandle(
     override fun hold() { held = true }
     override fun unhold() { held = false }
     override fun playDtmf(digit: Char) { dtmf.append(digit) }
-    override fun stopDtmf() { dtmfStopped = true }
+    override fun stopDtmf() { dtmfStops++ }
+}
+
+private class FakeStopFuture : Future<Any?> {
+    var cancelled = false
+    override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+        cancelled = true
+        return true
+    }
+    override fun isCancelled() = cancelled
+    override fun isDone() = cancelled
+    override fun get(): Any? = null
+    override fun get(timeout: Long, unit: TimeUnit): Any? = null
 }
 
 private class FakeAudioController : InCallAudioController {
@@ -131,5 +146,28 @@ class CallControllerTest {
             Thread.sleep(10)
         }
         assertTrue(handle.dtmfStopped)
+    }
+
+    @Test
+    fun rapidDtmfInputEndsThePreviousToneInsteadOfCuttingTheNewOne() {
+        val controller = CallController()
+        val handle = FakeCallHandle()
+        controller.onCallAdded(handle)
+        val scheduled = mutableListOf<Pair<Runnable, FakeStopFuture>>()
+        controller.scheduleDtmfStop = { action ->
+            FakeStopFuture().also { scheduled += action to it }
+        }
+
+        controller.playDtmf("call-1", '1')
+        assertEquals(1, scheduled.size)
+        assertEquals(0, handle.dtmfStops)
+
+        controller.playDtmf("call-1", '2')
+        assertTrue(scheduled[0].second.cancelled)
+        assertEquals(1, handle.dtmfStops)
+        assertEquals("12", handle.dtmf.toString())
+
+        scheduled[1].first.run()
+        assertEquals(2, handle.dtmfStops)
     }
 }

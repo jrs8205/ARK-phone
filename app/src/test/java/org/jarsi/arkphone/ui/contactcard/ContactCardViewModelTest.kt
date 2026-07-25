@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.contactcard
 
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.LabeledField
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
@@ -55,6 +56,22 @@ class ContactCardViewModelTest {
         viewModel.onToggleBlocked()
         mainDispatcherRule.dispatcher.scheduler.runCurrent()
         assertEquals(emptySet<String>(), blockedNumbers.blocked)
+        assertFalse(viewModel.uiState.value.blocked)
+    }
+
+    @Test
+    fun blockedStateReflectsTheProviderWhenBlockingIsRefused() = runTest {
+        val refusing = object : BlockedNumbersRepository {
+            override suspend fun canBlock(): Boolean = true
+            override suspend fun isBlocked(number: String): Boolean = false
+            override suspend fun block(number: String): Boolean = false
+            override suspend fun unblock(number: String): Boolean = false
+        }
+        val viewModel = ContactCardViewModel(contacts, refusing)
+        viewModel.load(7)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        viewModel.onToggleBlocked()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
         assertFalse(viewModel.uiState.value.blocked)
     }
 }

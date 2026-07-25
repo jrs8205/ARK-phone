@@ -2,6 +2,8 @@ package org.jarsi.arkphone.telecom
 
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.ComponentName
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
@@ -88,6 +90,36 @@ class CallNotificationsTest {
         // CallStyle without a full-screen intent or foreground service makes
         // notify() throw and took the whole in-call UI down in the field.
         assertEquals(0, notification.extras.getInt(NotificationCompat.EXTRA_CALL_TYPE))
+    }
+
+    @Test
+    fun incomingNotificationsAreUsableByDefault() {
+        val notifications = CallNotifications(context)
+        notifications.ensureChannels()
+        assertTrue(notifications.incomingNotificationsUsable())
+    }
+
+    @Test
+    fun globallyDisabledNotificationsAreReportedUnusable() {
+        val notifications = CallNotifications(context)
+        notifications.ensureChannels()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        shadowOf(manager).setNotificationsEnabled(false)
+        assertEquals(false, notifications.incomingNotificationsUsable())
+    }
+
+    @Test
+    fun aDisabledIncomingChannelIsReportedUnusable() {
+        val notifications = CallNotifications(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CallNotifications.CHANNEL_INCOMING,
+                "Incoming",
+                NotificationManager.IMPORTANCE_NONE,
+            ),
+        )
+        assertEquals(false, notifications.incomingNotificationsUsable())
     }
 
     @Test

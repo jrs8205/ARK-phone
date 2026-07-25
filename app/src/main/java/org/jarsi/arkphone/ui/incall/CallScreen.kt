@@ -71,8 +71,11 @@ fun CallScreen(
                 modifier = Modifier.padding(top = 48.dp),
             ) {
                 val contactId = uiState.callerContactId
+                // Telecom only provides the contact name from API 30 on; the
+                // contacts-lookup name backs it up for older devices.
+                val callerName = call?.displayName ?: uiState.callerDisplayName
                 ContactAvatar(
-                    displayName = call?.displayName,
+                    displayName = callerName,
                     photoUri = uiState.callerPhotoUri,
                     size = 112.dp,
                     initialTextStyle = MaterialTheme.typography.displaySmall,
@@ -93,7 +96,7 @@ fun CallScreen(
                         ),
                 )
                 Text(
-                    text = call?.displayName ?: call?.number
+                    text = callerName ?: call?.number
                         ?: stringResource(R.string.incall_unknown_caller),
                     style = MaterialTheme.typography.headlineMedium,
                 )
@@ -111,7 +114,7 @@ fun CallScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 if (call?.status == CallStatus.RINGING) {
-                    if (!uiState.knownCaller && call.displayName == null) {
+                    if (!uiState.knownCaller && callerName == null) {
                         Text(
                             text = stringResource(R.string.incall_unknown_number),
                             style = MaterialTheme.typography.labelLarge,

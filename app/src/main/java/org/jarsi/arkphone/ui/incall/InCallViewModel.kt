@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.telecom.CallController
@@ -22,6 +23,7 @@ import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.telecom.RejectMessageSender
 import org.jarsi.arkphone.telecom.RingSilencer
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.Toaster
 import org.jarsi.arkphone.util.formatDuration
 import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
@@ -36,6 +38,7 @@ data class InCallUiState(
     val knownCaller: Boolean = true,
     val lastCalledMillis: Long? = null,
     val callerContactId: Long? = null,
+    val callerDisplayName: String? = null,
 )
 
 @Stable
@@ -60,6 +63,7 @@ class InCallViewModel @Inject constructor(
     private val clock: Clock,
     private val ringSilencer: RingSilencer,
     private val rejectMessageSender: RejectMessageSender,
+    private val toaster: Toaster,
 ) : ViewModel(), InCallActions {
 
     private val keypadVisible = MutableStateFlow(false)
@@ -76,6 +80,7 @@ class InCallViewModel @Inject constructor(
         val known: Boolean = true,
         val lastCalledMillis: Long? = null,
         val contactId: Long? = null,
+        val displayName: String? = null,
     )
 
     private val callerContext = callController.calls
@@ -94,6 +99,7 @@ class InCallViewModel @Inject constructor(
                 known = match != null,
                 lastCalledMillis = lastCalled,
                 contactId = match?.contactId,
+                displayName = match?.displayName,
             )
         }
 
@@ -117,6 +123,7 @@ class InCallViewModel @Inject constructor(
             knownCaller = caller.known,
             lastCalledMillis = caller.lastCalledMillis,
             callerContactId = caller.contactId,
+            callerDisplayName = caller.displayName,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -144,7 +151,10 @@ class InCallViewModel @Inject constructor(
 
     override fun onRejectWithMessage(message: String) {
         val call = uiState.value.call ?: return
-        call.number?.let { rejectMessageSender.send(it, message) }
+        // The rejection happens regardless — the user asked for it — but a
+        // failed send (missing SEND_SMS, radio error) must not stay silent.
+        val sent = call.number?.let { rejectMessageSender.send(it, message) } == true
+        if (!sent) toaster.show(R.string.incall_reject_message_failed)
         callController.reject(call.id)
     }
 }

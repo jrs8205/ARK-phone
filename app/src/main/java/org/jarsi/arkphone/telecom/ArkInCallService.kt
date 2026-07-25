@@ -144,14 +144,17 @@ class ArkInCallService : InCallService() {
     /**
      * The full-screen intent is unreliable while the keyguard is showing (and unavailable
      * without the full-screen-intent permission on API 34+), so launch the in-call screen
-     * directly then. System-bound InCallServices are exempt from background-start limits,
+     * directly then — and also when notifications are disabled entirely, because the
+     * incoming notification and its full-screen intent never appear at all then.
+     * System-bound InCallServices are exempt from background-start limits,
      * and the singleTask/singleTop launch mode absorbs a duplicate start if the
      * full-screen intent fires too.
      */
     private fun shouldLaunchIncomingUiDirectly(): Boolean {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive != false
         val keyguardShowing = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
-        return !interactive || keyguardShowing || !canUseFullScreenIntentCompat()
+        return !interactive || keyguardShowing || !canUseFullScreenIntentCompat() ||
+            !callNotifications.incomingNotificationsUsable()
     }
 
     private fun canUseFullScreenIntentCompat(): Boolean {

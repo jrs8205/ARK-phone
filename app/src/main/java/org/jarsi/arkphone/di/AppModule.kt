@@ -48,8 +48,10 @@ import org.jarsi.arkphone.telecom.WhatsAppCaller
 import org.jarsi.arkphone.util.AndroidNotificationAccessChecker
 import org.jarsi.arkphone.util.AndroidPermissionChecker
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.AndroidToaster
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import org.jarsi.arkphone.util.PermissionChecker
+import org.jarsi.arkphone.util.Toaster
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -126,6 +128,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindRejectMessageSender(impl: SmsRejectMessageSender): RejectMessageSender
+
+    @Binds
+    @Singleton
+    abstract fun bindToaster(impl: AndroidToaster): Toaster
 
     companion object {
         @Provides

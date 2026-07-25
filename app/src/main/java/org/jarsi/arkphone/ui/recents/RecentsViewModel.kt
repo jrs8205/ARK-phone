@@ -52,9 +52,11 @@ internal fun matchesCallQuery(entry: CallLogEntry, query: String): Boolean {
     val queryDigits = query.filter { it.isDigit() }
     if (queryDigits.isEmpty()) return false
     val numberDigits = entry.number.filter { it.isDigit() }
-    // "0445..." must also find "+358 44 5..." — retry without the trunk zero.
+    // "0445..." must also find "+358 44 5..." — retry without the trunk
+    // zero, but never with the empty rest of a lone "0" (it matches all).
     return numberDigits.contains(queryDigits) ||
-        (queryDigits.startsWith("0") && numberDigits.contains(queryDigits.drop(1)))
+        (queryDigits.length > 1 && queryDigits.startsWith("0") &&
+            numberDigits.contains(queryDigits.drop(1)))
 }
 
 private fun matchesFilter(entry: CallLogEntry, filter: RecentsFilter): Boolean = when (filter) {

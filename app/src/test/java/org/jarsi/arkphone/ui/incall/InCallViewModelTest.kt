@@ -3,6 +3,7 @@ package org.jarsi.arkphone.ui.incall
 import android.telecom.Call
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.ContactMatch
@@ -44,11 +45,13 @@ class InCallViewModelTest {
     private val clock = Clock { 100_000L }
     private val silencedCalls = mutableListOf<String>()
     private val sentMessages = mutableListOf<Pair<String, String>>()
+    private val toasts = mutableListOf<Int>()
 
     private fun viewModel(
         controller: CallController,
         contacts: FakeContactsRepository = FakeContactsRepository(),
         callLog: FakeCallLogRepository = FakeCallLogRepository(),
+        smsSucceeds: Boolean = true,
     ) = InCallViewModel(
         controller,
         contacts,
@@ -57,8 +60,9 @@ class InCallViewModelTest {
         { info -> silencedCalls.add(info.id) },
         { number, message ->
             sentMessages.add(number to message)
-            true
+            smsSucceeds
         },
+        { resId -> toasts.add(resId) },
     )
 
     @Test
@@ -131,6 +135,39 @@ class InCallViewModelTest {
             viewModel.onRejectWithMessage("Soitan kohta.")
             assertEquals(listOf("0401234567" to "Soitan kohta."), sentMessages)
             assertTrue(handle.rejected)
+            assertTrue(toasts.isEmpty())
+        }
+    }
+
+    @Test
+    fun failedRejectMessageStillRejectsAndReportsTheFailure() = runTest {
+        val controller = CallController()
+        val handle = TestCallHandle()
+        controller.onCallAdded(handle)
+        val viewModel = viewModel(controller, smsSucceeds = false)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            viewModel.onRejectWithMessage("Soitan kohta.")
+            assertTrue(handle.rejected)
+            assertEquals(listOf(R.string.incall_reject_message_failed), toasts)
+        }
+    }
+
+    @Test
+    fun contactNameFromTheLookupBacksUpTheTelecomName() = runTest {
+        // On API 26–29 telecom never provides the contact name, so the
+        // screen falls back to the name resolved from the contacts lookup.
+        val controller = CallController()
+        controller.onCallAdded(TestCallHandle())
+        val contacts = FakeContactsRepository().apply {
+            matchesByNumber["0401234567"] = ContactMatch("Alice", null)
+        }
+        val viewModel = viewModel(controller, contacts = contacts)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.callerDisplayName == null) state = awaitItem()
+            assertEquals("Alice", state.callerDisplayName)
         }
     }
 

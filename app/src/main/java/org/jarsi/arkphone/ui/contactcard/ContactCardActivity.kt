@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.contactcard
 
+import android.content.ClipData
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -101,7 +102,14 @@ class ContactCardActivity : ComponentActivity() {
                                 Intent.createChooser(
                                     Intent(Intent.ACTION_SEND)
                                         .setType(ContactsContract.Contacts.CONTENT_VCARD_TYPE)
-                                        .putExtra(Intent.EXTRA_STREAM, vcard),
+                                        .putExtra(Intent.EXTRA_STREAM, vcard)
+                                        .apply {
+                                            // The receiving app has no contacts
+                                            // permission; the grant travels via
+                                            // ClipData through the chooser.
+                                            clipData = ClipData.newRawUri(null, vcard)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        },
                                     null,
                                 ),
                             )

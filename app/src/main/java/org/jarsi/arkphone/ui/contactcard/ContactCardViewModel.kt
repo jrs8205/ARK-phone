@@ -44,15 +44,18 @@ class ContactCardViewModel @Inject constructor(
     fun onToggleBlocked() {
         val state = _uiState.value
         val numbers = state.details?.phones?.map { it.value }.orEmpty()
-        if (numbers.isEmpty()) return
+        val firstNumber = numbers.firstOrNull() ?: return
         viewModelScope.launch {
             if (state.blocked) {
                 numbers.forEach { blockedNumbersRepository.unblock(it) }
-                _uiState.value = _uiState.value.copy(blocked = false)
             } else {
                 numbers.forEach { blockedNumbersRepository.block(it) }
-                _uiState.value = _uiState.value.copy(blocked = true)
             }
+            // The provider can refuse a change (role lost, one number
+            // failing); show its real state instead of the intent.
+            _uiState.value = _uiState.value.copy(
+                blocked = blockedNumbersRepository.isBlocked(firstNumber),
+            )
         }
     }
 }

@@ -61,7 +61,9 @@ fun OnboardingScreen(
                     haptics.click()
                     onRequestPermissions()
                 },
-                enabled = !hasPermissions,
+                // The call-log permissions are restricted and only granted to
+                // the default dialer, so the role must come first.
+                enabled = !hasPermissions && isDefaultDialer,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text(

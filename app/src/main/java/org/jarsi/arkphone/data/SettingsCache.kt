@@ -36,7 +36,18 @@ class SettingsCache @Inject constructor(
                 // handed out the default (v1.4.1's loud "voice only").
                 state.value = settings
                 if (!firstLoad.isCompleted) {
-                    Log.i("ArkPhone", "Settings first load: $settings")
+                    // No allowed numbers or prefixes in the log line — the
+                    // whole data class would print them in plain text.
+                    Log.i(
+                        "ArkPhone",
+                        "Settings first load: announce=${settings.announceMode}" +
+                            " blockAll=${settings.blockAllCallers}" +
+                            " hidden=${settings.blockHiddenNumbers}" +
+                            " unknown=${settings.blockUnknownCallers}" +
+                            " prefixes=${settings.blockedPrefixes.size}" +
+                            " allowed=${settings.allowedNumbers.size}" +
+                            " schedule=${settings.blockingScheduleEnabled}",
+                    )
                     firstLoad.complete(Unit)
                 }
             }
