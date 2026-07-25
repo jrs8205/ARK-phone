@@ -2,9 +2,11 @@ package org.jarsi.arkphone.ui.home
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
@@ -50,7 +52,7 @@ class HomeContentTest {
     }
 
     @Test
-    fun clearButtonEmptiesTheSearch() {
+    fun searchDeleteRemovesOneCharacterAndLongPressClears() {
         var query: String? = null
         composeRule.setContent {
             HomeContent(
@@ -61,7 +63,10 @@ class HomeContentTest {
                 onQueryChange = { query = it },
             )
         }
-        composeRule.onNodeWithContentDescription("Clear search").performClick()
+        composeRule.onNodeWithContentDescription("Delete digit").performClick()
+        assertEquals("matt", query)
+        composeRule.onNodeWithContentDescription("Delete digit")
+            .performTouchInput { longClick() }
         assertEquals("", query)
     }
 

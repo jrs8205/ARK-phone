@@ -81,8 +81,8 @@ class ContactsScreenTest {
                 onRequestPermissions = {},
             )
         }
-        composeRule.onNodeWithContentDescription("Clear search").performClick()
-        assertEquals("", query)
+        composeRule.onNodeWithContentDescription("Delete digit").performClick()
+        assertEquals("m", query)
     }
 
     @Test
