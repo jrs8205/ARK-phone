@@ -41,6 +41,7 @@
     <string name="recents_filter_all">Kaikki</string>
     <string name="recents_filter_missed">Vastaamattomat</string>
     <string name="recents_filter_outgoing">Soitetut</string>
+    <string name="recents_filter_blocked">Estetyt</string>
     <string name="recents_search_clear">Tyhjennä haku</string>
     <string name="incall_silence">Hiljennä</string>
     <string name="incall_reject_message">Viesti</string>
