@@ -85,6 +85,9 @@ class CallNotificationsTest {
         assertEquals(CallNotifications.CHANNEL_INCOMING_SILENCED, notification.channelId)
         assertNull(notification.fullScreenIntent)
         assertEquals(0, notification.flags and Notification.FLAG_INSISTENT)
+        // CallStyle without a full-screen intent or foreground service makes
+        // notify() throw and took the whole in-call UI down in the field.
+        assertEquals(0, notification.extras.getInt(NotificationCompat.EXTRA_CALL_TYPE))
     }
 
     @Test

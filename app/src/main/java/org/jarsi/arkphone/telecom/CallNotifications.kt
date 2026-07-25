@@ -109,13 +109,20 @@ class CallNotifications @Inject constructor(
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))
-            .setStyle(
-                NotificationCompat.CallStyle.forIncomingCall(
-                    caller,
-                    declineIntent(info.id),
-                    answerIntent(info.id),
-                ),
-            )
+            .apply {
+                // CallStyle demands a full-screen intent (or a foreground
+                // service) — with neither, notify() throws. The quiet re-post
+                // after "silence" must therefore stay a plain notification.
+                if (!quiet) {
+                    setStyle(
+                        NotificationCompat.CallStyle.forIncomingCall(
+                            caller,
+                            declineIntent(info.id),
+                            answerIntent(info.id),
+                        ),
+                    )
+                }
+            }
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
