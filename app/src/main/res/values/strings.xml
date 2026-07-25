@@ -12,6 +12,11 @@
     <string name="call_source_whatsapp" translatable="false">WhatsApp</string>
     <string name="call_whatsapp">Call on WhatsApp</string>
     <string name="call_log_unknown_caller">Unknown</string>
+    <string name="contact_event_birthday">Birthday</string>
+    <string name="contact_event_anniversary">Anniversary</string>
+    <string name="contact_card_call_history">Call history</string>
+    <string name="contact_card_favorite">Favorite</string>
+    <string name="contact_card_not_found">Contact not found</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>

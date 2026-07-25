@@ -9,8 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -19,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,6 +34,7 @@ import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
 
 @Composable
 fun ContactsScreen(
@@ -41,7 +47,16 @@ fun ContactsScreen(
         viewModel.refreshPermissionState()
         onPauseOrDispose { }
     }
-    ContactsContent(uiState, viewModel::onQueryChange, onCall, onRequestPermissions)
+    val context = LocalContext.current
+    ContactsContent(
+        uiState = uiState,
+        onQueryChange = viewModel::onQueryChange,
+        onCall = onCall,
+        onRequestPermissions = onRequestPermissions,
+        onOpenContact = { id ->
+            context.startActivity(ContactCardActivity.intent(context, id))
+        },
+    )
 }
 
 @Composable
@@ -50,6 +65,7 @@ fun ContactsContent(
     onQueryChange: (String) -> Unit,
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
+    onOpenContact: (Long) -> Unit = {},
 ) {
     when {
         uiState.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -100,11 +116,11 @@ fun ContactsContent(
                             )
                         }
                         items(uiState.favorites, key = { "fav-" + it.id }) { contact ->
-                            ContactRow(contact, onCall)
+                            ContactRow(contact, onCall, onOpenContact)
                         }
                     }
                     items(uiState.others, key = { it.id }) { contact ->
-                        ContactRow(contact, onCall)
+                        ContactRow(contact, onCall, onOpenContact)
                     }
                 }
             }
@@ -113,11 +129,32 @@ fun ContactsContent(
 }
 
 @Composable
-private fun ContactRow(contact: Contact, onCall: (String) -> Unit) {
+private fun ContactRow(
+    contact: Contact,
+    onCall: (String) -> Unit,
+    onOpenContact: (Long) -> Unit,
+) {
+    val haptics = rememberHaptics()
     ListItem(
-        modifier = clickableListItemModifier { contact.phoneNumber?.let(onCall) },
+        modifier = clickableListItemModifier { onOpenContact(contact.id) },
         headlineContent = { Text(contact.displayName) },
         supportingContent = { contact.phoneNumber?.let { Text(it) } },
         leadingContent = { ContactAvatar(contact) },
+        trailingContent = {
+            contact.phoneNumber?.let { number ->
+                IconButton(
+                    onClick = {
+                        haptics.confirm()
+                        onCall(number)
+                    },
+                ) {
+                    Icon(
+                        Icons.Filled.Call,
+                        contentDescription = stringResource(R.string.dialpad_call),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
     )
 }

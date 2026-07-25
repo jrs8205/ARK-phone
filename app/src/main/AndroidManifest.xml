@@ -59,6 +59,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.contactcard.ContactCardActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.incall.InCallActivity"
             android:exported="false"
             android:launchMode="singleTask"

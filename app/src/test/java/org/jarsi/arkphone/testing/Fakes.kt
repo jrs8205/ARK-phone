@@ -11,6 +11,7 @@ import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimCard
@@ -57,8 +58,10 @@ class FakeBlockedNumbersRepository(
 class FakeContactsRepository : ContactsRepository {
     val allContacts = MutableStateFlow<List<Contact>>(emptyList())
     val matchesByNumber = mutableMapOf<String, ContactMatch>()
+    val detailsById = mutableMapOf<Long, ContactDetails>()
     override fun contacts(): Flow<List<Contact>> = allContacts
     override suspend fun lookupContact(number: String): ContactMatch? = matchesByNumber[number]
+    override suspend fun contactDetails(contactId: Long): ContactDetails? = detailsById[contactId]
 }
 
 class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepository {
