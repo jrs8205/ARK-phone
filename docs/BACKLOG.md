@@ -89,15 +89,16 @@ device-only.
 - [~] Indication of whether the number is a saved contact (name shown when saved)
 - [ ] Spam-call suspicion indicator
 - [ ] Business/CNAP caller name when the network provides one
-- [ ] "Last called ..." info on the incoming screen
+- [x] "Last called ..." info on the incoming screen (v1.11)
 - [ ] SIM used for the incoming call
 - [ ] Full-screen vs compact heads-up preference
 - [ ] AMOLED black theme option
-- [ ] Color coding for known, unknown and suspected-spam callers
+- [~] Color coding for known, unknown and suspected-spam callers (unknown
+      numbers get a warning tag since v1.11; spam awaits spam data)
 - [x] Answer
 - [x] Decline
-- [ ] Silence the ringer without declining
-- [ ] Decline with an SMS reply
+- [x] Silence the ringer without declining (v1.11)
+- [x] Decline with an SMS reply (canned replies, direct send; v1.11)
 - [ ] Block the number from the call view
 - [ ] Hand the call to an AI agent (requires operator-side routing support)
 - [ ] "Always AI for this number" option
