@@ -25,7 +25,9 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.DataStoreSettingsRepository
 import org.jarsi.arkphone.data.RoomWhatsAppCallLogRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.DataStoreSpeedDialRepository
 import org.jarsi.arkphone.data.SimRepository
+import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.SystemCallLogRepository
 import org.jarsi.arkphone.data.SystemContactsRepository
 import org.jarsi.arkphone.data.SystemSimRepository
@@ -102,6 +104,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindWhatsAppCallLauncher(impl: WhatsAppCaller): WhatsAppCallLauncher
+
+    @Binds
+    @Singleton
+    abstract fun bindSpeedDialRepository(impl: DataStoreSpeedDialRepository): SpeedDialRepository
 
     companion object {
         @Provides

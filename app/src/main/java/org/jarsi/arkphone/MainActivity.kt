@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainScreen(
                         onCall = { number -> phoneCaller.placeCall(number) },
+                        onVoicemail = { phoneCaller.placeVoicemailCall() },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.corePermissions()) },
                         showDefaultDialerBanner = !defaultDialer,
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },

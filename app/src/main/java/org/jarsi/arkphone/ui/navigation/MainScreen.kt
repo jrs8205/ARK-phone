@@ -43,6 +43,7 @@ fun MainScreen(
     onRequestDefaultDialer: () -> Unit,
     requestedNumber: String? = null,
     onRequestedNumberConsumed: () -> Unit = {},
+    onVoicemail: () -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     LaunchedEffect(requestedNumber) {
@@ -64,6 +65,7 @@ fun MainScreen(
                     onCall = onCall,
                     initialNumber = requestedNumber,
                     onInitialNumberConsumed = onRequestedNumberConsumed,
+                    onVoicemail = onVoicemail,
                 )
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
             }

@@ -23,6 +23,9 @@
     <string name="contact_card_unblock">Unblock numbers</string>
     <string name="contact_card_directions">Directions</string>
     <string name="contacts_all">All contacts</string>
+    <string name="dialpad_long_press_voicemail">Call voicemail</string>
+    <string name="dialpad_long_press_speed_dial">Speed dial</string>
+    <string name="dialpad_paste">Paste number</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>

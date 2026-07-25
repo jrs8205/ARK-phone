@@ -7,6 +7,7 @@ import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.SimRepository
+import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.CallLogEntry
@@ -80,6 +81,17 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
 
 class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {
     override suspend fun activeSims(): List<SimCard> = sims
+}
+
+class FakeSpeedDialRepository : SpeedDialRepository {
+    val state = MutableStateFlow<Map<Int, String>>(emptyMap())
+    override val entries: Flow<Map<Int, String>> = state
+    override suspend fun set(digit: Int, number: String) {
+        state.value = state.value + (digit to number)
+    }
+    override suspend fun clear(digit: Int) {
+        state.value = state.value - digit
+    }
 }
 
 class FakePermissionChecker(private val granted: MutableSet<String> = mutableSetOf()) : PermissionChecker {

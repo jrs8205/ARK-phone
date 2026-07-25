@@ -1,6 +1,14 @@
 package org.jarsi.arkphone.ui.dialpad
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,8 +32,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,12 +54,25 @@ fun DialpadScreen(
     viewModel: DialpadViewModel = hiltViewModel(),
     initialNumber: String? = null,
     onInitialNumberConsumed: () -> Unit = {},
+    onVoicemail: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(initialNumber) {
         if (initialNumber != null) {
             viewModel.setNumber(initialNumber)
             onInitialNumberConsumed()
+        }
+    }
+    val context = LocalContext.current
+    var pendingSpeedDialDigit by rememberSaveable { mutableStateOf<Int?>(null) }
+    val speedDialPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val digit = pendingSpeedDialDigit
+        pendingSpeedDialDigit = null
+        val uri = result.data?.data
+        if (digit != null && result.resultCode == Activity.RESULT_OK && uri != null) {
+            phoneNumberFromPickedUri(context, uri)?.let { viewModel.saveSpeedDial(digit, it) }
         }
     }
     Surface(Modifier.fillMaxSize()) {
@@ -56,9 +82,35 @@ fun DialpadScreen(
             onDelete = viewModel::onDelete,
             onCall = { onCall(uiState.number) },
             onSuggestion = { number -> viewModel.setNumber(number) },
+            onPaste = viewModel::onPaste,
+            onVoicemail = onVoicemail,
+            onSpeedDial = { digit ->
+                val assigned = uiState.speedDial[digit]
+                if (assigned != null) {
+                    onCall(assigned)
+                } else {
+                    pendingSpeedDialDigit = digit
+                    runCatching {
+                        speedDialPicker.launch(
+                            Intent(
+                                Intent.ACTION_PICK,
+                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            ),
+                        )
+                    }
+                }
+            },
         )
     }
 }
+
+private fun phoneNumberFromPickedUri(context: Context, uri: Uri): String? = runCatching {
+    context.contentResolver.query(
+        uri,
+        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+        null, null, null,
+    )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+}.getOrNull()
 
 @Composable
 fun DialpadContent(
@@ -67,8 +119,12 @@ fun DialpadContent(
     onDelete: () -> Unit,
     onCall: () -> Unit,
     onSuggestion: (String) -> Unit,
+    onPaste: (String) -> Unit = {},
+    onVoicemail: () -> Unit = {},
+    onSpeedDial: (Int) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
+    val clipboard = LocalClipboardManager.current
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Bottom,
@@ -95,11 +151,21 @@ fun DialpadContent(
                 modifier = Modifier.padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val pasteLabel = stringResource(R.string.dialpad_paste)
                 Text(
-                    text = uiState.number,
+                    text = uiState.displayNumber.ifEmpty { uiState.number },
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClickLabel = pasteLabel,
+                            onLongClick = {
+                                haptics.longPress()
+                                clipboard.getText()?.text?.let(onPaste)
+                            },
+                        ),
                 )
                 IconButton(
                     onClick = {
@@ -114,7 +180,7 @@ fun DialpadContent(
                 }
             }
         }
-        DialpadGrid(onKey = onKey)
+        DialpadGrid(onKey = onKey, onVoicemail = onVoicemail, onSpeedDial = onSpeedDial)
         FloatingActionButton(
             onClick = {
                 haptics.confirm()

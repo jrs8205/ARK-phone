@@ -24,4 +24,13 @@ class PhoneCaller @Inject constructor(
         telecomManager.placeCall(uri, Bundle())
         return true
     }
+
+    /** Calls the operator voicemail; false when CALL_PHONE is missing. */
+    @SuppressLint("MissingPermission") // Guarded by the PermissionChecker check below.
+    fun placeVoicemailCall(): Boolean {
+        if (!permissionChecker.has(Manifest.permission.CALL_PHONE)) return false
+        val telecomManager = context.getSystemService(TelecomManager::class.java) ?: return false
+        telecomManager.placeCall(Uri.fromParts("voicemail", "", null), Bundle())
+        return true
+    }
 }

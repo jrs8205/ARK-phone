@@ -36,10 +36,26 @@ class DialpadGridTest {
     }
 
     @Test
-    fun longPressOnOtherKeyEmitsNothing() {
+    fun longPressOnOneCallsVoicemail() {
         val pressed = mutableListOf<Char>()
-        composeRule.setContent { DialpadGrid(onKey = { pressed.add(it) }) }
+        var voicemails = 0
+        composeRule.setContent {
+            DialpadGrid(onKey = { pressed.add(it) }, onVoicemail = { voicemails++ })
+        }
+        composeRule.onNodeWithText("1").performTouchInput { longClick() }
+        assertEquals(1, voicemails)
+        assertEquals(emptyList<Char>(), pressed)
+    }
+
+    @Test
+    fun longPressOnDigitsTwoToNineTriggersSpeedDial() {
+        val pressed = mutableListOf<Char>()
+        val speedDials = mutableListOf<Int>()
+        composeRule.setContent {
+            DialpadGrid(onKey = { pressed.add(it) }, onSpeedDial = { speedDials.add(it) })
+        }
         composeRule.onNodeWithText("5").performTouchInput { longClick() }
+        assertEquals(listOf(5), speedDials)
         assertEquals(emptyList<Char>(), pressed)
     }
 }

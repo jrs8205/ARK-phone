@@ -28,7 +28,11 @@ private val dialpadRows = listOf(
 )
 
 @Composable
-fun DialpadGrid(onKey: (Char) -> Unit) {
+fun DialpadGrid(
+    onKey: (Char) -> Unit,
+    onVoicemail: () -> Unit = {},
+    onSpeedDial: (Int) -> Unit = {},
+) {
     val haptics = rememberHaptics()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         dialpadRows.forEach { row ->
@@ -44,20 +48,36 @@ fun DialpadGrid(onKey: (Char) -> Unit) {
                             haptics.keyTap()
                             onKey(key)
                         },
-                        onLongPress = if (digit == '0') {
-                            {
-                                haptics.longPress()
-                                onKey('+')
+                        onLongPress = when (digit) {
+                            '0' -> {
+                                {
+                                    haptics.longPress()
+                                    onKey('+')
+                                }
                             }
-                        } else {
+                            '1' -> {
+                                {
+                                    haptics.longPress()
+                                    onVoicemail()
+                                }
+                            }
+                            in '2'..'9' -> {
+                                {
+                                    haptics.longPress()
+                                    onSpeedDial(digit.digitToInt())
+                                }
+                            }
                             // A no-op (not null) so combinedClickable consumes the long-press
                             // gesture instead of falling through to a plain click on release.
-                            {}
+                            else -> {
+                                {}
+                            }
                         },
-                        onLongPressLabel = if (digit == '0') {
-                            stringResource(R.string.dialpad_long_press_plus)
-                        } else {
-                            null
+                        onLongPressLabel = when (digit) {
+                            '0' -> stringResource(R.string.dialpad_long_press_plus)
+                            '1' -> stringResource(R.string.dialpad_long_press_voicemail)
+                            in '2'..'9' -> stringResource(R.string.dialpad_long_press_speed_dial)
+                            else -> null
                         },
                     )
                 }

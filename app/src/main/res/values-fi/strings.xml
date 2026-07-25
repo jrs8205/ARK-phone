@@ -33,6 +33,9 @@
     <string name="contact_card_unblock">Poista esto</string>
     <string name="contact_card_directions">Reittiohjeet</string>
     <string name="contacts_all">Kaikki yhteystiedot</string>
+    <string name="dialpad_long_press_voicemail">Soita vastaajaan</string>
+    <string name="dialpad_long_press_speed_dial">Pikavalinta</string>
+    <string name="dialpad_paste">Liitä numero</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>
