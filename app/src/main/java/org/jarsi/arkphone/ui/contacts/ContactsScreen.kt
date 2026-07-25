@@ -33,6 +33,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.RowCard
+import org.jarsi.arkphone.ui.components.SearchField
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
@@ -94,13 +95,11 @@ fun ContactsContent(
             }
         }
         else -> Column(Modifier.fillMaxSize()) {
-            OutlinedTextField(
+            SearchField(
                 value = uiState.query,
                 onValueChange = onQueryChange,
+                placeholder = stringResource(R.string.contacts_search_hint),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.contacts_search_hint)) },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
             )
             if (uiState.favorites.isEmpty() && uiState.others.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -2,6 +2,7 @@ package org.jarsi.arkphone.ui.recents
 
 import android.text.format.DateUtils
 import androidx.annotation.StringRes
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallMissed
@@ -59,7 +60,8 @@ internal fun callTypeLabelRes(type: CallType): Int = when (type) {
     CallType.OTHER -> R.string.call_type_other
 }
 
-/** The All / Missed / WhatsApp filter chip row for the call history list. */
+/** The filter chip row for the call history list. Scrolls horizontally so
+ *  the chips never squeeze together on narrow screens. */
 @Composable
 fun RecentsFilterChips(
     selected: RecentsFilter,
@@ -68,7 +70,9 @@ fun RecentsFilterChips(
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier,
+        modifier = modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
     ) {
         RecentsFilterChip(selected, RecentsFilter.ALL, R.string.recents_filter_all, onSelect)
         RecentsFilterChip(selected, RecentsFilter.MISSED, R.string.recents_filter_missed, onSelect)

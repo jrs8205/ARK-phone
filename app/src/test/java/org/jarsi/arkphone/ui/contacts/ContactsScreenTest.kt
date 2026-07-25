@@ -66,6 +66,26 @@ class ContactsScreenTest {
     }
 
     @Test
+    fun searchClearButtonEmptiesTheQuery() {
+        var query: String? = null
+        composeRule.setContent {
+            ContactsContent(
+                uiState = ContactsUiState(
+                    loading = false,
+                    hasPermission = true,
+                    others = listOf(contact),
+                    query = "ma",
+                ),
+                onQueryChange = { query = it },
+                onCall = {},
+                onRequestPermissions = {},
+            )
+        }
+        composeRule.onNodeWithContentDescription("Clear search").performClick()
+        assertEquals("", query)
+    }
+
+    @Test
     fun favoritesAndOthersGetTheirOwnSectionHeaders() {
         composeRule.setContent {
             ContactsContent(
