@@ -64,7 +64,8 @@
     <string name="blocking_unknown_title">Estä numerot, jotka eivät ole yhteystiedoissa</string>
     <string name="blocking_unknown_description">Vain tallennetut yhteystiedot tavoittavat sinut.</string>
     <string name="blocking_repeat_title">Päästä toistuva soittaja läpi</string>
-    <string name="blocking_repeat_description">Jos sama numero soittaa uudelleen 15 minuutin sisällä, sitä ei estetä.</string>
+    <string name="blocking_repeat_description">Jos sama numero soittaa uudelleen aikaikkunan sisällä, sitä ei estetä.</string>
+    <string name="blocking_repeat_window">Aikaikkuna: %1$d min</string>
     <string name="blocking_prefixes_title">Estetyt etuliitteet</string>
     <string name="blocking_prefixes_description">Näillä alkavat numerot estetään, myös tallennetut yhteystiedot.</string>
     <string name="blocking_prefix_hint">esim. +358700 tai 0700</string>

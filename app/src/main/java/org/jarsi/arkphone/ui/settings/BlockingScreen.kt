@@ -27,6 +27,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -47,6 +48,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import kotlin.math.roundToInt
 
 @Composable
 fun BlockingScreen(
@@ -72,6 +74,7 @@ fun BlockingScreen(
         onAllowRepeatCallersChanged = viewModel::onAllowRepeatCallersChanged,
         onAddBlockedPrefix = viewModel::onAddBlockedPrefix,
         onRemoveBlockedPrefix = viewModel::onRemoveBlockedPrefix,
+        onRepeatWindowChanged = viewModel::onRepeatCallerWindowChanged,
         onAlwaysAllowFavoritesChanged = viewModel::onAlwaysAllowFavoritesChanged,
         onAddAllowedNumber = viewModel::onAddAllowedNumber,
         onRemoveAllowedNumber = viewModel::onRemoveAllowedNumber,
@@ -95,6 +98,7 @@ fun BlockingContent(
     onBlockHiddenNumbersChanged: (Boolean) -> Unit = {},
     onBlockUnknownCallersChanged: (Boolean) -> Unit = {},
     onAllowRepeatCallersChanged: (Boolean) -> Unit = {},
+    onRepeatWindowChanged: (Int) -> Unit = {},
     onAddBlockedPrefix: (String) -> Unit = {},
     onRemoveBlockedPrefix: (String) -> Unit = {},
     onAlwaysAllowFavoritesChanged: (Boolean) -> Unit = {},
@@ -174,6 +178,24 @@ fun BlockingContent(
                 checked = settings.allowRepeatCallers,
                 onCheckedChange = onAllowRepeatCallersChanged,
             )
+            if (settings.allowRepeatCallers) {
+                Text(
+                    text = stringResource(
+                        R.string.blocking_repeat_window,
+                        settings.repeatCallerWindowMinutes,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                Slider(
+                    value = settings.repeatCallerWindowMinutes.toFloat(),
+                    onValueChange = { onRepeatWindowChanged(it.roundToInt()) },
+                    valueRange = Settings.MIN_REPEAT_WINDOW_MINUTES.toFloat()..
+                        Settings.MAX_REPEAT_WINDOW_MINUTES.toFloat(),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
             BlockingSwitchRow(
                 title = stringResource(R.string.blocking_favorites_title),
                 description = stringResource(R.string.blocking_favorites_description),

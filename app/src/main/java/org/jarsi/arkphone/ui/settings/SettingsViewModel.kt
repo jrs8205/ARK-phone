@@ -87,6 +87,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onRepeatCallerWindowChanged(minutes: Int) {
+        viewModelScope.launch { settingsRepository.setRepeatCallerWindowMinutes(minutes) }
+    }
+
     fun onAlwaysAllowFavoritesChanged(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setAlwaysAllowFavorites(enabled) }
     }

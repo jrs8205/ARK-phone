@@ -31,6 +31,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val BLOCK_UNKNOWN = booleanPreferencesKey("block_unknown_callers")
         val BLOCKED_PREFIXES = stringSetPreferencesKey("blocked_prefixes")
         val ALLOW_REPEAT_CALLERS = booleanPreferencesKey("allow_repeat_callers")
+        val REPEAT_WINDOW = intPreferencesKey("repeat_caller_window_minutes")
         val ALLOWED_NUMBERS = stringSetPreferencesKey("allowed_numbers")
         val ALWAYS_ALLOW_FAVORITES = booleanPreferencesKey("always_allow_favorites")
         val SCHEDULE_ENABLED = booleanPreferencesKey("blocking_schedule_enabled")
@@ -63,6 +64,12 @@ class DataStoreSettingsRepository @Inject constructor(
                 blockUnknownCallers = preferences[Keys.BLOCK_UNKNOWN] ?: false,
                 blockedPrefixes = preferences[Keys.BLOCKED_PREFIXES] ?: emptySet(),
                 allowRepeatCallers = preferences[Keys.ALLOW_REPEAT_CALLERS] ?: true,
+                repeatCallerWindowMinutes = (
+                    preferences[Keys.REPEAT_WINDOW] ?: Settings.DEFAULT_REPEAT_WINDOW_MINUTES
+                    ).coerceIn(
+                    Settings.MIN_REPEAT_WINDOW_MINUTES,
+                    Settings.MAX_REPEAT_WINDOW_MINUTES,
+                ),
                 allowedNumbers = preferences[Keys.ALLOWED_NUMBERS] ?: emptySet(),
                 alwaysAllowFavorites = preferences[Keys.ALWAYS_ALLOW_FAVORITES] ?: true,
                 blockingScheduleEnabled = preferences[Keys.SCHEDULE_ENABLED] ?: false,
@@ -113,6 +120,15 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         dataStore.edit { it[Keys.ALLOW_REPEAT_CALLERS] = enabled }
+    }
+
+    override suspend fun setRepeatCallerWindowMinutes(minutes: Int) {
+        dataStore.edit {
+            it[Keys.REPEAT_WINDOW] = minutes.coerceIn(
+                Settings.MIN_REPEAT_WINDOW_MINUTES,
+                Settings.MAX_REPEAT_WINDOW_MINUTES,
+            )
+        }
     }
 
     override suspend fun setAllowedNumbers(numbers: Set<String>) {

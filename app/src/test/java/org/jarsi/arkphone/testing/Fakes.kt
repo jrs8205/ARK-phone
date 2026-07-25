@@ -92,6 +92,9 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         state.value = state.value.copy(allowRepeatCallers = enabled)
     }
+    override suspend fun setRepeatCallerWindowMinutes(minutes: Int) {
+        state.value = state.value.copy(repeatCallerWindowMinutes = minutes)
+    }
     override suspend fun setAllowedNumbers(numbers: Set<String>) {
         state.value = state.value.copy(allowedNumbers = numbers)
     }

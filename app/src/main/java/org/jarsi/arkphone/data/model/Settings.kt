@@ -11,6 +11,7 @@ data class Settings(
     val blockUnknownCallers: Boolean = false,
     val blockedPrefixes: Set<String> = emptySet(),
     val allowRepeatCallers: Boolean = true,
+    val repeatCallerWindowMinutes: Int = DEFAULT_REPEAT_WINDOW_MINUTES,
     val allowedNumbers: Set<String> = emptySet(),
     val alwaysAllowFavorites: Boolean = true,
     val blockingScheduleEnabled: Boolean = false,
@@ -25,5 +26,9 @@ data class Settings(
         /** Blocking schedule defaults: rules active overnight 21:00–07:00. */
         const val DEFAULT_SCHEDULE_START_MINUTES = 21 * 60
         const val DEFAULT_SCHEDULE_END_MINUTES = 7 * 60
+
+        const val MIN_REPEAT_WINDOW_MINUTES = 1
+        const val MAX_REPEAT_WINDOW_MINUTES = 60
+        const val DEFAULT_REPEAT_WINDOW_MINUTES = 15
     }
 }

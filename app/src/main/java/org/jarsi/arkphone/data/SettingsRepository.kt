@@ -20,6 +20,8 @@ interface SettingsRepository {
 
     suspend fun setAllowRepeatCallers(enabled: Boolean)
 
+    suspend fun setRepeatCallerWindowMinutes(minutes: Int)
+
     suspend fun setAllowedNumbers(numbers: Set<String>)
 
     suspend fun setAlwaysAllowFavorites(enabled: Boolean)

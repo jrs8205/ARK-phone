@@ -6,39 +6,24 @@ import android.telecom.CallScreeningService
 import android.util.Log
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import org.jarsi.arkphone.data.CallLogRepository
-import org.jarsi.arkphone.data.ContactsRepository
-import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.di.ApplicationScope
-import org.jarsi.arkphone.util.Clock
-import org.jarsi.arkphone.util.minutesOfDay
-import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
 
 /**
- * Rule-based blocking: as the default dialer's screening service this runs
- * before the call rings, so blocked calls stay silent, show no notification
- * and still land in the call log as blocked.
+ * Rule-based blocking for numbers NOT in the contacts — Android never feeds
+ * saved contacts to a third-party screening service, so ArkInCallService
+ * runs the same rules for those. Blocked calls here stay silent, show no
+ * notification and still land in the call log as blocked.
  */
 @AndroidEntryPoint
 class ArkCallScreeningService : CallScreeningService() {
 
     companion object {
         private const val TAG = "ArkPhone"
-        private const val SETTINGS_TIMEOUT_MILLIS = 1_000L
-        const val REPEAT_CALLER_WINDOW_MILLIS = 15 * 60_000L
     }
 
-    @Inject lateinit var settingsCache: SettingsCache
-
-    @Inject lateinit var contactsRepository: ContactsRepository
-
-    @Inject lateinit var callLogRepository: CallLogRepository
-
-    @Inject lateinit var clock: Clock
+    @Inject lateinit var ruleEvaluator: CallRuleEvaluator
 
     @Inject @ApplicationScope lateinit var scope: CoroutineScope
 
@@ -52,29 +37,9 @@ class ArkCallScreeningService : CallScreeningService() {
             return
         }
         scope.launch {
-            val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
-                ?: settingsCache.current
-            val number = callDetails.handle?.schemeSpecificPart
-            val now = minutesOfDay(clock.nowMillis())
-            val match = if (number.isNullOrBlank()) null else contactsRepository.lookupContact(number)
-            val repeat = !number.isNullOrBlank() && isRepeatCaller(number)
-            val block = shouldBlockCall(
-                number = number,
-                isInContacts = match != null,
-                isFavorite = match?.starred == true,
-                isRepeatCaller = repeat,
-                minutesOfDay = now,
-                settings = settings,
-            )
-            Log.i(
-                TAG,
-                "Screening decision: block=$block hidden=${number.isNullOrBlank()}" +
-                    " inContacts=${match != null} favorite=${match?.starred == true}" +
-                    " repeat=$repeat scheduleActive=${blockingScheduleActive(now, settings)}" +
-                    " blockAll=${settings.blockAllCallers} blockUnknown=${settings.blockUnknownCallers}",
-            )
-            val response = if (block) {
-                Log.i(TAG, "Screening blocked an incoming call")
+            val decision = ruleEvaluator.evaluate(callDetails.handle?.schemeSpecificPart)
+            Log.i(TAG, "Screening decision: ${decision.details}")
+            val response = if (decision.block) {
                 CallResponse.Builder()
                     .setDisallowCall(true)
                     .setRejectCall(true)
@@ -85,13 +50,5 @@ class ArkCallScreeningService : CallScreeningService() {
             }
             respondToCall(callDetails, response)
         }
-    }
-
-    private suspend fun isRepeatCaller(number: String): Boolean {
-        val cutoff = clock.nowMillis() - REPEAT_CALLER_WINDOW_MILLIS
-        return runCatching {
-            callLogRepository.callLog().first()
-                .any { it.timestampMillis >= cutoff && sameCaller(it.number, number) }
-        }.getOrDefault(false)
     }
 }

@@ -26,6 +26,7 @@ class ArkInCallService : InCallService() {
     @Inject lateinit var callNotifications: CallNotifications
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
     @Inject lateinit var settingsCache: SettingsCache
+    @Inject lateinit var ruleEvaluator: CallRuleEvaluator
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
@@ -88,13 +89,7 @@ class ArkInCallService : InCallService() {
         val info = callController.calls.value.firstOrNull { it.id == handle.id } ?: return
         if (status != CallStatus.RINGING) callerAnnouncer.onRingingStopped(info.id)
         when (status) {
-            CallStatus.RINGING -> {
-                callerAnnouncer.onRinging(info)
-                showIncomingCallWhenSettingsLoaded(info)
-                if (shouldLaunchIncomingUiDirectly()) {
-                    startActivity(InCallActivity.intent(this))
-                }
-            }
+            CallStatus.RINGING -> handleRinging(info)
             CallStatus.DIALING, CallStatus.ACTIVE -> {
                 callNotifications.showOngoingCall(info)
                 if (previous == null || previous == CallStatus.RINGING) {
@@ -107,30 +102,36 @@ class ArkInCallService : InCallService() {
     }
 
     /**
-     * The ringing channel choice needs the persisted settings, and on a cold
+     * The whole ringing path waits for the persisted settings: on a cold
      * start (telecom spawns the process for the incoming call) they have not
      * loaded by the time the call rings — a synchronous read is always the
-     * default then. Waiting costs milliseconds; the timeout covers a broken
-     * settings store so the call can never end up without a notification.
+     * default then. Rule evaluation comes first because Android never feeds
+     * saved contacts to the screening service; a rule-blocked call is
+     * rejected here before any ringtone, announcement or UI.
      */
-    private fun showIncomingCallWhenSettingsLoaded(info: CallInfo) {
+    private fun handleRinging(info: CallInfo) {
         appScope.launch {
-            val loaded = withTimeoutOrNull(SETTINGS_WAIT_TIMEOUT_MILLIS) {
-                settingsCache.await()
-            }
-            val settings = loaded ?: Settings()
+            val decision = ruleEvaluator.evaluate(info.number)
             val stillRinging = callController.calls.value
                 .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
+            if (!stillRinging) return@launch
+            if (decision.block) {
+                Log.i(TAG, "In-call rule block: ${decision.details}")
+                callController.reject(info.id)
+                return@launch
+            }
+            val settings = settingsCache.current
             Log.i(
                 TAG,
-                "Ring channel decision: loadedInTime=${loaded != null} " +
-                    "mode=${settings.announceMode} stillRinging=$stillRinging",
+                "Ring channel decision: mode=${settings.announceMode} rule=${decision.details}",
             )
-            if (stillRinging) {
-                callNotifications.showIncomingCall(
-                    info,
-                    silentRing = settings.announceMode == AnnounceMode.VOICE_ONLY,
-                )
+            callerAnnouncer.onRinging(info)
+            callNotifications.showIncomingCall(
+                info,
+                silentRing = settings.announceMode == AnnounceMode.VOICE_ONLY,
+            )
+            if (shouldLaunchIncomingUiDirectly()) {
+                startActivity(InCallActivity.intent(this@ArkInCallService))
             }
         }
     }
