@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallMissed
@@ -20,7 +22,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -126,6 +130,24 @@ private fun RecentsRow(
     onOpenDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        RecentsRowItem(entry, onCall, onOpenDetails, onWhatsAppCall)
+    }
+}
+
+@Composable
+private fun RecentsRowItem(
+    entry: CallLogEntry,
+    onCall: (String) -> Unit,
+    onOpenDetails: (String) -> Unit,
+    onWhatsAppCall: (CallLogEntry) -> Unit,
+) {
     val haptics = rememberHaptics()
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
     val sourceSuffix = if (entry.source == CallSource.WHATSAPP) {
@@ -134,6 +156,7 @@ private fun RecentsRow(
         ""
     }
     ListItem(
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = clickableListItemModifier {
             if (entry.number.isNotBlank()) onOpenDetails(entry.number)
         },
