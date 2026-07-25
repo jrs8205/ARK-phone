@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -44,14 +45,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.ContactAppAction
 import org.jarsi.arkphone.data.model.ContactDetails
@@ -317,17 +321,7 @@ private fun ContactCardDetails(
                         modifier = clickableListItemModifier { onOpenAppAction(action) },
                         colors = transparentListItemColors(),
                         headlineContent = { Text(action.label) },
-                        leadingContent = {
-                            if (action.mimeType.contains("whatsapp")) {
-                                Icon(
-                                    painterResource(R.drawable.ic_whatsapp),
-                                    contentDescription = null,
-                                    tint = Color.Unspecified,
-                                )
-                            } else {
-                                Icon(Icons.Outlined.Apps, contentDescription = null)
-                            }
-                        },
+                        leadingContent = { AppActionIcon(action) },
                     )
                 }
             }
@@ -372,6 +366,30 @@ private fun ContactCardDetails(
             }
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun AppActionIcon(action: ContactAppAction) {
+    val context = LocalContext.current
+    // The owning app's real launcher icon; nothing trademarked ships with us.
+    val appIcon = remember(action.packageName) {
+        action.packageName?.let { pkg ->
+            runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
+        }
+    }
+    when {
+        appIcon != null -> AsyncImage(
+            model = appIcon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
+        action.mimeType.contains("whatsapp") -> Icon(
+            painterResource(R.drawable.ic_whatsapp),
+            contentDescription = null,
+            tint = Color.Unspecified,
+        )
+        else -> Icon(Icons.Outlined.Apps, contentDescription = null)
     }
 }
 

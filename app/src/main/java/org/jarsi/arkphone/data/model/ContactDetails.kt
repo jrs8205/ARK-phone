@@ -11,6 +11,8 @@ data class ContactAppAction(
     val dataId: Long,
     val mimeType: String,
     val label: String,
+    /** The owning app's package, for showing its real launcher icon. */
+    val packageName: String? = null,
 )
 
 /** Everything stored on one contact in the system contacts provider. */

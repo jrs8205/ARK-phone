@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -37,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -83,6 +86,7 @@ fun DialpadScreen(
             onCall = { onCall(uiState.number) },
             onSuggestion = { number -> viewModel.setNumber(number) },
             onPaste = viewModel::onPaste,
+            onClear = viewModel::onClear,
             onVoicemail = onVoicemail,
             onSpeedDial = { digit ->
                 val assigned = uiState.speedDial[digit]
@@ -122,6 +126,7 @@ fun DialpadContent(
     onPaste: (String) -> Unit = {},
     onVoicemail: () -> Unit = {},
     onSpeedDial: (Int) -> Unit = {},
+    onClear: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     val clipboard = LocalClipboardManager.current
@@ -167,11 +172,23 @@ fun DialpadContent(
                             },
                         ),
                 )
-                IconButton(
-                    onClick = {
-                        haptics.click()
-                        onDelete()
-                    },
+                val clearLabel = stringResource(R.string.dialpad_clear)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .combinedClickable(
+                            onClick = {
+                                haptics.click()
+                                onDelete()
+                            },
+                            onLongClickLabel = clearLabel,
+                            onLongClick = {
+                                haptics.longPress()
+                                onClear()
+                            },
+                        )
+                        .padding(12.dp),
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Backspace,

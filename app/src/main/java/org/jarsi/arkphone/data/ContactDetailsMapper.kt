@@ -33,6 +33,8 @@ internal data class ContactDataRow(
     val typeRaw: String? = null,
     val customLabel: String? = null,
     val data4: String? = null,
+    /** The raw contact's account type — the owning app's package for app rows. */
+    val accountType: String? = null,
 )
 
 /**
@@ -64,7 +66,12 @@ internal fun assembleContactDetails(
                 val actionLabel = row.customLabel?.takeIf { it.isNotBlank() }
                     ?: row.typeRaw?.takeIf { it.isNotBlank() }
                 if (actionLabel != null) {
-                    appActionRows += value to ContactAppAction(row.id, row.mimeType, actionLabel)
+                    appActionRows += value to ContactAppAction(
+                        dataId = row.id,
+                        mimeType = row.mimeType,
+                        label = actionLabel,
+                        packageName = row.accountType,
+                    )
                 }
             }
             continue

@@ -138,6 +138,7 @@ class SystemContactsRepository @Inject constructor(
                 ContactsContract.Data.DATA2,
                 ContactsContract.Data.DATA3,
                 ContactsContract.Data.DATA4,
+                ContactsContract.RawContacts.ACCOUNT_TYPE,
             ),
             "${ContactsContract.Data.CONTACT_ID} = ?",
             arrayOf(contactId.toString()),
@@ -151,6 +152,7 @@ class SystemContactsRepository @Inject constructor(
                     typeRaw = cursor.getString(3),
                     customLabel = cursor.getString(4),
                     data4 = cursor.getString(5),
+                    accountType = cursor.getString(6),
                 )
             }
         }

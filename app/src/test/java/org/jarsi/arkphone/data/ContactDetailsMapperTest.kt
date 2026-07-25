@@ -222,6 +222,22 @@ class ContactDetailsMapperTest {
     }
 
     @Test
+    fun appActionsCarryTheOwningAppPackage() {
+        val details = details(
+            listOf(
+                ContactDataRow(
+                    id = 51,
+                    mimeType = "vnd.android.cursor.item/vnd.org.telegram.messenger.android.profile",
+                    data1 = "Telegram-profiili",
+                    customLabel = "Message +358 44 5552841",
+                    accountType = "org.telegram.messenger",
+                ),
+            ),
+        )
+        assertEquals("org.telegram.messenger", details.appActions.single().packageName)
+    }
+
+    @Test
     fun appActionsFallBackToTheRawTypeText() {
         val details = details(
             listOf(
