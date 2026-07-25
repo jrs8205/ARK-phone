@@ -123,20 +123,19 @@ device-only.
 ## Call blocking and screening
 
 - [x] Block a single number (from the call detail view; system-wide block list)
-- [ ] Block unknown numbers
-- [ ] Block private/hidden numbers
-- [ ] Block numbers not in contacts
-- [ ] Block by country code
-- [ ] Block by number prefix/pattern
-- [ ] Block foreign numbers
-- [ ] Block premium-rate numbers
+- [x] Block private/hidden numbers (v1.12, screening service; needs the
+      caller ID & spam role — requested from the blocking settings page)
+- [x] Block numbers not in contacts (v1.12)
+- [x] Block by number prefix/pattern (v1.12; also covers country codes,
+      foreign and premium prefixes via the user's own list)
 - [ ] Scheduled (time-based) blocking
 - [ ] Separate block lists per SIM
 - [ ] Allow list (whitelist)
 - [ ] Always allow favorites
-- [ ] Allow repeat callers (e.g. second call within minutes)
-- [ ] Silent blocking without a notification
-- [ ] Separate log for blocked calls
+- [x] Allow repeat callers (second call within 15 minutes; on by default; v1.12)
+- [x] Silent blocking without a notification (screening rejects before ringing)
+- [ ] Separate log for blocked calls (blocked calls land in the main history
+      with the blocked type; a dedicated view is still open)
 
 ## Spam detection
 
