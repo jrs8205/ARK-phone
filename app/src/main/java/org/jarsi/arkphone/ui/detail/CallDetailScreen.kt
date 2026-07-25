@@ -54,7 +54,9 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.ui.components.ContactAvatar
+import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.components.transparentListItemColors
 import org.jarsi.arkphone.ui.recents.callTypeLabelRes
 import org.jarsi.arkphone.util.formatDuration
 
@@ -349,7 +351,15 @@ private fun StatRow(label: String, value: String) {
 private fun HistoryRow(entry: CallLogEntry) {
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
     val whatsapp = entry.source == CallSource.WHATSAPP
+    RowCard(Modifier.padding(vertical = 4.dp)) {
+        HistoryRowItem(entry, typeLabel, whatsapp)
+    }
+}
+
+@Composable
+private fun HistoryRowItem(entry: CallLogEntry, typeLabel: String, whatsapp: Boolean) {
     ListItem(
+        colors = transparentListItemColors(),
         headlineContent = {
             Text(
                 if (whatsapp) {

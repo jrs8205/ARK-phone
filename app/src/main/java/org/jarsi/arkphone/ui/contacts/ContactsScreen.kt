@@ -32,8 +32,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
+import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.components.transparentListItemColors
 import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
 
 @Composable
@@ -144,8 +146,20 @@ private fun ContactRow(
     onCall: (String) -> Unit,
     onOpenContact: (Long) -> Unit,
 ) {
+    RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        ContactRowItem(contact, onCall, onOpenContact)
+    }
+}
+
+@Composable
+private fun ContactRowItem(
+    contact: Contact,
+    onCall: (String) -> Unit,
+    onOpenContact: (Long) -> Unit,
+) {
     val haptics = rememberHaptics()
     ListItem(
+        colors = transparentListItemColors(),
         modifier = clickableListItemModifier { onOpenContact(contact.id) },
         headlineContent = { Text(contact.displayName) },
         supportingContent = { contact.phoneNumber?.let { Text(it) } },

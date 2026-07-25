@@ -59,6 +59,7 @@ import org.jarsi.arkphone.data.model.LabeledField
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.components.transparentListItemColors
 
 @Composable
 fun ContactCardScreen(
@@ -399,10 +400,6 @@ private fun SectionCard(visible: Boolean, content: @Composable () -> Unit) {
         Column { content() }
     }
 }
-
-@Composable
-private fun transparentListItemColors() =
-    ListItemDefaults.colors(containerColor = Color.Transparent)
 
 @Composable
 private fun FieldRow(

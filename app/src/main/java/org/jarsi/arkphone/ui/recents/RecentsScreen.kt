@@ -41,8 +41,10 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.clickableListItemModifier
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.components.transparentListItemColors
 
 @StringRes
 internal fun callTypeLabelRes(type: CallType): Int = when (type) {
@@ -130,13 +132,7 @@ private fun RecentsRow(
     onOpenDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    ) {
+    RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
         RecentsRowItem(entry, onCall, onOpenDetails, onWhatsAppCall)
     }
 }
@@ -156,7 +152,7 @@ private fun RecentsRowItem(
         ""
     }
     ListItem(
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        colors = transparentListItemColors(),
         modifier = clickableListItemModifier {
             if (entry.number.isNotBlank()) onOpenDetails(entry.number)
         },
