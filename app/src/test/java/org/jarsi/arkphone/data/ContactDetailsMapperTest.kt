@@ -194,6 +194,34 @@ class ContactDetailsMapperTest {
     }
 
     @Test
+    fun whatsAppBusinessDuplicatesCollapseIntoThePlainWhatsAppAction() {
+        // WhatsApp and WhatsApp Business both publish the same action for the
+        // same jid under different mimetypes — one row must remain, and it
+        // must be the plain WhatsApp one.
+        val details = details(
+            listOf(
+                ContactDataRow(
+                    id = 12435,
+                    mimeType = "vnd.android.cursor.item/vnd.com.whatsapp.w4b.voip.call",
+                    data1 = "358405130253@s.whatsapp.net",
+                    typeRaw = "WhatsApp",
+                    customLabel = "Äänipuhelu: +358 40 5130253",
+                ),
+                ContactDataRow(
+                    id = 15110,
+                    mimeType = "vnd.android.cursor.item/vnd.com.whatsapp.voip.call",
+                    data1 = "358405130253@s.whatsapp.net",
+                    typeRaw = "WhatsApp",
+                    customLabel = "Äänipuhelu: +358 40 5130253",
+                ),
+            ),
+        )
+        val action = details.appActions.single()
+        assertEquals(15110L, action.dataId)
+        assertEquals("vnd.android.cursor.item/vnd.com.whatsapp.voip.call", action.mimeType)
+    }
+
+    @Test
     fun appActionsFallBackToTheRawTypeText() {
         val details = details(
             listOf(

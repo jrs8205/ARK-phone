@@ -54,7 +54,7 @@ internal fun assembleContactDetails(
     val addresses = mutableListOf<LabeledField>()
     val events = mutableListOf<LabeledField>()
     val websites = mutableListOf<String>()
-    val appActions = mutableListOf<ContactAppAction>()
+    val appActionRows = mutableListOf<Pair<String, ContactAppAction>>()
     var organization: String? = null
     var note: String? = null
     for (row in rows) {
@@ -64,7 +64,7 @@ internal fun assembleContactDetails(
                 val actionLabel = row.customLabel?.takeIf { it.isNotBlank() }
                     ?: row.typeRaw?.takeIf { it.isNotBlank() }
                 if (actionLabel != null) {
-                    appActions += ContactAppAction(row.id, row.mimeType, actionLabel)
+                    appActionRows += value to ContactAppAction(row.id, row.mimeType, actionLabel)
                 }
             }
             continue
@@ -98,9 +98,13 @@ internal fun assembleContactDetails(
         organization = organization,
         note = note,
         websites = websites.distinct(),
-        // Linked raw contacts (or two WhatsApp accounts) publish the same
-        // action under different data row ids — dedupe on what the row does.
-        appActions = appActions.distinctBy { it.mimeType to it.label },
+        // WhatsApp and WhatsApp Business (and linked raw contacts) publish the
+        // same action for the same target under different mimetypes/row ids —
+        // dedupe on target + label; the alphabetically first mimetype keeps
+        // plain WhatsApp ahead of its .w4b variant.
+        appActions = appActionRows
+            .groupBy { (target, action) -> target to action.label }
+            .map { (_, group) -> group.minBy { (_, action) -> action.mimeType }.second },
         lookupKey = lookupKey,
     )
 }
