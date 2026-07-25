@@ -14,6 +14,7 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.minutesOfDay
 import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
 
@@ -54,13 +55,24 @@ class ArkCallScreeningService : CallScreeningService() {
             val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
                 ?: settingsCache.current
             val number = callDetails.handle?.schemeSpecificPart
+            val now = minutesOfDay(clock.nowMillis())
             val block = if (number.isNullOrBlank()) {
-                shouldBlockCall(number, isInContacts = false, isRepeatCaller = false, settings)
-            } else {
                 shouldBlockCall(
                     number = number,
-                    isInContacts = contactsRepository.lookupContact(number) != null,
+                    isInContacts = false,
+                    isFavorite = false,
+                    isRepeatCaller = false,
+                    minutesOfDay = now,
+                    settings = settings,
+                )
+            } else {
+                val match = contactsRepository.lookupContact(number)
+                shouldBlockCall(
+                    number = number,
+                    isInContacts = match != null,
+                    isFavorite = match?.starred == true,
                     isRepeatCaller = isRepeatCaller(number),
+                    minutesOfDay = now,
                     settings = settings,
                 )
             }

@@ -82,4 +82,30 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.setBlockedPrefixes(uiState.value.blockedPrefixes - prefix)
         }
     }
+
+    fun onAlwaysAllowFavoritesChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAlwaysAllowFavorites(enabled) }
+    }
+
+    fun onAddAllowedNumber(number: String) {
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            settingsRepository.setAllowedNumbers(uiState.value.allowedNumbers + trimmed)
+        }
+    }
+
+    fun onRemoveAllowedNumber(number: String) {
+        viewModelScope.launch {
+            settingsRepository.setAllowedNumbers(uiState.value.allowedNumbers - number)
+        }
+    }
+
+    fun onBlockingScheduleEnabledChanged(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setBlockingScheduleEnabled(enabled) }
+    }
+
+    fun onBlockingScheduleChanged(startMinutes: Int, endMinutes: Int) {
+        viewModelScope.launch { settingsRepository.setBlockingSchedule(startMinutes, endMinutes) }
+    }
 }

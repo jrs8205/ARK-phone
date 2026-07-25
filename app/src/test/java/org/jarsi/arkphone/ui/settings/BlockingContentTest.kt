@@ -2,9 +2,11 @@ package org.jarsi.arkphone.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Settings
@@ -70,8 +72,11 @@ class BlockingContentTest {
     fun addingAPrefixReportsIt() {
         var added: String? = null
         setContent(onAddPrefix = { added = it })
-        composeRule.onNodeWithText("e.g. +358700 or 0700").performTextInput("0700")
-        composeRule.onNodeWithText("Add").performClick()
+        composeRule.onNodeWithText("e.g. +358700 or 0700")
+            .performScrollTo()
+            .performTextInput("0700")
+        // The allowed-numbers section has its own Add button higher up.
+        composeRule.onAllNodesWithText("Add")[1].performScrollTo().performClick()
         assertEquals("0700", added)
     }
 
@@ -82,8 +87,8 @@ class BlockingContentTest {
             settings = Settings(blockedPrefixes = setOf("+358700")),
             onRemovePrefix = { removed = it },
         )
-        composeRule.onNodeWithText("+358700").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Remove").performClick()
+        composeRule.onNodeWithText("+358700").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Remove").performScrollTo().performClick()
         assertEquals("+358700", removed)
     }
 }

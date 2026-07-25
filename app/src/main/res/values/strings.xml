@@ -61,6 +61,15 @@
     <string name="blocking_footer">Blocked calls don\'t ring and show up in the call history as blocked.</string>
     <string name="blocking_role_description">For the rules to work, ARK-phone must be the device\'s caller ID &amp; spam app.</string>
     <string name="blocking_role_button">Set ARK-phone</string>
+    <string name="blocking_favorites_title">Always allow favorites</string>
+    <string name="blocking_favorites_description">Starred contacts are never blocked by the rules.</string>
+    <string name="blocking_schedule_title">Block only at set times</string>
+    <string name="blocking_schedule_description">The rules apply only inside this window; number blocks stay always on.</string>
+    <string name="blocking_schedule_start">Starts</string>
+    <string name="blocking_schedule_end">Ends</string>
+    <string name="blocking_allowed_title">Allowed numbers</string>
+    <string name="blocking_allowed_description">These numbers always get through, whatever the rules say.</string>
+    <string name="blocking_allowed_hint">e.g. +358 40 1234567</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>

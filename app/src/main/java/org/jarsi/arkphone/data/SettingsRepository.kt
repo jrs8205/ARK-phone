@@ -17,4 +17,12 @@ interface SettingsRepository {
     suspend fun setBlockedPrefixes(prefixes: Set<String>)
 
     suspend fun setAllowRepeatCallers(enabled: Boolean)
+
+    suspend fun setAllowedNumbers(numbers: Set<String>)
+
+    suspend fun setAlwaysAllowFavorites(enabled: Boolean)
+
+    suspend fun setBlockingScheduleEnabled(enabled: Boolean)
+
+    suspend fun setBlockingSchedule(startMinutes: Int, endMinutes: Int)
 }

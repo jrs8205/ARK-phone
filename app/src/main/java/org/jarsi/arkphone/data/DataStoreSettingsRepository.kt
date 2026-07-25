@@ -30,6 +30,11 @@ class DataStoreSettingsRepository @Inject constructor(
         val BLOCK_UNKNOWN = booleanPreferencesKey("block_unknown_callers")
         val BLOCKED_PREFIXES = stringSetPreferencesKey("blocked_prefixes")
         val ALLOW_REPEAT_CALLERS = booleanPreferencesKey("allow_repeat_callers")
+        val ALLOWED_NUMBERS = stringSetPreferencesKey("allowed_numbers")
+        val ALWAYS_ALLOW_FAVORITES = booleanPreferencesKey("always_allow_favorites")
+        val SCHEDULE_ENABLED = booleanPreferencesKey("blocking_schedule_enabled")
+        val SCHEDULE_START = intPreferencesKey("blocking_schedule_start_minutes")
+        val SCHEDULE_END = intPreferencesKey("blocking_schedule_end_minutes")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -56,6 +61,13 @@ class DataStoreSettingsRepository @Inject constructor(
                 blockUnknownCallers = preferences[Keys.BLOCK_UNKNOWN] ?: false,
                 blockedPrefixes = preferences[Keys.BLOCKED_PREFIXES] ?: emptySet(),
                 allowRepeatCallers = preferences[Keys.ALLOW_REPEAT_CALLERS] ?: true,
+                allowedNumbers = preferences[Keys.ALLOWED_NUMBERS] ?: emptySet(),
+                alwaysAllowFavorites = preferences[Keys.ALWAYS_ALLOW_FAVORITES] ?: true,
+                blockingScheduleEnabled = preferences[Keys.SCHEDULE_ENABLED] ?: false,
+                blockingScheduleStartMinutes = preferences[Keys.SCHEDULE_START]
+                    ?: Settings.DEFAULT_SCHEDULE_START_MINUTES,
+                blockingScheduleEndMinutes = preferences[Keys.SCHEDULE_END]
+                    ?: Settings.DEFAULT_SCHEDULE_END_MINUTES,
             )
         }
 
@@ -95,5 +107,29 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         dataStore.edit { it[Keys.ALLOW_REPEAT_CALLERS] = enabled }
+    }
+
+    override suspend fun setAllowedNumbers(numbers: Set<String>) {
+        dataStore.edit {
+            it[Keys.ALLOWED_NUMBERS] = numbers
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .toSet()
+        }
+    }
+
+    override suspend fun setAlwaysAllowFavorites(enabled: Boolean) {
+        dataStore.edit { it[Keys.ALWAYS_ALLOW_FAVORITES] = enabled }
+    }
+
+    override suspend fun setBlockingScheduleEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.SCHEDULE_ENABLED] = enabled }
+    }
+
+    override suspend fun setBlockingSchedule(startMinutes: Int, endMinutes: Int) {
+        dataStore.edit {
+            it[Keys.SCHEDULE_START] = startMinutes.coerceIn(0, 24 * 60 - 1)
+            it[Keys.SCHEDULE_END] = endMinutes.coerceIn(0, 24 * 60 - 1)
+        }
     }
 }

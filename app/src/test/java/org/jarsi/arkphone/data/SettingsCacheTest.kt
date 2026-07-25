@@ -44,11 +44,9 @@ class SettingsCacheTest {
         // the awaiter undispatched, so the value must be stored before the
         // signal or the awaiter reads the default.
         val emissions = MutableSharedFlow<Settings>()
-        val repository = object : SettingsRepository {
+        // Delegate the setters so new SettingsRepository methods don't break this test.
+        val repository = object : SettingsRepository by FakeSettingsRepository() {
             override val settings: Flow<Settings> = emissions
-            override suspend fun setAnnounceMode(mode: AnnounceMode) = Unit
-            override suspend fun setAnnounceIntervalSeconds(seconds: Int) = Unit
-            override suspend fun setAnnounceWhatsApp(enabled: Boolean) = Unit
         }
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val cache = SettingsCache(repository, CoroutineScope(dispatcher))

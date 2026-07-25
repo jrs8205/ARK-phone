@@ -71,6 +71,15 @@
     <string name="blocking_footer">Estetyt puhelut eivät soi, ja ne näkyvät puheluhistoriassa estettyinä.</string>
     <string name="blocking_role_description">Jotta säännöt toimivat, ARK-phonen pitää olla laitteen soittajan tunnistus ja roskapuhelut -sovellus.</string>
     <string name="blocking_role_button">Aseta ARK-phone</string>
+    <string name="blocking_favorites_title">Salli suosikit aina</string>
+    <string name="blocking_favorites_description">Tähdellä merkittyjä yhteystietoja ei koskaan estetä säännöillä.</string>
+    <string name="blocking_schedule_title">Estä vain tiettyinä aikoina</string>
+    <string name="blocking_schedule_description">Säännöt ovat voimassa vain tällä aikavälillä; numerokohtaiset estot pysyvät aina päällä.</string>
+    <string name="blocking_schedule_start">Alkaa</string>
+    <string name="blocking_schedule_end">Päättyy</string>
+    <string name="blocking_allowed_title">Sallitut numerot</string>
+    <string name="blocking_allowed_description">Nämä numerot pääsevät aina läpi säännöistä riippumatta.</string>
+    <string name="blocking_allowed_hint">esim. +358 40 1234567</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

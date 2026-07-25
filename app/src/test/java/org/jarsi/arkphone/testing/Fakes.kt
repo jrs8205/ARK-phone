@@ -89,6 +89,21 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         state.value = state.value.copy(allowRepeatCallers = enabled)
     }
+    override suspend fun setAllowedNumbers(numbers: Set<String>) {
+        state.value = state.value.copy(allowedNumbers = numbers)
+    }
+    override suspend fun setAlwaysAllowFavorites(enabled: Boolean) {
+        state.value = state.value.copy(alwaysAllowFavorites = enabled)
+    }
+    override suspend fun setBlockingScheduleEnabled(enabled: Boolean) {
+        state.value = state.value.copy(blockingScheduleEnabled = enabled)
+    }
+    override suspend fun setBlockingSchedule(startMinutes: Int, endMinutes: Int) {
+        state.value = state.value.copy(
+            blockingScheduleStartMinutes = startMinutes,
+            blockingScheduleEndMinutes = endMinutes,
+        )
+    }
 }
 
 class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {

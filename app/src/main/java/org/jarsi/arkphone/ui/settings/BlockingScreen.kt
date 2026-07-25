@@ -12,9 +12,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +69,11 @@ fun BlockingScreen(
         onAllowRepeatCallersChanged = viewModel::onAllowRepeatCallersChanged,
         onAddBlockedPrefix = viewModel::onAddBlockedPrefix,
         onRemoveBlockedPrefix = viewModel::onRemoveBlockedPrefix,
+        onAlwaysAllowFavoritesChanged = viewModel::onAlwaysAllowFavoritesChanged,
+        onAddAllowedNumber = viewModel::onAddAllowedNumber,
+        onRemoveAllowedNumber = viewModel::onRemoveAllowedNumber,
+        onScheduleEnabledChanged = viewModel::onBlockingScheduleEnabledChanged,
+        onScheduleChanged = viewModel::onBlockingScheduleChanged,
         onRequestScreeningRole = {
             viewModel.screeningRoleRequestIntent()?.let { intent ->
                 runCatching { roleLauncher.launch(intent) }
@@ -84,6 +93,11 @@ fun BlockingContent(
     onAllowRepeatCallersChanged: (Boolean) -> Unit = {},
     onAddBlockedPrefix: (String) -> Unit = {},
     onRemoveBlockedPrefix: (String) -> Unit = {},
+    onAlwaysAllowFavoritesChanged: (Boolean) -> Unit = {},
+    onAddAllowedNumber: (String) -> Unit = {},
+    onRemoveAllowedNumber: (String) -> Unit = {},
+    onScheduleEnabledChanged: (Boolean) -> Unit = {},
+    onScheduleChanged: (Int, Int) -> Unit = { _, _ -> },
     onRequestScreeningRole: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
@@ -150,6 +164,109 @@ fun BlockingContent(
                 checked = settings.allowRepeatCallers,
                 onCheckedChange = onAllowRepeatCallersChanged,
             )
+            BlockingSwitchRow(
+                title = stringResource(R.string.blocking_favorites_title),
+                description = stringResource(R.string.blocking_favorites_description),
+                checked = settings.alwaysAllowFavorites,
+                onCheckedChange = onAlwaysAllowFavoritesChanged,
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            BlockingSwitchRow(
+                title = stringResource(R.string.blocking_schedule_title),
+                description = stringResource(R.string.blocking_schedule_description),
+                checked = settings.blockingScheduleEnabled,
+                onCheckedChange = onScheduleEnabledChanged,
+            )
+            if (settings.blockingScheduleEnabled) {
+                var editStart by rememberSaveable { mutableStateOf(false) }
+                var editEnd by rememberSaveable { mutableStateOf(false) }
+                ListItem(
+                    modifier = clickableListItemModifier { editStart = true },
+                    headlineContent = { Text(stringResource(R.string.blocking_schedule_start)) },
+                    trailingContent = { Text(formatMinutes(settings.blockingScheduleStartMinutes)) },
+                )
+                ListItem(
+                    modifier = clickableListItemModifier { editEnd = true },
+                    headlineContent = { Text(stringResource(R.string.blocking_schedule_end)) },
+                    trailingContent = { Text(formatMinutes(settings.blockingScheduleEndMinutes)) },
+                )
+                if (editStart) {
+                    BlockingTimePickerDialog(
+                        initialMinutes = settings.blockingScheduleStartMinutes,
+                        onConfirm = { minutes ->
+                            editStart = false
+                            onScheduleChanged(minutes, settings.blockingScheduleEndMinutes)
+                        },
+                        onDismiss = { editStart = false },
+                    )
+                }
+                if (editEnd) {
+                    BlockingTimePickerDialog(
+                        initialMinutes = settings.blockingScheduleEndMinutes,
+                        onConfirm = { minutes ->
+                            editEnd = false
+                            onScheduleChanged(settings.blockingScheduleStartMinutes, minutes)
+                        },
+                        onDismiss = { editEnd = false },
+                    )
+                }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                text = stringResource(R.string.blocking_allowed_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Text(
+                text = stringResource(R.string.blocking_allowed_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            settings.allowedNumbers.sorted().forEach { number ->
+                ListItem(
+                    headlineContent = { Text(number) },
+                    trailingContent = {
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                onRemoveAllowedNumber(number)
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.blocking_prefix_remove),
+                            )
+                        }
+                    },
+                )
+            }
+            var newAllowed by rememberSaveable { mutableStateOf("") }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                OutlinedTextField(
+                    value = newAllowed,
+                    onValueChange = { newAllowed = it },
+                    placeholder = { Text(stringResource(R.string.blocking_allowed_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        haptics.click()
+                        onAddAllowedNumber(newAllowed)
+                        newAllowed = ""
+                    },
+                    modifier = Modifier.padding(start = 12.dp),
+                ) {
+                    Text(stringResource(R.string.blocking_prefix_add))
+                }
+            }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text(
                 text = stringResource(R.string.blocking_prefixes_title),
@@ -214,6 +331,37 @@ fun BlockingContent(
             )
         }
     }
+}
+
+private fun formatMinutes(minutes: Int): String =
+    "%02d:%02d".format(minutes / 60, minutes % 60)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BlockingTimePickerDialog(
+    initialMinutes: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialMinutes / 60,
+        initialMinute = initialMinutes % 60,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
 }
 
 @Composable
