@@ -20,6 +20,8 @@
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>
+    <string name="call_whatsapp">Soita WhatsApp-puhelu</string>
+    <string name="call_log_unknown_caller">Tuntematon</string>
     <string name="dialpad_delete">Poista numero</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

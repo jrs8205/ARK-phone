@@ -15,20 +15,28 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import androidx.room.Room
 import org.jarsi.arkphone.data.AndroidBlockedNumbersRepository
+import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
+import org.jarsi.arkphone.data.CombinedCallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.DataStoreSettingsRepository
+import org.jarsi.arkphone.data.RoomWhatsAppCallLogRepository
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.SimRepository
 import org.jarsi.arkphone.data.SystemCallLogRepository
 import org.jarsi.arkphone.data.SystemContactsRepository
 import org.jarsi.arkphone.data.SystemSimRepository
+import org.jarsi.arkphone.data.WhatsAppCallDao
+import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.SpeechEngine
 import org.jarsi.arkphone.telecom.TtsSpeechEngine
+import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
+import org.jarsi.arkphone.telecom.WhatsAppCaller
 import org.jarsi.arkphone.util.AndroidNotificationAccessChecker
 import org.jarsi.arkphone.util.AndroidPermissionChecker
 import org.jarsi.arkphone.util.Clock
@@ -48,10 +56,6 @@ annotation class ApplicationScope
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppModule {
-
-    @Binds
-    @Singleton
-    abstract fun bindCallLogRepository(impl: SystemCallLogRepository): CallLogRepository
 
     @Binds
     @Singleton
@@ -89,6 +93,16 @@ abstract class AppModule {
         impl: AndroidNotificationAccessChecker,
     ): NotificationAccessChecker
 
+    @Binds
+    @Singleton
+    abstract fun bindWhatsAppCallLogRepository(
+        impl: RoomWhatsAppCallLogRepository,
+    ): WhatsAppCallLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWhatsAppCallLauncher(impl: WhatsAppCaller): WhatsAppCallLauncher
+
     companion object {
         @Provides
         @IoDispatcher
@@ -108,5 +122,20 @@ abstract class AppModule {
         @Singleton
         fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
             PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+
+        @Provides
+        @Singleton
+        fun provideCallLogRepository(
+            system: SystemCallLogRepository,
+            whatsApp: WhatsAppCallLogRepository,
+        ): CallLogRepository = CombinedCallLogRepository(system, whatsApp)
+
+        @Provides
+        @Singleton
+        fun provideDatabase(@ApplicationContext context: Context): ArkPhoneDatabase =
+            Room.databaseBuilder(context, ArkPhoneDatabase::class.java, "arkphone.db").build()
+
+        @Provides
+        fun provideWhatsAppCallDao(db: ArkPhoneDatabase): WhatsAppCallDao = db.whatsAppCallDao()
     }
 }

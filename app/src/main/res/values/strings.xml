@@ -10,6 +10,8 @@
     <string name="call_type_rejected">Rejected call</string>
     <string name="call_type_blocked">Blocked call</string>
     <string name="call_source_whatsapp" translatable="false">WhatsApp</string>
+    <string name="call_whatsapp">Call on WhatsApp</string>
+    <string name="call_log_unknown_caller">Unknown</string>
     <string name="call_type_other">Call</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_favorites">Favorites</string>

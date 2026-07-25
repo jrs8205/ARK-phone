@@ -31,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -65,6 +66,7 @@ fun HomeScreen(
         onRequestPermissions = onRequestPermissions,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
         onOpenDetails = { number -> context.startActivity(CallDetailActivity.intent(context, number)) },
+        onWhatsAppCall = recentsViewModel::onWhatsAppCall,
     )
 }
 
@@ -76,6 +78,7 @@ fun HomeContent(
     onRequestPermissions: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onOpenDetails: (String) -> Unit = {},
+    onWhatsAppCall: (CallLogEntry) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Column(Modifier.fillMaxSize()) {
@@ -118,6 +121,7 @@ fun HomeContent(
                 onCall = onCall,
                 onRequestPermissions = onRequestPermissions,
                 onOpenDetails = onOpenDetails,
+                onWhatsAppCall = onWhatsAppCall,
             )
         }
     }

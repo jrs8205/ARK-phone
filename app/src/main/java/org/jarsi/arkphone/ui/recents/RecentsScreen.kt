@@ -26,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -60,7 +62,13 @@ fun RecentsScreen(
         viewModel.refreshPermissionState()
         onPauseOrDispose { }
     }
-    RecentsContent(uiState, onCall, onRequestPermissions, onOpenDetails)
+    RecentsContent(
+        uiState = uiState,
+        onCall = onCall,
+        onRequestPermissions = onRequestPermissions,
+        onOpenDetails = onOpenDetails,
+        onWhatsAppCall = viewModel::onWhatsAppCall,
+    )
 }
 
 @Composable
@@ -69,6 +77,7 @@ fun RecentsContent(
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenDetails: (String) -> Unit = {},
+    onWhatsAppCall: (CallLogEntry) -> Unit = {},
 ) {
     when {
         uiState.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -99,7 +108,12 @@ fun RecentsContent(
         }
         else -> LazyColumn(Modifier.fillMaxSize()) {
             items(uiState.entries, key = { it.id }) { entry ->
-                RecentsRow(entry = entry, onCall = onCall, onOpenDetails = onOpenDetails)
+                RecentsRow(
+                    entry = entry,
+                    onCall = onCall,
+                    onOpenDetails = onOpenDetails,
+                    onWhatsAppCall = onWhatsAppCall,
+                )
             }
         }
     }
@@ -110,6 +124,7 @@ private fun RecentsRow(
     entry: CallLogEntry,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
+    onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
     val haptics = rememberHaptics()
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
@@ -119,8 +134,16 @@ private fun RecentsRow(
         ""
     }
     ListItem(
-        modifier = clickableListItemModifier { onOpenDetails(entry.number) },
-        headlineContent = { Text(entry.displayName ?: entry.number) },
+        modifier = clickableListItemModifier {
+            if (entry.number.isNotBlank()) onOpenDetails(entry.number)
+        },
+        headlineContent = {
+            Text(
+                entry.displayName
+                    ?: entry.number.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.call_log_unknown_caller),
+            )
+        },
         supportingContent = {
             Text(
                 text = typeLabel + " · " +
@@ -142,17 +165,32 @@ private fun RecentsRow(
             Icon(icon, contentDescription = typeLabel)
         },
         trailingContent = {
-            IconButton(
-                onClick = {
-                    haptics.confirm()
-                    onCall(entry.number)
-                },
-            ) {
-                Icon(
-                    Icons.Filled.Call,
-                    contentDescription = stringResource(R.string.dialpad_call),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+            if (entry.source == CallSource.WHATSAPP) {
+                IconButton(
+                    onClick = {
+                        haptics.confirm()
+                        onWhatsAppCall(entry)
+                    },
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_whatsapp),
+                        contentDescription = stringResource(R.string.call_whatsapp),
+                        tint = Color.Unspecified,
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = {
+                        haptics.confirm()
+                        onCall(entry.number)
+                    },
+                ) {
+                    Icon(
+                        Icons.Filled.Call,
+                        contentDescription = stringResource(R.string.dialpad_call),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         },
     )

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Inject
 
@@ -24,6 +25,7 @@ data class RecentsUiState(
 class RecentsViewModel @Inject constructor(
     repository: CallLogRepository,
     private val permissionChecker: PermissionChecker,
+    private val whatsAppCallLauncher: WhatsAppCallLauncher,
 ) : ViewModel() {
 
     private val permissionState = MutableStateFlow(hasCallLogPermission())
@@ -39,6 +41,13 @@ class RecentsViewModel @Inject constructor(
 
     fun refreshPermissionState() {
         permissionState.value = hasCallLogPermission()
+    }
+
+    fun onWhatsAppCall(entry: CallLogEntry) {
+        whatsAppCallLauncher.startCall(
+            number = entry.number.takeIf { it.isNotBlank() },
+            name = entry.displayName,
+        )
     }
 
     private fun hasCallLogPermission() = permissionChecker.has(Manifest.permission.READ_CALL_LOG)

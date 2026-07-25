@@ -163,4 +163,88 @@ class WhatsAppCallDetectionTest {
         assertEquals(null, call?.callerName)
         assertEquals(true, call != null)
     }
+
+    @Test
+    fun ringingTagClassifiesAsRinging() {
+        assertEquals(
+            WhatsAppCallNotificationKind.RINGING,
+            classifyWhatsAppCallNotification(
+                "com.whatsapp",
+                notification(callType = null),
+                "0045E9B0ringing_call3c30ab12",
+            ),
+        )
+    }
+
+    @Test
+    fun missedCallSummaryIsNotALiveCall() {
+        assertNull(
+            classifyWhatsAppCallNotification(
+                "com.whatsapp",
+                notification(callType = null),
+                "missed_calls3c30ab122598758f",
+            ),
+        )
+    }
+
+    @Test
+    fun otherCallNotificationsClassifyAsOngoing() {
+        assertEquals(
+            WhatsAppCallNotificationKind.ONGOING,
+            classifyWhatsAppCallNotification(
+                "com.whatsapp",
+                notification(callType = null),
+                "0099call_in_progress",
+            ),
+        )
+    }
+
+    @Test
+    fun callStyleTypesClassifyDirectly() {
+        assertEquals(
+            WhatsAppCallNotificationKind.RINGING,
+            classifyWhatsAppCallNotification("com.whatsapp", notification(callType = 1), null),
+        )
+        assertEquals(
+            WhatsAppCallNotificationKind.ONGOING,
+            classifyWhatsAppCallNotification("com.whatsapp", notification(callType = 2), null),
+        )
+    }
+
+    @Test
+    fun otherPackagesAndCategoriesDoNotClassify() {
+        assertNull(
+            classifyWhatsAppCallNotification(
+                "org.telegram.messenger",
+                notification(),
+                "ringing_call",
+            ),
+        )
+        assertNull(
+            classifyWhatsAppCallNotification(
+                "com.whatsapp",
+                notification(category = null),
+                "ringing_call",
+            ),
+        )
+    }
+
+    @Test
+    fun videoCallTextMarksTheCallAsVideo() {
+        val call = whatsAppCaller(
+            notification(
+                title = "[ +358 45 76387898 ]",
+                text = "Videopuhelu henkilöltä Matti Meikäläinen",
+            ),
+        )
+        assertEquals(true, call.isVideo)
+        assertEquals("Matti Meikäläinen", call.callerName)
+    }
+
+    @Test
+    fun voiceCallIsNotVideo() {
+        val call = whatsAppCaller(notification(text = "Äänipuhelu henkilöltä Jarsi"))
+        assertEquals(false, call.isVideo)
+        assertEquals("Jarsi", call.callerName)
+    }
 }

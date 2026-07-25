@@ -18,6 +18,7 @@ import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.ContactMatch
 import javax.inject.Inject
@@ -50,6 +51,7 @@ data class CallDetailUiState(
     val loading: Boolean = true,
 ) {
     val stats: CallStats get() = computeCallStats(entries)
+    val hasWhatsAppCalls: Boolean get() = entries.any { it.source == CallSource.WHATSAPP }
 }
 
 @HiltViewModel

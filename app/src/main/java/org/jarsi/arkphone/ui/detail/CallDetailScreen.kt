@@ -42,7 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ fun CallDetailScreen(
     onMessage: (String) -> Unit,
     onEditBeforeCall: (String) -> Unit,
     onDeleteHistory: () -> Unit,
+    onWhatsAppCall: (String, String?) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
@@ -76,6 +79,7 @@ fun CallDetailScreen(
         onEditBeforeCall = { onEditBeforeCall(uiState.number) },
         onToggleBlocked = viewModel::onToggleBlocked,
         onDeleteHistory = onDeleteHistory,
+        onWhatsAppCall = { onWhatsAppCall(uiState.number, uiState.displayName) },
     )
 }
 
@@ -90,6 +94,7 @@ fun CallDetailContent(
     onEditBeforeCall: () -> Unit,
     onToggleBlocked: () -> Unit,
     onDeleteHistory: () -> Unit,
+    onWhatsAppCall: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     var menuOpen by remember { mutableStateOf(false) }
@@ -234,6 +239,20 @@ fun CallDetailContent(
                         stringResource(R.string.detail_message),
                         modifier = Modifier.padding(start = 8.dp),
                     )
+                }
+                if (uiState.hasWhatsAppCalls) {
+                    IconButton(
+                        onClick = {
+                            haptics.confirm()
+                            onWhatsAppCall()
+                        },
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_whatsapp),
+                            contentDescription = stringResource(R.string.call_whatsapp),
+                            tint = Color.Unspecified,
+                        )
+                    }
                 }
             }
             StatsCard(uiState.stats)

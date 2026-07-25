@@ -1,7 +1,9 @@
 package org.jarsi.arkphone.ui.detail
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -53,6 +55,7 @@ class CallDetailContentTest {
         onCopyNumber: () -> Unit = {},
         onToggleBlocked: () -> Unit = {},
         onDeleteHistory: () -> Unit = {},
+        onWhatsAppCall: () -> Unit = {},
     ) {
         composeRule.setContent {
             CallDetailContent(
@@ -64,8 +67,23 @@ class CallDetailContentTest {
                 onEditBeforeCall = {},
                 onToggleBlocked = onToggleBlocked,
                 onDeleteHistory = onDeleteHistory,
+                onWhatsAppCall = onWhatsAppCall,
             )
         }
+    }
+
+    @Test
+    fun whatsAppHistoryShowsTheWhatsAppCallButton() {
+        var calls = 0
+        setContent(uiState(), onWhatsAppCall = { calls++ })
+        composeRule.onNodeWithContentDescription("Call on WhatsApp").performClick()
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun withoutWhatsAppHistoryThereIsNoWhatsAppButton() {
+        setContent(uiState(entries = listOf(entry(1))))
+        composeRule.onAllNodesWithContentDescription("Call on WhatsApp").assertCountEquals(0)
     }
 
     @Test

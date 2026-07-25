@@ -7,12 +7,14 @@ import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.SimRepository
+import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimCard
+import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.util.PermissionChecker
 
 class FakeCallLogRepository : CallLogRepository {
@@ -22,6 +24,23 @@ class FakeCallLogRepository : CallLogRepository {
     override suspend fun deleteCallsFor(number: String): Boolean {
         deletedNumbers += number
         return true
+    }
+}
+
+class FakeWhatsAppCallLogRepository : WhatsAppCallLogRepository {
+    val recorded = mutableListOf<WhatsAppCallRecord>()
+    val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
+    val deletedNumbers = mutableListOf<String>()
+    val deletedNames = mutableListOf<String>()
+    override fun calls(): Flow<List<CallLogEntry>> = entries
+    override suspend fun record(call: WhatsAppCallRecord) {
+        recorded += call
+    }
+    override suspend fun deleteCallsFor(number: String) {
+        deletedNumbers += number
+    }
+    override suspend fun deleteCallsForName(name: String) {
+        deletedNames += name
     }
 }
 

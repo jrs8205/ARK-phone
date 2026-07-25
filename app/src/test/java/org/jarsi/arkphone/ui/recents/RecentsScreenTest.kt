@@ -1,0 +1,83 @@
+package org.jarsi.arkphone.ui.recents
+
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallSource
+import org.jarsi.arkphone.data.model.CallType
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [35])
+class RecentsScreenTest {
+
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private fun entry(
+        source: CallSource = CallSource.PHONE,
+        number: String = "0401234567",
+        name: String? = "Matti Meikäläinen",
+    ) = CallLogEntry(
+        id = 1,
+        number = number,
+        displayName = name,
+        type = CallType.INCOMING,
+        timestampMillis = 0,
+        durationSeconds = 10,
+        source = source,
+    )
+
+    private fun setContent(
+        entry: CallLogEntry,
+        onOpenDetails: (String) -> Unit = {},
+        onWhatsAppCall: (CallLogEntry) -> Unit = {},
+    ) {
+        composeRule.setContent {
+            RecentsContent(
+                uiState = RecentsUiState(loading = false, entries = listOf(entry)),
+                onCall = {},
+                onRequestPermissions = {},
+                onOpenDetails = onOpenDetails,
+                onWhatsAppCall = onWhatsAppCall,
+            )
+        }
+    }
+
+    @Test
+    fun whatsAppRowCallsBackThroughTheWhatsAppButton() {
+        var called: CallLogEntry? = null
+        val entry = entry(source = CallSource.WHATSAPP)
+        setContent(entry, onWhatsAppCall = { called = it })
+        composeRule.onNodeWithContentDescription("Call on WhatsApp").performClick()
+        assertEquals(entry, called)
+    }
+
+    @Test
+    fun phoneRowKeepsThePlainCallButton() {
+        setContent(entry(source = CallSource.PHONE))
+        composeRule.onNodeWithContentDescription("Call").performClick()
+        composeRule.onAllNodesWithContentDescription("Call on WhatsApp").assertCountEquals(0)
+    }
+
+    @Test
+    fun aRowWithoutANumberDoesNotOpenDetails() {
+        var opened: String? = null
+        setContent(
+            entry(source = CallSource.WHATSAPP, number = ""),
+            onOpenDetails = { opened = it },
+        )
+        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        assertNull(opened)
+    }
+}

@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.MainActivity
 import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
 
@@ -29,6 +30,8 @@ class CallDetailActivity : ComponentActivity() {
     }
 
     @Inject lateinit var phoneCaller: PhoneCaller
+
+    @Inject lateinit var whatsAppCallLauncher: WhatsAppCallLauncher
 
     private val viewModel: CallDetailViewModel by viewModels()
 
@@ -54,6 +57,9 @@ class CallDetailActivity : ComponentActivity() {
                     onMessage = ::openMessagingApp,
                     onEditBeforeCall = ::openKeypadPrefilled,
                     onDeleteHistory = ::deleteHistoryWithPermission,
+                    onWhatsAppCall = { target, name ->
+                        whatsAppCallLauncher.startCall(target.takeIf { it.isNotBlank() }, name)
+                    },
                 )
             }
         }
