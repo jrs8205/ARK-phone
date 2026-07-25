@@ -57,11 +57,17 @@ device-only.
 - [x] Full contact details view: addresses, emails, birthdays, organization,
       notes, connected apps (WhatsApp/Telegram/Signal actions with real app
       icons), share as vCard, block numbers (v1.8–v1.9)
-- [ ] Add and edit contacts (writes to the system provider, Google account)
+- [x] Add and edit contacts (v1.13: the + button and the card's pencil open
+      the system/Google contact editor — saves go to the Google account and
+      sync like edits made in Google Contacts; an in-app form remains a
+      possible later upgrade)
 - [x] Profile photos (round avatars)
-- [ ] Multiple numbers per contact (model currently holds a single number)
-- [ ] Custom labels, e.g. work, family, customer
-- [ ] Personal notes on contacts
+- [~] Multiple numbers per contact (the contact card shows them all; the
+      list model still picks one)
+- [x] Custom labels, e.g. work, family, customer (shown on the card;
+      editable via the system editor)
+- [x] Personal notes on contacts (shown on the card; editable via the
+      system editor)
 
 ## Call history
 
@@ -129,10 +135,11 @@ device-only.
 - [x] Block numbers not in contacts (v1.12)
 - [x] Block by number prefix/pattern (v1.12; also covers country codes,
       foreign and premium prefixes via the user's own list)
-- [ ] Scheduled (time-based) blocking
+- [x] Scheduled (time-based) blocking (rules limited to a time window,
+      overnight windows supported; v1.13)
 - [ ] Separate block lists per SIM
-- [ ] Allow list (whitelist)
-- [ ] Always allow favorites
+- [x] Allow list (whitelist) — allowed numbers always get through (v1.13)
+- [x] Always allow favorites (on by default; v1.13)
 - [x] Allow repeat callers (second call within 15 minutes; on by default; v1.12)
 - [x] Silent blocking without a notification (screening rejects before ringing)
 - [ ] Separate log for blocked calls (blocked calls land in the main history
