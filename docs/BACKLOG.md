@@ -164,6 +164,27 @@ device-only.
 - [ ] Notification for new voicemail messages
 - (Voicemail messages themselves remain in the operator's service)
 
+## Code review follow-ups (review run 2026-07-25)
+
+Round 1 shipped the same day: always-on prefix blocks, national/international
+number and prefix matching, contacts fail-open in the rule evaluator, a
+notice when the decline-SMS fails, direct call-UI launch when notifications
+are disabled, DTMF stop-task replacement, vCard share read grant,
+provider-backed block state on the contact card, redacted settings log,
+role-first onboarding order, contact-name fallback for API 26–29 and the
+lone-zero search guard.
+
+- [ ] Persist the source package of WhatsApp call notifications (Room
+      migration) and route callbacks through it — WhatsApp Business installs
+      currently open regular WhatsApp; the wa.me fallback also needs the
+      international form for nationally formatted numbers
+- [ ] Rewrite the call-log row type to BLOCKED after an in-call rule
+      rejection so saved-contact blocks appear under the Blocked filter
+- [ ] Don't resolve a WhatsApp caller's number from a display name shared by
+      several contacts — an ambiguous name should store no number
+- [ ] Re-query the call log and contacts right after a runtime permission
+      grant instead of waiting for the flow to restart
+
 ## Technical debt / polish
 
 - [ ] CallStyle notification for the ongoing call (hang-up button in the notification)
