@@ -34,10 +34,11 @@ requesting them and stop using them if the role is revoked.
 
 - [x] Standard phone keypad
 - [x] T9 search by name and by number
-- [ ] Paste a number from the clipboard
-- [ ] Automatic number formatting while typing
-- [ ] Speed dial via long-press
-- [ ] Call voicemail via long-press on 1
+- [x] Paste a number from the clipboard (long-press the number display)
+- [x] Automatic number formatting while typing (display only)
+- [x] Speed dial via long-press (keys 2–9, assigned from the key itself;
+      clearing an assignment is not built yet)
+- [x] Call voicemail via long-press on 1
 - [ ] SIM selection before placing a call
 - [ ] Remember the last-used SIM per contact
 
@@ -53,8 +54,9 @@ device-only.
 - [x] Browse and search device contacts
 - [x] Favorites
 - [ ] Frequently used contacts
-- [ ] Full contact details view: addresses, emails, birthdays, organization,
-      notes — everything stored on the contact (read-only first step)
+- [x] Full contact details view: addresses, emails, birthdays, organization,
+      notes, connected apps (WhatsApp/Telegram/Signal actions with real app
+      icons), share as vCard, block numbers (v1.8–v1.9)
 - [ ] Add and edit contacts (writes to the system provider, Google account)
 - [x] Profile photos (round avatars)
 - [ ] Multiple numbers per contact (model currently holds a single number)
