@@ -102,6 +102,20 @@ class RecentsViewModelTest {
     }
 
     @Test
+    fun outgoingFilterShowsOnlyOutgoingCalls() = runTest {
+        val viewModel = RecentsViewModel(repository, permissions, launcher)
+        repository.entries.value = listOf(
+            entry(3, type = CallType.OUTGOING),
+            entry(2, "0501112223", type = CallType.INCOMING),
+        )
+        viewModel.uiState.test {
+            skipItems(1)
+            viewModel.onFilterChange(RecentsFilter.OUTGOING)
+            assertEquals(listOf(3L), awaitItem().entries.map { it.entry.id })
+        }
+    }
+
+    @Test
     fun whatsAppFilterShowsOnlyWhatsAppCalls() = runTest {
         val viewModel = RecentsViewModel(repository, permissions, launcher)
         repository.entries.value = listOf(

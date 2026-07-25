@@ -17,7 +17,7 @@ import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Inject
 
-enum class RecentsFilter { ALL, MISSED, WHATSAPP }
+enum class RecentsFilter { ALL, MISSED, OUTGOING, WHATSAPP }
 
 /** One visible log row: the newest call of a consecutive same-caller run. */
 data class GroupedCallLogEntry(val entry: CallLogEntry, val count: Int = 1)
@@ -60,6 +60,7 @@ internal fun matchesCallQuery(entry: CallLogEntry, query: String): Boolean {
 private fun matchesFilter(entry: CallLogEntry, filter: RecentsFilter): Boolean = when (filter) {
     RecentsFilter.ALL -> true
     RecentsFilter.MISSED -> entry.type == CallType.MISSED
+    RecentsFilter.OUTGOING -> entry.type == CallType.OUTGOING
     RecentsFilter.WHATSAPP -> entry.source == CallSource.WHATSAPP
 }
 

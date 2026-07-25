@@ -50,6 +50,22 @@ class HomeContentTest {
     }
 
     @Test
+    fun clearButtonEmptiesTheSearch() {
+        var query: String? = null
+        composeRule.setContent {
+            HomeContent(
+                favorites = emptyList(),
+                recentsUiState = RecentsUiState(loading = false, query = "matti"),
+                onCall = {},
+                onRequestPermissions = {},
+                onQueryChange = { query = it },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Clear search").performClick()
+        assertEquals("", query)
+    }
+
+    @Test
     fun favoritesAreShownAndCallable() {
         val called = mutableListOf<String>()
         composeRule.setContent {

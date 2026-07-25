@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,6 +104,23 @@ fun HomeContent(
                 placeholder = { Text(stringResource(R.string.recents_search_hint)) },
                 singleLine = true,
                 shape = RoundedCornerShape(28.dp),
+                trailingIcon = if (recentsUiState.query.isNotEmpty()) {
+                    {
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                onQueryChange("")
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.recents_search_clear),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
             )
             IconButton(
                 onClick = {

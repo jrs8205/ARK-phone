@@ -72,6 +72,7 @@ fun RecentsFilterChips(
     ) {
         RecentsFilterChip(selected, RecentsFilter.ALL, R.string.recents_filter_all, onSelect)
         RecentsFilterChip(selected, RecentsFilter.MISSED, R.string.recents_filter_missed, onSelect)
+        RecentsFilterChip(selected, RecentsFilter.OUTGOING, R.string.recents_filter_outgoing, onSelect)
         RecentsFilterChip(selected, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, onSelect)
     }
 }
