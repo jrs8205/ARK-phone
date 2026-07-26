@@ -126,6 +126,39 @@ class SystemCallLogRepository @Inject constructor(
         ).flowOn(ioDispatcher)
     }
 
+    /** Slim rows (no name/duration) dated at or after [sinceMillis]. */
+    private fun queryRowsSince(sinceMillis: Long): List<CallLogEntry> {
+        val rows = mutableListOf<CallLogEntry>()
+        context.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE),
+            CallLog.Calls.DATE + " >= ?",
+            arrayOf(sinceMillis.toString()),
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                rows += CallLogEntry(
+                    id = cursor.getLong(0),
+                    number = cursor.getString(1).orEmpty(),
+                    displayName = null,
+                    type = callTypeFrom(cursor.getInt(2)),
+                    timestampMillis = cursor.getLong(3),
+                    durationSeconds = 0,
+                    source = CallSource.PHONE,
+                )
+            }
+        }
+        return rows
+    }
+
+    override suspend fun callsSince(sinceMillis: Long): List<CallLogEntry> =
+        withContext(ioDispatcher) {
+            if (!permissionChecker.has(Manifest.permission.READ_CALL_LOG)) {
+                return@withContext emptyList()
+            }
+            runCatching { queryRowsSince(sinceMillis) }.getOrDefault(emptyList())
+        }
+
     override suspend fun reclassifyLatestRejectionAsBlocked(
         number: String,
         notBeforeMillis: Long,
@@ -136,27 +169,7 @@ class SystemCallLogRepository @Inject constructor(
             return@withContext false
         }
         runCatching {
-            val rows = mutableListOf<CallLogEntry>()
-            context.contentResolver.query(
-                CallLog.Calls.CONTENT_URI,
-                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE),
-                CallLog.Calls.DATE + " >= ?",
-                arrayOf(notBeforeMillis.toString()),
-                null,
-            )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    rows += CallLogEntry(
-                        id = cursor.getLong(0),
-                        number = cursor.getString(1).orEmpty(),
-                        displayName = null,
-                        type = callTypeFrom(cursor.getInt(2)),
-                        timestampMillis = cursor.getLong(3),
-                        durationSeconds = 0,
-                        source = CallSource.PHONE,
-                    )
-                }
-            }
-            val rowId = rejectedRowToReclassify(rows, number, notBeforeMillis)
+            val rowId = rejectedRowToReclassify(queryRowsSince(notBeforeMillis), number, notBeforeMillis)
                 ?: return@runCatching false
             val values = ContentValues().apply {
                 put(CallLog.Calls.TYPE, CallLog.Calls.BLOCKED_TYPE)

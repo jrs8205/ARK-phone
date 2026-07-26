@@ -13,6 +13,12 @@ interface CallLogRepository {
     fun refresh()
 
     /**
+     * Rows dated at or after [sinceMillis] only — the call-path repeat-caller
+     * check runs inside the screening deadline and must not read the full log.
+     */
+    suspend fun callsSince(sinceMillis: Long): List<CallLogEntry>
+
+    /**
      * Deletes every log row whose number matches [number]. Returns false when
      * WRITE_CALL_LOG is missing or the delete failed.
      */

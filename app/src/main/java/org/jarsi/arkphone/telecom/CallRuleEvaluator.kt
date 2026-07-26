@@ -1,7 +1,6 @@
 package org.jarsi.arkphone.telecom
 
 import android.Manifest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
@@ -37,16 +36,24 @@ class CallRuleEvaluator @Inject constructor(
         val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
             ?: settingsCache.current
         val now = minutesOfDay(clock.nowMillis())
+        // Every ringing call runs through here inside the screening
+        // deadline: when no enabled rule could block this caller, skip the
+        // contact lookup and the call-log read entirely.
+        val rulesCanBlock = if (number.isNullOrBlank()) {
+            settings.blockHiddenNumbers || settings.blockAllCallers
+        } else {
+            settings.blockAllCallers || settings.blockUnknownCallers ||
+                settings.blockedPrefixes.isNotEmpty()
+        }
+        if (!rulesCanBlock) return Decision(block = false, details = "block=false noBlockingRuleEnabled")
         // Without READ_CONTACTS every caller would look unknown and the
         // unknown-caller rule would reject saved contacts too — fail open
         // and treat the caller as known instead.
         val contactsReadable = permissionChecker.has(Manifest.permission.READ_CONTACTS)
-        val match = if (number.isNullOrBlank() || !contactsReadable) {
-            null
-        } else {
-            contactsRepository.lookupContact(number)
-        }
-        val repeat = !number.isNullOrBlank() &&
+        val needsContact = !number.isNullOrBlank() && contactsReadable &&
+            (settings.blockUnknownCallers || settings.alwaysAllowFavorites)
+        val match = if (needsContact) contactsRepository.lookupContact(number!!) else null
+        val repeat = !number.isNullOrBlank() && settings.allowRepeatCallers &&
             isRepeatCaller(number, settings.repeatCallerWindowMinutes)
         val block = shouldBlockCall(
             number = number,
@@ -60,7 +67,7 @@ class CallRuleEvaluator @Inject constructor(
             block = block,
             details = "block=$block hidden=${number.isNullOrBlank()}" +
                 " inContacts=${match != null} contactsReadable=$contactsReadable" +
-                " favorite=${match?.starred == true}" +
+                " contactLookedUp=$needsContact favorite=${match?.starred == true}" +
                 " repeat=$repeat scheduleActive=${blockingScheduleActive(now, settings)}" +
                 " blockAll=${settings.blockAllCallers} blockUnknown=${settings.blockUnknownCallers}",
         )
@@ -69,8 +76,7 @@ class CallRuleEvaluator @Inject constructor(
     private suspend fun isRepeatCaller(number: String, windowMinutes: Int): Boolean {
         val cutoff = clock.nowMillis() - windowMinutes * 60_000L
         return runCatching {
-            callLogRepository.callLog().first()
-                .any { it.timestampMillis >= cutoff && sameCaller(it.number, number) }
+            callLogRepository.callsSince(cutoff).any { sameCaller(it.number, number) }
         }.getOrDefault(false)
     }
 }

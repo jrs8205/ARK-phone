@@ -2,6 +2,7 @@ package org.jarsi.arkphone.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import org.jarsi.arkphone.data.model.CallLogEntry
 
 /**
@@ -23,6 +24,10 @@ class CombinedCallLogRepository(
 
     // The Room-backed WhatsApp log needs no permission-driven refresh.
     override fun refresh() = system.refresh()
+
+    override suspend fun callsSince(sinceMillis: Long): List<CallLogEntry> =
+        system.callsSince(sinceMillis) +
+            whatsApp.calls().first().filter { it.timestampMillis >= sinceMillis }
 
     override suspend fun deleteCallsFor(number: String): Boolean {
         val systemDeleted = system.deleteCallsFor(number)

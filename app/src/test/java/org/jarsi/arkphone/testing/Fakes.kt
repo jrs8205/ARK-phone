@@ -23,9 +23,18 @@ class FakeCallLogRepository : CallLogRepository {
     val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
     val deletedNumbers = mutableListOf<String>()
     var refreshCalls = 0
+    var callLogCollections = 0
+    val callsSinceRequests = mutableListOf<Long>()
     val reclassifyRequests = mutableListOf<Pair<String, Long>>()
     val reclassifyResults = ArrayDeque<Boolean>()
-    override fun callLog(): Flow<List<CallLogEntry>> = entries
+    override fun callLog(): Flow<List<CallLogEntry>> {
+        callLogCollections++
+        return entries
+    }
+    override suspend fun callsSince(sinceMillis: Long): List<CallLogEntry> {
+        callsSinceRequests += sinceMillis
+        return entries.value.filter { it.timestampMillis >= sinceMillis }
+    }
     override fun refresh() {
         refreshCalls++
     }
@@ -74,11 +83,15 @@ class FakeContactsRepository : ContactsRepository {
     val matchesByNumber = mutableMapOf<String, ContactMatch>()
     val detailsById = mutableMapOf<Long, ContactDetails>()
     var refreshCalls = 0
+    var lookupCalls = 0
     override fun contacts(): Flow<List<Contact>> = allContacts
     override fun refresh() {
         refreshCalls++
     }
-    override suspend fun lookupContact(number: String): ContactMatch? = matchesByNumber[number]
+    override suspend fun lookupContact(number: String): ContactMatch? {
+        lookupCalls++
+        return matchesByNumber[number]
+    }
     override suspend fun contactDetails(contactId: Long): ContactDetails? = detailsById[contactId]
 }
 
