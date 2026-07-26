@@ -69,6 +69,7 @@ fun HomeScreen(
         onRequestPermissions = onRequestPermissions,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
         onOpenDetails = { number -> context.startActivity(CallDetailActivity.intent(context, number)) },
+        onOpenNameDetails = { name -> context.startActivity(CallDetailActivity.nameIntent(context, name)) },
         onWhatsAppCall = recentsViewModel::onWhatsAppCall,
         onQueryChange = recentsViewModel::onQueryChange,
         onFilterChange = recentsViewModel::onFilterChange,
@@ -83,6 +84,7 @@ fun HomeContent(
     onRequestPermissions: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onOpenDetails: (String) -> Unit = {},
+    onOpenNameDetails: (String) -> Unit = {},
     onWhatsAppCall: (CallLogEntry) -> Unit = {},
     onQueryChange: (String) -> Unit = {},
     onFilterChange: (RecentsFilter) -> Unit = {},
@@ -146,6 +148,7 @@ fun HomeContent(
                 onCall = onCall,
                 onRequestPermissions = onRequestPermissions,
                 onOpenDetails = onOpenDetails,
+                onOpenNameDetails = onOpenNameDetails,
                 onWhatsAppCall = onWhatsAppCall,
             )
         }

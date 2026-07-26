@@ -24,9 +24,14 @@ class CallDetailActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_NUMBER = "org.jarsi.arkphone.extra.DETAIL_NUMBER"
+        private const val EXTRA_NAME = "org.jarsi.arkphone.extra.DETAIL_NAME"
 
         fun intent(context: Context, number: String): Intent =
             Intent(context, CallDetailActivity::class.java).putExtra(EXTRA_NUMBER, number)
+
+        /** Details for a WhatsApp caller known only by display name. */
+        fun nameIntent(context: Context, name: String): Intent =
+            Intent(context, CallDetailActivity::class.java).putExtra(EXTRA_NAME, name)
     }
 
     @Inject lateinit var phoneCaller: PhoneCaller
@@ -43,11 +48,15 @@ class CallDetailActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val number = intent.getStringExtra(EXTRA_NUMBER).orEmpty()
-        if (number.isBlank()) {
-            finish()
-            return
+        val name = intent.getStringExtra(EXTRA_NAME).orEmpty()
+        when {
+            number.isNotBlank() -> viewModel.setNumber(number)
+            name.isNotBlank() -> viewModel.setNameKey(name)
+            else -> {
+                finish()
+                return
+            }
         }
-        viewModel.setNumber(number)
         setContent {
             ArkPhoneTheme {
                 CallDetailScreen(

@@ -45,6 +45,7 @@ class RecentsScreenTest {
         entry: CallLogEntry,
         count: Int = 1,
         onOpenDetails: (String) -> Unit = {},
+        onOpenNameDetails: (String) -> Unit = {},
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
     ) {
         composeRule.setContent {
@@ -56,9 +57,24 @@ class RecentsScreenTest {
                 onCall = {},
                 onRequestPermissions = {},
                 onOpenDetails = onOpenDetails,
+                onOpenNameDetails = onOpenNameDetails,
                 onWhatsAppCall = onWhatsAppCall,
             )
         }
+    }
+
+    @Test
+    fun aNumberlessWhatsAppRowOpensNameDetails() {
+        val openedNames = mutableListOf<String>()
+        val openedNumbers = mutableListOf<String>()
+        setContent(
+            entry(source = CallSource.WHATSAPP, number = ""),
+            onOpenDetails = { openedNumbers += it },
+            onOpenNameDetails = { openedNames += it },
+        )
+        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        assertEquals(listOf("Matti Meikäläinen"), openedNames)
+        assertEquals(emptyList<String>(), openedNumbers)
     }
 
     @Test

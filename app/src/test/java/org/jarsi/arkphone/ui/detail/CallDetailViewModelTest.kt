@@ -2,15 +2,19 @@ package org.jarsi.arkphone.ui.detail
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeWhatsAppCallLogRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -33,6 +37,60 @@ class CallDetailViewModelTest {
         durationSeconds = 10,
     )
 
+    private fun whatsAppEntry(id: Long, number: String, name: String?) = CallLogEntry(
+        id = id,
+        number = number,
+        displayName = name,
+        type = CallType.INCOMING,
+        timestampMillis = id * 1_000,
+        durationSeconds = 10,
+        source = CallSource.WHATSAPP,
+    )
+
+    @Test
+    fun aNameKeyShowsOnlyNumberlessWhatsAppRowsWithThatName() = runTest {
+        val callLog = FakeCallLogRepository().apply {
+            entries.value = listOf(
+                whatsAppEntry(1, "", "Matti Meikäläinen"),
+                whatsAppEntry(2, "0401234567", "Matti Meikäläinen"),
+                whatsAppEntry(3, "", "Liisa"),
+                entry(4, ""),
+            )
+        }
+        val viewModel = CallDetailViewModel(
+            callLog,
+            FakeContactsRepository(),
+            FakeBlockedNumbersRepository(),
+            FakeWhatsAppCallLogRepository(),
+        )
+        viewModel.setNameKey("Matti Meikäläinen")
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.loading || state.entries.isEmpty()) state = awaitItem()
+            assertEquals(listOf(1L), state.entries.map { it.id })
+            assertEquals("Matti Meikäläinen", state.displayName)
+            assertFalse(state.hasNumber)
+            assertFalse(state.canBlock)
+        }
+    }
+
+    @Test
+    fun deleteHistoryForANameKeyDeletesByNameOnly() = runTest {
+        val callLog = FakeCallLogRepository()
+        val whatsApp = FakeWhatsAppCallLogRepository()
+        val viewModel = CallDetailViewModel(
+            callLog,
+            FakeContactsRepository(),
+            FakeBlockedNumbersRepository(),
+            whatsApp,
+        )
+        viewModel.setNameKey("Matti Meikäläinen")
+        viewModel.onDeleteHistory()
+        advanceUntilIdle()
+        assertEquals(listOf("Matti Meikäläinen"), whatsApp.deletedNames)
+        assertEquals(emptyList<String>(), callLog.deletedNumbers)
+    }
+
     @Test
     fun filtersEntriesByNumberEquivalence() = runTest {
         val callLog = FakeCallLogRepository().apply {
@@ -46,6 +104,7 @@ class CallDetailViewModelTest {
             callLog,
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
+            FakeWhatsAppCallLogRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
@@ -61,7 +120,7 @@ class CallDetailViewModelTest {
             matchesByNumber["0401234567"] = ContactMatch("Alice", "content://photo/1")
         }
         val blockedNumbers = FakeBlockedNumbersRepository().apply { blocked.add("0401234567") }
-        val viewModel = CallDetailViewModel(FakeCallLogRepository(), contacts, blockedNumbers)
+        val viewModel = CallDetailViewModel(FakeCallLogRepository(), contacts, blockedNumbers, FakeWhatsAppCallLogRepository())
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
             var state = awaitItem()
@@ -79,6 +138,7 @@ class CallDetailViewModelTest {
             FakeCallLogRepository(),
             FakeContactsRepository(),
             blockedNumbers,
+            FakeWhatsAppCallLogRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
@@ -97,6 +157,7 @@ class CallDetailViewModelTest {
             callLog,
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
+            FakeWhatsAppCallLogRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.onDeleteHistory()

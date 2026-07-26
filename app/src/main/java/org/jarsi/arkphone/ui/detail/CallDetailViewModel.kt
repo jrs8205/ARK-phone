@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
@@ -52,6 +53,9 @@ data class CallDetailUiState(
 ) {
     val stats: CallStats get() = computeCallStats(entries)
     val hasWhatsAppCalls: Boolean get() = entries.any { it.source == CallSource.WHATSAPP }
+
+    /** False for a name-only WhatsApp caller — phone actions are hidden then. */
+    val hasNumber: Boolean get() = number.isNotBlank()
 }
 
 @HiltViewModel
@@ -59,27 +63,45 @@ class CallDetailViewModel @Inject constructor(
     private val callLogRepository: CallLogRepository,
     private val contactsRepository: ContactsRepository,
     private val blockedNumbersRepository: BlockedNumbersRepository,
+    private val whatsAppCallLogRepository: WhatsAppCallLogRepository,
 ) : ViewModel() {
 
-    private val number = MutableStateFlow<String?>(null)
+    /** What the detail view is about: a phone number, or — for WhatsApp
+     *  callers whose number could not be safely resolved — a bare name.
+     *  A name key never coalesces with numbered rows: those belong to the
+     *  number's own detail view. */
+    private sealed interface DetailKey
+    private data class NumberKey(val number: String) : DetailKey
+    private data class NameKey(val name: String) : DetailKey
+
+    private val key = MutableStateFlow<DetailKey?>(null)
     private val contact = MutableStateFlow<ContactMatch?>(null)
     private val blocked = MutableStateFlow(false)
     private val canBlock = MutableStateFlow(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val entries = number.filterNotNull().flatMapLatest { target ->
+    private val entries = key.filterNotNull().flatMapLatest { target ->
         callLogRepository.callLog().map { all ->
-            all.filter { PhoneNumberUtils.compare(it.number, target) }
+            when (target) {
+                is NumberKey -> all.filter { PhoneNumberUtils.compare(it.number, target.number) }
+                is NameKey -> all.filter {
+                    it.source == CallSource.WHATSAPP && it.number.isBlank() &&
+                        it.displayName == target.name
+                }
+            }
         }
     }
 
     val uiState: StateFlow<CallDetailUiState> = combine(
-        number.filterNotNull(), entries, contact, blocked, canBlock,
+        key.filterNotNull(), entries, contact, blocked, canBlock,
     ) { target, matching, match, isBlocked, blockingAvailable ->
         CallDetailUiState(
-            number = target,
-            displayName = match?.displayName?.takeIf { it.isNotBlank() }
-                ?: matching.firstOrNull { it.displayName != null }?.displayName,
+            number = (target as? NumberKey)?.number.orEmpty(),
+            displayName = when (target) {
+                is NameKey -> target.name
+                is NumberKey -> match?.displayName?.takeIf { it.isNotBlank() }
+                    ?: matching.firstOrNull { it.displayName != null }?.displayName
+            },
             photoUri = match?.photoUri,
             blocked = isBlocked,
             canBlock = blockingAvailable,
@@ -93,8 +115,8 @@ class CallDetailViewModel @Inject constructor(
     )
 
     fun setNumber(target: String) {
-        if (number.value == target) return
-        number.value = target
+        if (key.value == NumberKey(target)) return
+        key.value = NumberKey(target)
         viewModelScope.launch {
             contact.value = contactsRepository.lookupContact(target)
             canBlock.value = blockedNumbersRepository.canBlock()
@@ -102,8 +124,13 @@ class CallDetailViewModel @Inject constructor(
         }
     }
 
+    fun setNameKey(name: String) {
+        if (key.value == NameKey(name)) return
+        key.value = NameKey(name)
+    }
+
     fun onToggleBlocked() {
-        val target = number.value ?: return
+        val target = (key.value as? NumberKey)?.number ?: return
         viewModelScope.launch {
             if (blocked.value) {
                 if (blockedNumbersRepository.unblock(target)) blocked.value = false
@@ -114,7 +141,12 @@ class CallDetailViewModel @Inject constructor(
     }
 
     fun onDeleteHistory() {
-        val target = number.value ?: return
-        viewModelScope.launch { callLogRepository.deleteCallsFor(target) }
+        when (val target = key.value) {
+            is NumberKey -> viewModelScope.launch { callLogRepository.deleteCallsFor(target.number) }
+            is NameKey -> viewModelScope.launch {
+                whatsAppCallLogRepository.deleteCallsForName(target.name)
+            }
+            null -> Unit
+        }
     }
 }

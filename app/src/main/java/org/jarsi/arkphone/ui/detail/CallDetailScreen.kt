@@ -131,22 +131,24 @@ fun CallDetailContent(
                         )
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.detail_copy_number)) },
-                            onClick = {
-                                haptics.click()
-                                menuOpen = false
-                                onCopyNumber()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.detail_edit_before_call)) },
-                            onClick = {
-                                haptics.click()
-                                menuOpen = false
-                                onEditBeforeCall()
-                            },
-                        )
+                        if (uiState.hasNumber) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.detail_copy_number)) },
+                                onClick = {
+                                    haptics.click()
+                                    menuOpen = false
+                                    onCopyNumber()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.detail_edit_before_call)) },
+                                onClick = {
+                                    haptics.click()
+                                    menuOpen = false
+                                    onEditBeforeCall()
+                                },
+                            )
+                        }
                         if (uiState.canBlock) {
                             DropdownMenuItem(
                                 text = {
@@ -199,7 +201,7 @@ fun CallDetailContent(
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(top = 12.dp),
             )
-            if (uiState.displayName != null) {
+            if (uiState.displayName != null && uiState.hasNumber) {
                 Text(
                     text = uiState.number,
                     style = MaterialTheme.typography.bodyMedium,
@@ -218,29 +220,31 @@ fun CallDetailContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(vertical = 16.dp),
             ) {
-                Button(
-                    onClick = {
-                        haptics.confirm()
-                        onCall()
-                    },
-                ) {
-                    Icon(Icons.Filled.Call, contentDescription = null)
-                    Text(
-                        stringResource(R.string.dialpad_call),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                OutlinedButton(
-                    onClick = {
-                        haptics.click()
-                        onMessage()
-                    },
-                ) {
-                    Icon(Icons.Outlined.Message, contentDescription = null)
-                    Text(
-                        stringResource(R.string.detail_message),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
+                if (uiState.hasNumber) {
+                    Button(
+                        onClick = {
+                            haptics.confirm()
+                            onCall()
+                        },
+                    ) {
+                        Icon(Icons.Filled.Call, contentDescription = null)
+                        Text(
+                            stringResource(R.string.dialpad_call),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            haptics.click()
+                            onMessage()
+                        },
+                    ) {
+                        Icon(Icons.Outlined.Message, contentDescription = null)
+                        Text(
+                            stringResource(R.string.detail_message),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
                 if (uiState.hasWhatsAppCalls) {
                     IconButton(

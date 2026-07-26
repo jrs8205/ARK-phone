@@ -110,6 +110,7 @@ fun RecentsContent(
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenDetails: (String) -> Unit = {},
+    onOpenNameDetails: (String) -> Unit = {},
     onWhatsAppCall: (CallLogEntry) -> Unit = {},
 ) {
     when {
@@ -145,6 +146,7 @@ fun RecentsContent(
                     grouped = grouped,
                     onCall = onCall,
                     onOpenDetails = onOpenDetails,
+                    onOpenNameDetails = onOpenNameDetails,
                     onWhatsAppCall = onWhatsAppCall,
                 )
             }
@@ -157,10 +159,11 @@ private fun RecentsRow(
     grouped: GroupedCallLogEntry,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
+    onOpenNameDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
     RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-        RecentsRowItem(grouped, onCall, onOpenDetails, onWhatsAppCall)
+        RecentsRowItem(grouped, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
     }
 }
 
@@ -169,6 +172,7 @@ private fun RecentsRowItem(
     grouped: GroupedCallLogEntry,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
+    onOpenNameDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
     val entry = grouped.entry
@@ -186,7 +190,12 @@ private fun RecentsRowItem(
         colors = transparentListItemColors(),
         modifier = clickableListItemModifier(
             onClick = {
-                if (entry.number.isNotBlank()) onOpenDetails(entry.number)
+                when {
+                    entry.number.isNotBlank() -> onOpenDetails(entry.number)
+                    entry.source == CallSource.WHATSAPP && entry.displayName != null ->
+                        onOpenNameDetails(entry.displayName)
+                    else -> Unit
+                }
             },
             onLongClick = {
                 if (entry.number.isNotBlank()) {
