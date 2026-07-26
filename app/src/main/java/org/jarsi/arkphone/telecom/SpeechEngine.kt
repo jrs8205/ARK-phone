@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.os.ConfigurationCompat
@@ -28,6 +29,22 @@ internal fun announcementLocale(
     appLocale: Locale,
     availability: (Locale) -> Int,
 ): Locale? = appLocale.takeIf { availability(it) >= TextToSpeech.LANG_AVAILABLE }
+
+internal object AnnouncementSpeech {
+    const val MIN_RATE = 0.8f
+    const val MAX_RATE = 1.4f
+}
+
+/**
+ * The speed to announce a caller at. The device's own text-to-speech speed
+ * is followed, but only so far: a phone found in the field read its
+ * announcements at 3.57x, where a name is no longer recognizable. A caller's
+ * name is two seconds of speech that has to land the first time.
+ */
+internal fun announcementSpeechRate(systemRate: Float): Float = when {
+    systemRate <= 0f -> 1f
+    else -> systemRate.coerceIn(AnnouncementSpeech.MIN_RATE, AnnouncementSpeech.MAX_RATE)
+}
 
 /**
  * Lazily initialized system TTS. The engine initializes asynchronously, so the
@@ -118,10 +135,16 @@ class TtsSpeechEngine @Inject constructor(
             ?: Locale.getDefault()
         val locale = announcementLocale(appLocale) { engine.isLanguageAvailable(it) }
         if (locale != null) engine.language = locale
+        val systemRate = runCatching {
+            Settings.Secure.getInt(context.contentResolver, "tts_default_rate", 100) / 100f
+        }.getOrDefault(1f)
+        val rate = announcementSpeechRate(systemRate)
+        engine.setSpeechRate(rate)
         Log.i(
             "ArkPhone",
             "Announcement voice: app=$appLocale applied=${locale ?: "engine default"}" +
-                " voice=${runCatching { engine.voice?.locale }.getOrNull()}",
+                " voice=${runCatching { engine.voice?.locale }.getOrNull()}" +
+                " systemRate=$systemRate rate=$rate",
         )
     }
 }
