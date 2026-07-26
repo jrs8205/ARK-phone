@@ -38,7 +38,9 @@ import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AndroidCallScreeningRole
 import org.jarsi.arkphone.telecom.AndroidRingSilencer
+import org.jarsi.arkphone.telecom.AndroidSpeechAvailability
 import org.jarsi.arkphone.telecom.AndroidTelecomCallPlacer
+import org.jarsi.arkphone.telecom.SpeechAvailability
 import org.jarsi.arkphone.telecom.TelecomCallPlacer
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.CallScreeningRole
@@ -94,6 +96,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSimRepository(impl: SystemSimRepository): SimRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSpeechAvailability(impl: AndroidSpeechAvailability): SpeechAvailability
 
     @Binds
     @Singleton

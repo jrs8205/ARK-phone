@@ -15,6 +15,8 @@ import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.telecom.CallScreeningRole
+import org.jarsi.arkphone.telecom.SpeechAvailability
+import org.jarsi.arkphone.telecom.SpeechStatus
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import javax.inject.Inject
 
@@ -24,13 +26,23 @@ class SettingsViewModel @Inject constructor(
     private val notificationAccessChecker: NotificationAccessChecker,
     private val callScreeningRole: CallScreeningRole,
     private val simAccountRepository: SimAccountRepository,
+    private val speechAvailability: SpeechAvailability,
 ) : ViewModel() {
+
+    private val _speechStatus = MutableStateFlow(SpeechStatus.READY)
+    val speechStatus: StateFlow<SpeechStatus> = _speechStatus.asStateFlow()
+
+    /** Engines and voices can be installed while the app sits in settings. */
+    fun refreshSpeechStatus() {
+        viewModelScope.launch { _speechStatus.value = speechAvailability.status() }
+    }
 
     private val _simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
     val simAccounts: StateFlow<List<SimAccount>> = _simAccounts.asStateFlow()
 
     init {
         refreshSimAccounts()
+        refreshSpeechStatus()
     }
 
     /** SIMs can be enabled or swapped while the app sits in the background. */

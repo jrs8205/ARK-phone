@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.settings
 
 import android.content.Intent
+import android.speech.tts.TextToSpeech
 import android.telecom.TelecomManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.telecom.SpeechStatus
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import kotlin.math.roundToInt
 
@@ -59,10 +61,12 @@ fun SettingsScreen(
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
     val hasNotificationAccess by viewModel.hasNotificationAccess.collectAsStateWithLifecycle()
     val simAccounts by viewModel.simAccounts.collectAsStateWithLifecycle()
+    val speechStatus by viewModel.speechStatus.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LifecycleResumeEffect(Unit) {
         viewModel.refreshNotificationAccess()
         viewModel.refreshSimAccounts()
+        viewModel.refreshSpeechStatus()
         onPauseOrDispose { }
     }
     SettingsContent(
@@ -70,6 +74,22 @@ fun SettingsScreen(
         hasNotificationAccess = hasNotificationAccess,
         simAccounts = simAccounts,
         onCallSimAccountChanged = viewModel::onCallSimAccountChanged,
+        speechStatus = speechStatus,
+        onOpenSpeechSettings = {
+            // The voice installer is the engine's own screen and not every
+            // engine offers it; the system speech settings always exist.
+            val installed = runCatching {
+                context.startActivity(
+                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.isSuccess
+            if (!installed) {
+                runCatching {
+                    context.startActivity(Intent("com.android.settings.TTS_SETTINGS"))
+                }
+            }
+        },
         onAnnounceModeChanged = viewModel::onAnnounceModeChanged,
         onAnnounceIntervalChanged = viewModel::onAnnounceIntervalChanged,
         onAnnounceWhatsAppChanged = viewModel::onAnnounceWhatsAppChanged,
@@ -106,6 +126,8 @@ fun SettingsContent(
     onGrantNotificationAccess: () -> Unit = {},
     simAccounts: List<SimAccount> = emptyList(),
     onCallSimAccountChanged: (String?) -> Unit = {},
+    speechStatus: SpeechStatus = SpeechStatus.READY,
+    onOpenSpeechSettings: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -140,6 +162,22 @@ fun SettingsContent(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
+            if (speechStatus == SpeechStatus.UNAVAILABLE) {
+                // Offering a spoken announcement on a phone that cannot speak
+                // would be a setting that silently does nothing.
+                SpeechNotice(
+                    text = stringResource(R.string.settings_speech_unavailable),
+                    button = stringResource(R.string.settings_speech_settings),
+                    onClick = onOpenSpeechSettings,
+                )
+            } else {
+            if (speechStatus == SpeechStatus.VOICE_MISSING) {
+                SpeechNotice(
+                    text = stringResource(R.string.settings_speech_voice_missing),
+                    button = stringResource(R.string.settings_speech_install),
+                    onClick = onOpenSpeechSettings,
+                )
+            }
             AnnounceModeRow(
                 title = stringResource(R.string.announce_mode_off),
                 description = null,
@@ -172,6 +210,7 @@ fun SettingsContent(
                     intervalSeconds = settings.announceIntervalSeconds,
                     onIntervalChanged = onAnnounceIntervalChanged,
                 )
+            }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text(
@@ -274,6 +313,27 @@ fun SettingsContent(
                     onOpenCallSettings()
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun SpeechNotice(text: String, button: String, onClick: () -> Unit) {
+    val haptics = rememberHaptics()
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = {
+                haptics.click()
+                onClick()
+            },
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            Text(button)
         }
     }
 }

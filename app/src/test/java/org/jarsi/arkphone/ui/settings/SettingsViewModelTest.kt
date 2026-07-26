@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.telecom.SpeechStatus
 import org.jarsi.arkphone.testing.FakeSettingsRepository
 import org.jarsi.arkphone.testing.FakeSimAccountRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
@@ -29,6 +30,7 @@ class SettingsViewModelTest {
             override fun requestIntent() = null
         },
         simAccounts,
+        { SpeechStatus.READY },
     )
 
     @Test

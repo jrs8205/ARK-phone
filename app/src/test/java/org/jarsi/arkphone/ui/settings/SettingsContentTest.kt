@@ -2,10 +2,12 @@ package org.jarsi.arkphone.ui.settings
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -14,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.telecom.SpeechStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -32,6 +35,7 @@ class SettingsContentTest {
         settings: Settings = Settings(),
         hasNotificationAccess: Boolean = true,
         simAccounts: List<SimAccount> = emptyList(),
+        speechStatus: SpeechStatus = SpeechStatus.READY,
         onModeChanged: (AnnounceMode) -> Unit = {},
         onIntervalChanged: (Int) -> Unit = {},
         onWhatsAppChanged: (Boolean) -> Unit = {},
@@ -39,6 +43,7 @@ class SettingsContentTest {
         onOpenSimInfo: () -> Unit = {},
         onOpenCallSettings: () -> Unit = {},
         onCallSimChanged: (String?) -> Unit = {},
+        onOpenSpeechSettings: () -> Unit = {},
         onBack: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -46,6 +51,7 @@ class SettingsContentTest {
                 settings = settings,
                 hasNotificationAccess = hasNotificationAccess,
                 simAccounts = simAccounts,
+                speechStatus = speechStatus,
                 onAnnounceModeChanged = onModeChanged,
                 onAnnounceIntervalChanged = onIntervalChanged,
                 onAnnounceWhatsAppChanged = onWhatsAppChanged,
@@ -53,6 +59,7 @@ class SettingsContentTest {
                 onOpenSimInfo = onOpenSimInfo,
                 onOpenCallSettings = onOpenCallSettings,
                 onCallSimAccountChanged = onCallSimChanged,
+                onOpenSpeechSettings = onOpenSpeechSettings,
                 onBack = onBack,
             )
         }
@@ -180,5 +187,38 @@ class SettingsContentTest {
         setContent(onBack = { backed = true })
         composeRule.onNodeWithContentDescription("Back").performClick()
         assertTrue(backed)
+    }
+
+    @Test
+    fun theAnnouncementChoicesAreHiddenWhenThePhoneCannotSpeak() {
+        // A phone with no usable speech engine should not offer a feature it
+        // cannot perform — it should say so and point at the system settings.
+        setContent(speechStatus = SpeechStatus.UNAVAILABLE)
+        composeRule.onNodeWithText("Voice only").assertDoesNotExist()
+        composeRule.onNodeWithText("Off").assertDoesNotExist()
+        composeRule.onNodeWithText("Speech is not available", substring = true)
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun aMissingVoiceKeepsTheChoicesButOffersToInstallIt() {
+        setContent(speechStatus = SpeechStatus.VOICE_MISSING)
+        composeRule.onNodeWithText("Voice only").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Install voice").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun aWorkingEngineShowsNoSpeechNotice() {
+        setContent(speechStatus = SpeechStatus.READY)
+        composeRule.onNodeWithText("Voice only").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("Install voice").assertCountEquals(0)
+    }
+
+    @Test
+    fun theSpeechNoticeButtonReportsTheRequest() {
+        var opened = 0
+        setContent(speechStatus = SpeechStatus.UNAVAILABLE, onOpenSpeechSettings = { opened++ })
+        composeRule.onNodeWithText("Speech settings").performScrollTo().performClick()
+        assertEquals(1, opened)
     }
 }
