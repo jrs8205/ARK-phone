@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.settings
 
 import android.content.Intent
+import android.provider.Settings as SystemSettings
 import android.speech.tts.TextToSpeech
 import android.telecom.TelecomManager
 import androidx.compose.foundation.clickable
@@ -83,17 +84,26 @@ fun SettingsScreen(
             }.getOrNull().orEmpty()
         },
         onOpenSpeechSettings = {
-            // The voice installer is the engine's own screen and not every
-            // engine offers it; the system speech settings always exist.
-            val installed = runCatching {
-                context.startActivity(
-                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            }.isSuccess
-            if (!installed) {
+            // Choosing the engine and downloading a voice are different
+            // screens. Sending someone with no engine to the voice installer
+            // means an app chooser and a download for an engine that will
+            // never run — the engine is chosen in the system settings.
+            val engine = SystemSettings.Secure.getString(
+                context.contentResolver,
+                "tts_default_synth",
+            )
+            val installer = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .apply { engine?.takeIf { it.isNotBlank() }?.let(::setPackage) }
+            val opened = speechStatus == SpeechStatus.VOICE_MISSING &&
+                !engine.isNullOrBlank() &&
+                runCatching { context.startActivity(installer) }.isSuccess
+            if (!opened) {
                 runCatching {
-                    context.startActivity(Intent("com.android.settings.TTS_SETTINGS"))
+                    context.startActivity(
+                        Intent("com.android.settings.TTS_SETTINGS")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
                 }
             }
         },
@@ -103,7 +113,7 @@ fun SettingsScreen(
         onGrantNotificationAccess = {
             runCatching {
                 context.startActivity(
-                    Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                    Intent(SystemSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
                 )
             }
         },
