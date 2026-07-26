@@ -13,6 +13,7 @@ private class FakeCallHandle(
     override val displayName: String? = null,
     override var telecomState: Int = Call.STATE_RINGING,
     override val connectTimeMillis: Long = 0,
+    override val simAccountId: String? = null,
 ) : CallHandle {
     var answered = false
     var rejected = false

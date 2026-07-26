@@ -30,6 +30,9 @@ class TelecomCallHandle(private val call: Call) : CallHandle {
     override val connectTimeMillis: Long
         get() = call.details?.connectTimeMillis ?: 0
 
+    override val simAccountId: String?
+        get() = call.details?.accountHandle?.id
+
     override fun answer() = call.answer(VideoProfile.STATE_AUDIO_ONLY)
     override fun reject() = call.reject(false, null)
     override fun disconnect() = call.disconnect()

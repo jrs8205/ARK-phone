@@ -113,6 +113,14 @@ fun CallScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                uiState.simLabel?.let { sim ->
+                    Text(
+                        text = stringResource(R.string.incall_sim, sim),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 if (call?.status == CallStatus.RINGING) {
                     if (!uiState.knownCaller && callerName == null) {
                         Text(

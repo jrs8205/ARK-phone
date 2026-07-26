@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.recents
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -13,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.data.model.SimAccount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -31,6 +33,7 @@ class RecentsScreenTest {
         source: CallSource = CallSource.PHONE,
         number: String = "0401234567",
         name: String? = "Matti Meikäläinen",
+        simAccountId: String? = null,
     ) = CallLogEntry(
         id = 1,
         number = number,
@@ -39,11 +42,13 @@ class RecentsScreenTest {
         timestampMillis = 0,
         durationSeconds = 10,
         source = source,
+        simAccountId = simAccountId,
     )
 
     private fun setContent(
         entry: CallLogEntry,
         count: Int = 1,
+        simAccounts: List<SimAccount> = emptyList(),
         onOpenDetails: (String) -> Unit = {},
         onOpenNameDetails: (String) -> Unit = {},
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
@@ -53,6 +58,7 @@ class RecentsScreenTest {
                 uiState = RecentsUiState(
                     loading = false,
                     entries = listOf(GroupedCallLogEntry(entry, count)),
+                    simAccounts = simAccounts,
                 ),
                 onCall = {},
                 onRequestPermissions = {},
@@ -61,6 +67,26 @@ class RecentsScreenTest {
                 onWhatsAppCall = onWhatsAppCall,
             )
         }
+    }
+
+    private val twoSims = listOf(
+        SimAccount("sub-1", "DNA", null),
+        SimAccount("sub-2", "Elisa", null),
+    )
+
+    @Test
+    fun theSimNameIsShownOnARowWhenTheDeviceHasSeveralSims() {
+        setContent(entry(simAccountId = "sub-2"), simAccounts = twoSims)
+        composeRule.onNodeWithText("Elisa", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun theSimNameIsHiddenOnASingleSimDevice() {
+        setContent(
+            entry(simAccountId = "sub-1"),
+            simAccounts = listOf(SimAccount("sub-1", "DNA", null)),
+        )
+        composeRule.onNodeWithText("DNA", substring = true).assertDoesNotExist()
     }
 
     @Test

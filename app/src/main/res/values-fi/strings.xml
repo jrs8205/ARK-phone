@@ -52,6 +52,7 @@
     <string name="incall_reject_message_title">Hylkää viestillä</string>
     <string name="incall_unknown_number">Tuntematon numero</string>
     <string name="incall_last_called">Edellinen puhelu: %1$s</string>
+    <string name="incall_sim">SIM: %1$s</string>
     <string name="incall_reject_reply_1">En voi vastata juuri nyt, soitan takaisin.</string>
     <string name="incall_reject_reply_2">Laita viestiä.</string>
     <string name="incall_reject_reply_3">Soitan kohta.</string>

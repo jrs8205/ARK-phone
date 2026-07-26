@@ -17,11 +17,13 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.ContactMatch
+import org.jarsi.arkphone.data.model.SimAccount
 import javax.inject.Inject
 
 data class CallStats(
@@ -50,6 +52,7 @@ data class CallDetailUiState(
     val canBlock: Boolean = false,
     val entries: List<CallLogEntry> = emptyList(),
     val loading: Boolean = true,
+    val simAccounts: List<SimAccount> = emptyList(),
 ) {
     val stats: CallStats get() = computeCallStats(entries)
     val hasWhatsAppCalls: Boolean get() = entries.any { it.source == CallSource.WHATSAPP }
@@ -64,7 +67,14 @@ class CallDetailViewModel @Inject constructor(
     private val contactsRepository: ContactsRepository,
     private val blockedNumbersRepository: BlockedNumbersRepository,
     private val whatsAppCallLogRepository: WhatsAppCallLogRepository,
+    private val simAccountRepository: SimAccountRepository,
 ) : ViewModel() {
+
+    private val simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
+
+    init {
+        viewModelScope.launch { simAccounts.value = simAccountRepository.accounts() }
+    }
 
     /** What the detail view is about: a phone number, or — for WhatsApp
      *  callers whose number could not be safely resolved — a bare name.
@@ -92,9 +102,13 @@ class CallDetailViewModel @Inject constructor(
         }
     }
 
+    private val blockingState = combine(blocked, canBlock, simAccounts) { isBlocked, available, sims ->
+        Triple(isBlocked, available, sims)
+    }
+
     val uiState: StateFlow<CallDetailUiState> = combine(
-        key.filterNotNull(), entries, contact, blocked, canBlock,
-    ) { target, matching, match, isBlocked, blockingAvailable ->
+        key.filterNotNull(), entries, contact, blockingState,
+    ) { target, matching, match, (isBlocked, blockingAvailable, sims) ->
         CallDetailUiState(
             number = (target as? NumberKey)?.number.orEmpty(),
             displayName = when (target) {
@@ -107,6 +121,7 @@ class CallDetailViewModel @Inject constructor(
             canBlock = blockingAvailable,
             entries = matching,
             loading = false,
+            simAccounts = sims,
         )
     }.stateIn(
         scope = viewModelScope,

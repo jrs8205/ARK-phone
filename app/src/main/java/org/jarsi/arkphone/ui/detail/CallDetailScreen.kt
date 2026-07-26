@@ -53,6 +53,8 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -270,7 +272,7 @@ fun CallDetailContent(
                     .fillMaxWidth()
                     .padding(top = 16.dp, bottom = 4.dp),
             )
-            uiState.entries.forEach { entry -> HistoryRow(entry) }
+            uiState.entries.forEach { entry -> HistoryRow(entry, uiState.simAccounts) }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -352,16 +354,21 @@ private fun StatRow(label: String, value: String) {
 }
 
 @Composable
-private fun HistoryRow(entry: CallLogEntry) {
+private fun HistoryRow(entry: CallLogEntry, simAccounts: List<SimAccount>) {
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
     val whatsapp = entry.source == CallSource.WHATSAPP
     RowCard(Modifier.padding(vertical = 4.dp)) {
-        HistoryRowItem(entry, typeLabel, whatsapp)
+        HistoryRowItem(entry, typeLabel, whatsapp, simLabelFor(entry.simAccountId, simAccounts))
     }
 }
 
 @Composable
-private fun HistoryRowItem(entry: CallLogEntry, typeLabel: String, whatsapp: Boolean) {
+private fun HistoryRowItem(
+    entry: CallLogEntry,
+    typeLabel: String,
+    whatsapp: Boolean,
+    simLabel: String?,
+) {
     ListItem(
         colors = transparentListItemColors(),
         headlineContent = {
@@ -383,7 +390,7 @@ private fun HistoryRowItem(entry: CallLogEntry, typeLabel: String, whatsapp: Boo
                 .takeIf { it > 0 }
                 ?.let { " · " + formatDuration(it) }
                 .orEmpty()
-            Text(time + duration)
+            Text(time + duration + simLabel?.let { " · $it" }.orEmpty())
         },
         leadingContent = {
             val icon = when (entry.type) {

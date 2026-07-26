@@ -11,6 +11,7 @@ import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeSimAccountRepository
 import org.jarsi.arkphone.testing.FakeWhatsAppCallLogRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
@@ -62,6 +63,7 @@ class CallDetailViewModelTest {
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
             FakeWhatsAppCallLogRepository(),
+            FakeSimAccountRepository(),
         )
         viewModel.setNameKey("Matti Meikäläinen")
         viewModel.uiState.test {
@@ -83,6 +85,7 @@ class CallDetailViewModelTest {
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
             whatsApp,
+            FakeSimAccountRepository(),
         )
         viewModel.setNameKey("Matti Meikäläinen")
         viewModel.onDeleteHistory()
@@ -105,6 +108,7 @@ class CallDetailViewModelTest {
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
             FakeWhatsAppCallLogRepository(),
+            FakeSimAccountRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
@@ -120,7 +124,7 @@ class CallDetailViewModelTest {
             matchesByNumber["0401234567"] = ContactMatch("Alice", "content://photo/1")
         }
         val blockedNumbers = FakeBlockedNumbersRepository().apply { blocked.add("0401234567") }
-        val viewModel = CallDetailViewModel(FakeCallLogRepository(), contacts, blockedNumbers, FakeWhatsAppCallLogRepository())
+        val viewModel = CallDetailViewModel(FakeCallLogRepository(), contacts, blockedNumbers, FakeWhatsAppCallLogRepository(), FakeSimAccountRepository())
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
             var state = awaitItem()
@@ -139,6 +143,7 @@ class CallDetailViewModelTest {
             FakeContactsRepository(),
             blockedNumbers,
             FakeWhatsAppCallLogRepository(),
+            FakeSimAccountRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
@@ -158,6 +163,7 @@ class CallDetailViewModelTest {
             FakeContactsRepository(),
             FakeBlockedNumbersRepository(),
             FakeWhatsAppCallLogRepository(),
+            FakeSimAccountRepository(),
         )
         viewModel.setNumber("0401234567")
         viewModel.onDeleteHistory()

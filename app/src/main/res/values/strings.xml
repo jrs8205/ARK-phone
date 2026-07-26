@@ -42,6 +42,7 @@
     <string name="incall_reject_message_title">Decline with a message</string>
     <string name="incall_unknown_number">Unknown number</string>
     <string name="incall_last_called">Last call: %1$s</string>
+    <string name="incall_sim">SIM: %1$s</string>
     <string name="incall_reject_reply_1">I can\'t talk right now, I\'ll call you back.</string>
     <string name="incall_reject_reply_2">Please text me.</string>
     <string name="incall_reject_reply_3">I\'ll call you soon.</string>

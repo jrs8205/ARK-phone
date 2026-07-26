@@ -14,8 +14,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.CallLogRepository
+import org.jarsi.arkphone.data.SimAccountRepository
+import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallInfo
@@ -39,6 +43,8 @@ data class InCallUiState(
     val lastCalledMillis: Long? = null,
     val callerContactId: Long? = null,
     val callerDisplayName: String? = null,
+    /** SIM the call uses; null when the device has only one. */
+    val simLabel: String? = null,
 )
 
 @Stable
@@ -60,6 +66,7 @@ class InCallViewModel @Inject constructor(
     private val callController: CallController,
     private val contactsRepository: ContactsRepository,
     private val callLogRepository: CallLogRepository,
+    private val simAccountRepository: SimAccountRepository,
     private val clock: Clock,
     private val ringSilencer: RingSilencer,
     private val rejectMessageSender: RejectMessageSender,
@@ -81,7 +88,10 @@ class InCallViewModel @Inject constructor(
         val lastCalledMillis: Long? = null,
         val contactId: Long? = null,
         val displayName: String? = null,
+        val simLabel: String? = null,
     )
+
+    private val simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
 
     private val callerContext = callController.calls
         .map { calls -> primaryCall(calls)?.number }
@@ -103,12 +113,26 @@ class InCallViewModel @Inject constructor(
             )
         }
 
+    // Folded into the caller context so the outer combine stays within its
+    // five-flow limit.
+    private val callerContextWithSim = combine(
+        callerContext,
+        callController.calls,
+        simAccounts,
+    ) { context, calls, sims ->
+        context.copy(simLabel = simLabelFor(primaryCall(calls)?.simAccountId, sims))
+    }
+
+    init {
+        viewModelScope.launch { simAccounts.value = simAccountRepository.accounts() }
+    }
+
     // Telecom removes the call before the screen's closing grace ends; keep
     // the last known caller so the name doesn't flash to "unknown" at hangup.
     private var lastShownCall: CallInfo? = null
 
     val uiState: StateFlow<InCallUiState> = combine(
-        callController.calls, callController.audio, keypadVisible, ticker, callerContext,
+        callController.calls, callController.audio, keypadVisible, ticker, callerContextWithSim,
     ) { calls, audio, keypad, now, caller ->
         val live = primaryCall(calls)
         if (live != null) lastShownCall = live
@@ -124,6 +148,7 @@ class InCallViewModel @Inject constructor(
             lastCalledMillis = caller.lastCalledMillis,
             callerContactId = caller.contactId,
             callerDisplayName = caller.displayName,
+            simLabel = caller.simLabel,
         )
     }.stateIn(
         scope = viewModelScope,

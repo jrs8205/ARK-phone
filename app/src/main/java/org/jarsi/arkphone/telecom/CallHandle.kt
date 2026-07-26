@@ -6,6 +6,9 @@ interface CallHandle {
     val displayName: String?
     val telecomState: Int
     val connectTimeMillis: Long
+
+    /** Phone account id the call uses, i.e. which SIM carries it. */
+    val simAccountId: String?
     fun answer()
     fun reject()
     fun disconnect()
@@ -21,6 +24,7 @@ data class CallInfo(
     val displayName: String?,
     val status: CallStatus,
     val connectedAtMillis: Long?,
+    val simAccountId: String? = null,
 )
 
 data class CallAudioUiState(

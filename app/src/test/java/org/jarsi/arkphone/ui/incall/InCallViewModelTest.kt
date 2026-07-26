@@ -12,6 +12,7 @@ import org.jarsi.arkphone.telecom.CallHandle
 import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeSimAccountRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.Clock
 import org.junit.Assert.assertEquals
@@ -26,6 +27,7 @@ private class TestCallHandle(
     override val number = "0401234567"
     override val displayName: String? = null
     override val connectTimeMillis = 0L
+    override val simAccountId: String? = null
     var answered = false
     var rejected = false
     override fun answer() { answered = true }
@@ -56,6 +58,7 @@ class InCallViewModelTest {
         controller,
         contacts,
         callLog,
+        FakeSimAccountRepository(),
         clock,
         { info -> silencedCalls.add(info.id) },
         { number, message ->
@@ -182,6 +185,7 @@ class InCallViewModelTest {
             controller.onCallRemoved("call-1")
             while (state.call?.status != CallStatus.DISCONNECTED) state = awaitItem()
             assertEquals("0401234567", state.call?.number)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

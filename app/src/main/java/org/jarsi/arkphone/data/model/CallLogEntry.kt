@@ -15,4 +15,6 @@ data class CallLogEntry(
     val source: CallSource = CallSource.PHONE,
     /** The WhatsApp variant that carried the call, for callback routing. */
     val whatsAppPackage: String? = null,
+    /** Phone account the call went through; null for app calls and old rows. */
+    val simAccountId: String? = null,
 )

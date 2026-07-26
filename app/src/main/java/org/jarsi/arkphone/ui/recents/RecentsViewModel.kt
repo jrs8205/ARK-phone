@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.CallLogRepository
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Inject
@@ -28,6 +31,8 @@ data class RecentsUiState(
     val hasPermission: Boolean = true,
     val query: String = "",
     val filter: RecentsFilter = RecentsFilter.ALL,
+    /** Empty or single-entry on a device where SIMs are not worth showing. */
+    val simAccounts: List<SimAccount> = emptyList(),
 )
 
 internal fun groupConsecutiveCalls(entries: List<CallLogEntry>): List<GroupedCallLogEntry> {
@@ -72,14 +77,26 @@ class RecentsViewModel @Inject constructor(
     private val repository: CallLogRepository,
     private val permissionChecker: PermissionChecker,
     private val whatsAppCallLauncher: WhatsAppCallLauncher,
+    private val simAccountRepository: SimAccountRepository,
 ) : ViewModel() {
 
     private val permissionState = MutableStateFlow(hasCallLogPermission())
     private val query = MutableStateFlow("")
     private val filter = MutableStateFlow(RecentsFilter.ALL)
+    private val simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
+
+    init {
+        refreshSimAccounts()
+    }
 
     val uiState: StateFlow<RecentsUiState> =
-        combine(repository.callLog(), permissionState, query, filter) { entries, hasPermission, query, filter ->
+        combine(
+            repository.callLog(),
+            permissionState,
+            query,
+            filter,
+            simAccounts,
+        ) { entries, hasPermission, query, filter, sims ->
             RecentsUiState(
                 loading = false,
                 entries = groupConsecutiveCalls(
@@ -88,6 +105,7 @@ class RecentsViewModel @Inject constructor(
                 hasPermission = hasPermission,
                 query = query,
                 filter = filter,
+                simAccounts = sims,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -98,6 +116,11 @@ class RecentsViewModel @Inject constructor(
     fun refreshPermissionState() {
         permissionState.value = hasCallLogPermission()
         repository.refresh()
+        refreshSimAccounts()
+    }
+
+    private fun refreshSimAccounts() {
+        viewModelScope.launch { simAccounts.value = simAccountRepository.accounts() }
     }
 
     fun onQueryChange(value: String) {

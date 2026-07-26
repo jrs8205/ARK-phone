@@ -49,6 +49,8 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -144,6 +146,7 @@ fun RecentsContent(
             items(uiState.entries, key = { it.entry.id }) { grouped ->
                 RecentsRow(
                     grouped = grouped,
+                    simAccounts = uiState.simAccounts,
                     onCall = onCall,
                     onOpenDetails = onOpenDetails,
                     onOpenNameDetails = onOpenNameDetails,
@@ -157,19 +160,28 @@ fun RecentsContent(
 @Composable
 private fun RecentsRow(
     grouped: GroupedCallLogEntry,
+    simAccounts: List<SimAccount>,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
     onOpenNameDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
 ) {
     RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-        RecentsRowItem(grouped, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
+        RecentsRowItem(
+            grouped,
+            simAccounts,
+            onCall,
+            onOpenDetails,
+            onOpenNameDetails,
+            onWhatsAppCall,
+        )
     }
 }
 
 @Composable
 private fun RecentsRowItem(
     grouped: GroupedCallLogEntry,
+    simAccounts: List<SimAccount>,
     onCall: (String) -> Unit,
     onOpenDetails: (String) -> Unit,
     onOpenNameDetails: (String) -> Unit,
@@ -183,6 +195,7 @@ private fun RecentsRowItem(
     } else {
         ""
     }
+    val simSuffix = simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val copiedText = stringResource(R.string.number_copied)
@@ -213,7 +226,8 @@ private fun RecentsRowItem(
         supportingContent = {
             Text(
                 text = typeLabel + " · " +
-                    DateUtils.getRelativeTimeSpanString(entry.timestampMillis) + sourceSuffix,
+                    DateUtils.getRelativeTimeSpanString(entry.timestampMillis) +
+                    sourceSuffix + simSuffix,
                 color = if (entry.type == CallType.MISSED) {
                     MaterialTheme.colorScheme.error
                 } else {

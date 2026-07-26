@@ -102,6 +102,7 @@ class CallController @Inject constructor() {
                 displayName = handle.displayName,
                 status = mapTelecomState(handle.telecomState),
                 connectedAtMillis = handle.connectTimeMillis.takeIf { it > 0 },
+                simAccountId = handle.simAccountId,
             )
         }
     }

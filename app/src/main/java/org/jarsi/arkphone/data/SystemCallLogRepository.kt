@@ -86,6 +86,7 @@ class SystemCallLogRepository @Inject constructor(
                 CallLog.Calls.DATE,
                 CallLog.Calls.DURATION,
                 CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+                CallLog.Calls.PHONE_ACCOUNT_ID,
             )
             val entries = mutableListOf<CallLogEntry>()
             resolver.query(
@@ -102,6 +103,7 @@ class SystemCallLogRepository @Inject constructor(
                         durationSeconds = cursor.getLong(5),
                         source = callSourceFrom(cursor.getString(6)),
                         whatsAppPackage = whatsAppPackageFrom(cursor.getString(6)),
+                        simAccountId = cursor.getString(7)?.takeIf { it.isNotBlank() },
                     )
                 }
             }
