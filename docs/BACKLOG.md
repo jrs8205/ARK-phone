@@ -187,6 +187,20 @@ Round 2 shipped 2026-07-26: all four items below.
 - [x] Re-query the call log and contacts right after a runtime permission
       grant instead of waiting for the flow to restart
 
+Improvement suggestions from the same review (not bugs, still open):
+
+- [ ] Short-circuit call-path provider work: skip the contact lookup and the
+      full merged-history read when no enabled rule needs them, and query
+      only recent incoming rows for the repeat-caller window
+- [ ] Make set-valued settings edits atomic: add/remove blocked prefixes and
+      allowed numbers inside one DataStore edit instead of replacing a set
+      computed from a possibly stale UI snapshot
+- [ ] Give name-only WhatsApp rows a usable detail path: open details via an
+      app-owned record key, hide phone actions, allow deletion (the
+      name-delete repository method exists but is unused)
+- [ ] Make the lint gate warning-clean: fix project-owned warnings, move the
+      hard-coded "eSIM" into locale resources, baseline the accepted rest
+
 ## Technical debt / polish
 
 - [ ] CallStyle notification for the ongoing call (hang-up button in the notification)
