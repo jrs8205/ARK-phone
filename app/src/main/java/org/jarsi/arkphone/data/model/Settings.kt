@@ -17,6 +17,10 @@ data class Settings(
     val blockingScheduleEnabled: Boolean = false,
     val blockingScheduleStartMinutes: Int = DEFAULT_SCHEDULE_START_MINUTES,
     val blockingScheduleEndMinutes: Int = DEFAULT_SCHEDULE_END_MINUTES,
+    /** Phone account outgoing calls should use; null means the system default. */
+    val callSimAccountId: String? = null,
+    /** Phone account the blocking rules are limited to; null means every SIM. */
+    val blockingSimAccountId: String? = null,
 ) {
     companion object {
         const val MIN_ANNOUNCE_INTERVAL_SECONDS = 4

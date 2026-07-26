@@ -132,6 +132,9 @@
     <string name="sim_slot_physical" translatable="false">SIM %1$d</string>
     <string name="sim_slot_esim" translatable="false">eSIM (SIM %1$d)</string>
     <string name="sim_esim" translatable="false">eSIM</string>
+    <string name="settings_call_sim_title">SIM for calls</string>
+    <string name="settings_call_sim_description">Which SIM ARK-phone places calls with</string>
+    <string name="settings_sim_system_default">System default</string>
     <string name="settings_call_settings_title">Call settings</string>
     <string name="settings_call_settings_description">Call waiting, caller ID and call forwarding (carrier)</string>
     <string name="sim_country">Country</string>

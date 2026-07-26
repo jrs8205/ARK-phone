@@ -1,11 +1,13 @@
 package org.jarsi.arkphone.testing
 
+import android.telecom.PhoneAccountHandle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.SimRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
@@ -15,6 +17,7 @@ import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.data.model.SimCard
 import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.util.PermissionChecker
@@ -116,6 +119,12 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setBlockUnknownCallers(enabled: Boolean) {
         state.value = state.value.copy(blockUnknownCallers = enabled)
     }
+    override suspend fun setCallSimAccountId(accountId: String?) {
+        state.value = state.value.copy(callSimAccountId = accountId)
+    }
+    override suspend fun setBlockingSimAccountId(accountId: String?) {
+        state.value = state.value.copy(blockingSimAccountId = accountId)
+    }
     override suspend fun addBlockedPrefix(prefix: String) {
         val trimmed = prefix.trim()
         if (trimmed.isEmpty()) return
@@ -154,6 +163,13 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
 
 class FakeSimRepository(var sims: List<SimCard> = emptyList()) : SimRepository {
     override suspend fun activeSims(): List<SimCard> = sims
+}
+
+class FakeSimAccountRepository : SimAccountRepository {
+    val accounts = mutableListOf<SimAccount>()
+    val handles = mutableMapOf<String, PhoneAccountHandle>()
+    override suspend fun accounts(): List<SimAccount> = accounts
+    override fun handleFor(accountId: String): PhoneAccountHandle? = handles[accountId]
 }
 
 class FakeSpeedDialRepository : SpeedDialRepository {

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimAccount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -30,27 +31,77 @@ class SettingsContentTest {
     private fun setContent(
         settings: Settings = Settings(),
         hasNotificationAccess: Boolean = true,
+        simAccounts: List<SimAccount> = emptyList(),
         onModeChanged: (AnnounceMode) -> Unit = {},
         onIntervalChanged: (Int) -> Unit = {},
         onWhatsAppChanged: (Boolean) -> Unit = {},
         onGrantNotificationAccess: () -> Unit = {},
         onOpenSimInfo: () -> Unit = {},
         onOpenCallSettings: () -> Unit = {},
+        onCallSimChanged: (String?) -> Unit = {},
         onBack: () -> Unit = {},
     ) {
         composeRule.setContent {
             SettingsContent(
                 settings = settings,
                 hasNotificationAccess = hasNotificationAccess,
+                simAccounts = simAccounts,
                 onAnnounceModeChanged = onModeChanged,
                 onAnnounceIntervalChanged = onIntervalChanged,
                 onAnnounceWhatsAppChanged = onWhatsAppChanged,
                 onGrantNotificationAccess = onGrantNotificationAccess,
                 onOpenSimInfo = onOpenSimInfo,
                 onOpenCallSettings = onOpenCallSettings,
+                onCallSimAccountChanged = onCallSimChanged,
                 onBack = onBack,
             )
         }
+    }
+
+    private val twoSims = listOf(
+        SimAccount("sub-1", "DNA", "+358401234567"),
+        SimAccount("sub-2", "Elisa", null),
+    )
+
+    @Test
+    fun theSimChoiceIsHiddenWithASingleSim() {
+        setContent(simAccounts = listOf(SimAccount("sub-1", "DNA", null)))
+        composeRule.onNodeWithText("SIM for calls").assertDoesNotExist()
+    }
+
+    @Test
+    fun theSimChoiceListsTheSystemDefaultAndEverySim() {
+        setContent(simAccounts = twoSims)
+        composeRule.onNodeWithText("SIM for calls").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("System default").assertIsSelected()
+        composeRule.onNodeWithText("DNA (+358401234567)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Elisa").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun choosingASimReportsItsAccountId() {
+        val chosen = mutableListOf<String?>()
+        setContent(simAccounts = twoSims, onCallSimChanged = { chosen += it })
+        composeRule.onNodeWithText("Elisa").performScrollTo().performClick()
+        assertEquals(listOf("sub-2"), chosen)
+    }
+
+    @Test
+    fun theChosenSimIsShownAsSelected() {
+        setContent(settings = Settings(callSimAccountId = "sub-2"), simAccounts = twoSims)
+        composeRule.onNodeWithText("Elisa").performScrollTo().assertIsSelected()
+    }
+
+    @Test
+    fun choosingTheSystemDefaultClearsTheChoice() {
+        val chosen = mutableListOf<String?>()
+        setContent(
+            settings = Settings(callSimAccountId = "sub-2"),
+            simAccounts = twoSims,
+            onCallSimChanged = { chosen += it },
+        )
+        composeRule.onNodeWithText("System default").performScrollTo().performClick()
+        assertEquals(listOf<String?>(null), chosen)
     }
 
     @Test

@@ -128,6 +128,9 @@
     <string name="sim_number">Puhelinnumero</string>
     <string name="sim_slot">Paikka</string>
     <string name="sim_country">Maa</string>
+    <string name="settings_call_sim_title">Puheluiden SIM</string>
+    <string name="settings_call_sim_description">Millä SIM-kortilla ARK-phone soittaa</string>
+    <string name="settings_sim_system_default">Järjestelmän oletus</string>
     <string name="settings_call_settings_title">Puheluasetukset</string>
     <string name="settings_call_settings_description">Koputus, oman numeron näyttäminen ja soitonsiirto (operaattori)</string>
     <string name="sim_empty">SIM-tietoja ei ole saatavilla.</string>

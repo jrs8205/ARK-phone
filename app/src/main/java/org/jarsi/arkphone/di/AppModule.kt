@@ -26,7 +26,9 @@ import org.jarsi.arkphone.data.DataStoreSettingsRepository
 import org.jarsi.arkphone.data.RoomWhatsAppCallLogRepository
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.DataStoreSpeedDialRepository
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.SimRepository
+import org.jarsi.arkphone.data.TelecomSimAccountRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.SystemCallLogRepository
 import org.jarsi.arkphone.data.SystemContactsRepository
@@ -36,6 +38,8 @@ import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AndroidCallScreeningRole
 import org.jarsi.arkphone.telecom.AndroidRingSilencer
+import org.jarsi.arkphone.telecom.AndroidTelecomCallPlacer
+import org.jarsi.arkphone.telecom.TelecomCallPlacer
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.telecom.RejectMessageSender
@@ -90,6 +94,16 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSimRepository(impl: SystemSimRepository): SimRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSimAccountRepository(
+        impl: TelecomSimAccountRepository,
+    ): SimAccountRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTelecomCallPlacer(impl: AndroidTelecomCallPlacer): TelecomCallPlacer
 
     @Binds
     @Singleton

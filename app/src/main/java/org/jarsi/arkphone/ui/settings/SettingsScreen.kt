@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import kotlin.math.roundToInt
 
@@ -57,14 +58,18 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
     val hasNotificationAccess by viewModel.hasNotificationAccess.collectAsStateWithLifecycle()
+    val simAccounts by viewModel.simAccounts.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LifecycleResumeEffect(Unit) {
         viewModel.refreshNotificationAccess()
+        viewModel.refreshSimAccounts()
         onPauseOrDispose { }
     }
     SettingsContent(
         settings = settings,
         hasNotificationAccess = hasNotificationAccess,
+        simAccounts = simAccounts,
+        onCallSimAccountChanged = viewModel::onCallSimAccountChanged,
         onAnnounceModeChanged = viewModel::onAnnounceModeChanged,
         onAnnounceIntervalChanged = viewModel::onAnnounceIntervalChanged,
         onAnnounceWhatsAppChanged = viewModel::onAnnounceWhatsAppChanged,
@@ -99,6 +104,8 @@ fun SettingsContent(
     hasNotificationAccess: Boolean = true,
     onAnnounceWhatsAppChanged: (Boolean) -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
+    simAccounts: List<SimAccount> = emptyList(),
+    onCallSimAccountChanged: (String?) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -210,6 +217,36 @@ fun SettingsContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 ) {
                     Text(stringResource(R.string.settings_grant_notification_access))
+                }
+            }
+            // One SIM means there is nothing to choose between.
+            if (simAccounts.size > 1) {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Text(
+                    text = stringResource(R.string.settings_call_sim_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                AnnounceModeRow(
+                    title = stringResource(R.string.settings_sim_system_default),
+                    description = stringResource(R.string.settings_call_sim_description),
+                    selected = settings.callSimAccountId == null,
+                    onSelect = {
+                        haptics.click()
+                        onCallSimAccountChanged(null)
+                    },
+                )
+                simAccounts.forEach { account ->
+                    AnnounceModeRow(
+                        title = account.labelWithNumber,
+                        description = null,
+                        selected = settings.callSimAccountId == account.id,
+                        onSelect = {
+                            haptics.click()
+                            onCallSimAccountChanged(account.id)
+                        },
+                    )
                 }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))

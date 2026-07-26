@@ -16,6 +16,12 @@ interface SettingsRepository {
 
     suspend fun setBlockUnknownCallers(enabled: Boolean)
 
+    /** Null restores the system default SIM for outgoing calls. */
+    suspend fun setCallSimAccountId(accountId: String?)
+
+    /** Null lets the blocking rules apply to every SIM. */
+    suspend fun setBlockingSimAccountId(accountId: String?)
+
     /** Atomic add/remove: two quick edits from a stale UI snapshot must not
      *  resurrect or lose an entry, so the stored set is modified in place. */
     suspend fun addBlockedPrefix(prefix: String)

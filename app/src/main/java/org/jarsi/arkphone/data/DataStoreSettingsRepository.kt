@@ -37,6 +37,8 @@ class DataStoreSettingsRepository @Inject constructor(
         val SCHEDULE_ENABLED = booleanPreferencesKey("blocking_schedule_enabled")
         val SCHEDULE_START = intPreferencesKey("blocking_schedule_start_minutes")
         val SCHEDULE_END = intPreferencesKey("blocking_schedule_end_minutes")
+        val CALL_SIM_ACCOUNT = stringPreferencesKey("call_sim_account_id")
+        val BLOCKING_SIM_ACCOUNT = stringPreferencesKey("blocking_sim_account_id")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -77,6 +79,9 @@ class DataStoreSettingsRepository @Inject constructor(
                     ?: Settings.DEFAULT_SCHEDULE_START_MINUTES,
                 blockingScheduleEndMinutes = preferences[Keys.SCHEDULE_END]
                     ?: Settings.DEFAULT_SCHEDULE_END_MINUTES,
+                callSimAccountId = preferences[Keys.CALL_SIM_ACCOUNT]?.takeIf { it.isNotBlank() },
+                blockingSimAccountId = preferences[Keys.BLOCKING_SIM_ACCOUNT]
+                    ?.takeIf { it.isNotBlank() },
             )
         }
 
@@ -123,6 +128,20 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun removeAllowedNumber(number: String) {
         removeFrom(Keys.ALLOWED_NUMBERS, number)
+    }
+
+    override suspend fun setCallSimAccountId(accountId: String?) {
+        setOrClear(Keys.CALL_SIM_ACCOUNT, accountId)
+    }
+
+    override suspend fun setBlockingSimAccountId(accountId: String?) {
+        setOrClear(Keys.BLOCKING_SIM_ACCOUNT, accountId)
+    }
+
+    private suspend fun setOrClear(key: Preferences.Key<String>, value: String?) {
+        dataStore.edit {
+            if (value.isNullOrBlank()) it.remove(key) else it[key] = value
+        }
     }
 
     private suspend fun addTo(key: Preferences.Key<Set<String>>, value: String) {

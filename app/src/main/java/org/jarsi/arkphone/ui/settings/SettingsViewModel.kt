@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import javax.inject.Inject
@@ -21,7 +23,28 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val notificationAccessChecker: NotificationAccessChecker,
     private val callScreeningRole: CallScreeningRole,
+    private val simAccountRepository: SimAccountRepository,
 ) : ViewModel() {
+
+    private val _simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
+    val simAccounts: StateFlow<List<SimAccount>> = _simAccounts.asStateFlow()
+
+    init {
+        refreshSimAccounts()
+    }
+
+    /** SIMs can be enabled or swapped while the app sits in the background. */
+    fun refreshSimAccounts() {
+        viewModelScope.launch { _simAccounts.value = simAccountRepository.accounts() }
+    }
+
+    fun onCallSimAccountChanged(accountId: String?) {
+        viewModelScope.launch { settingsRepository.setCallSimAccountId(accountId) }
+    }
+
+    fun onBlockingSimAccountChanged(accountId: String?) {
+        viewModelScope.launch { settingsRepository.setBlockingSimAccountId(accountId) }
+    }
 
     private val _hasScreeningRole = MutableStateFlow(callScreeningRole.isHeld())
     val hasScreeningRole: StateFlow<Boolean> = _hasScreeningRole.asStateFlow()

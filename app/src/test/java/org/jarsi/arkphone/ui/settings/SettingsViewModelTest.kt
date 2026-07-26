@@ -3,7 +3,9 @@ package org.jarsi.arkphone.ui.settings
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.telecom.CallScreeningRole
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.testing.FakeSettingsRepository
+import org.jarsi.arkphone.testing.FakeSimAccountRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import org.junit.Assert.assertEquals
@@ -17,6 +19,8 @@ class SettingsViewModelTest {
 
     private val repository = FakeSettingsRepository()
 
+    private val simAccounts = FakeSimAccountRepository()
+
     private fun viewModel() = SettingsViewModel(
         repository,
         NotificationAccessChecker { false },
@@ -24,7 +28,38 @@ class SettingsViewModelTest {
             override fun isHeld() = false
             override fun requestIntent() = null
         },
+        simAccounts,
     )
+
+    @Test
+    fun theCallSimChoiceIsStoredAndCleared() = runTest {
+        val viewModel = viewModel()
+        viewModel.onCallSimAccountChanged("sub-2")
+        advanceUntilIdle()
+        assertEquals("sub-2", repository.state.value.callSimAccountId)
+        viewModel.onCallSimAccountChanged(null)
+        advanceUntilIdle()
+        assertEquals(null, repository.state.value.callSimAccountId)
+    }
+
+    @Test
+    fun theBlockingSimRestrictionIsStoredAndCleared() = runTest {
+        val viewModel = viewModel()
+        viewModel.onBlockingSimAccountChanged("sub-1")
+        advanceUntilIdle()
+        assertEquals("sub-1", repository.state.value.blockingSimAccountId)
+        viewModel.onBlockingSimAccountChanged(null)
+        advanceUntilIdle()
+        assertEquals(null, repository.state.value.blockingSimAccountId)
+    }
+
+    @Test
+    fun simAccountsAreLoadedForTheChooser() = runTest {
+        simAccounts.accounts += SimAccount("sub-1", "DNA", null)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertEquals(listOf("DNA"), viewModel.simAccounts.value.map { it.label })
+    }
 
     // uiState is never collected here, so it stays at its initial value —
     // exactly the stale-snapshot situation two quick edits can hit.
