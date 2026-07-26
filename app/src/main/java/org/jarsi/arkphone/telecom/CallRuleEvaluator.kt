@@ -32,9 +32,16 @@ class CallRuleEvaluator @Inject constructor(
 
     data class Decision(val block: Boolean, val details: String)
 
-    suspend fun evaluate(number: String?): Decision {
+    suspend fun evaluate(number: String?, simAccountId: String? = null): Decision {
         val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
             ?: settingsCache.current
+        // Rules can be limited to one SIM. An unknown account still gets
+        // evaluated: some devices report none, and skipping there would
+        // silently turn blocking off altogether.
+        val restrictedTo = settings.blockingSimAccountId
+        if (restrictedTo != null && simAccountId != null && simAccountId != restrictedTo) {
+            return Decision(block = false, details = "block=false otherSim=$simAccountId")
+        }
         val now = minutesOfDay(clock.nowMillis())
         // Every ringing call runs through here inside the screening
         // deadline: when no enabled rule could block this caller, skip the
@@ -65,7 +72,7 @@ class CallRuleEvaluator @Inject constructor(
         )
         return Decision(
             block = block,
-            details = "block=$block hidden=${number.isNullOrBlank()}" +
+            details = "block=$block sim=$simAccountId hidden=${number.isNullOrBlank()}" +
                 " inContacts=${match != null} contactsReadable=$contactsReadable" +
                 " contactLookedUp=$needsContact favorite=${match?.starred == true}" +
                 " repeat=$repeat scheduleActive=${blockingScheduleActive(now, settings)}" +

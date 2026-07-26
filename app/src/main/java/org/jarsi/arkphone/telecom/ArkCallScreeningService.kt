@@ -37,7 +37,10 @@ class ArkCallScreeningService : CallScreeningService() {
             return
         }
         scope.launch {
-            val decision = ruleEvaluator.evaluate(callDetails.handle?.schemeSpecificPart)
+            val decision = ruleEvaluator.evaluate(
+                number = callDetails.handle?.schemeSpecificPart,
+                simAccountId = callDetails.accountHandle?.id,
+            )
             Log.i(TAG, "Screening decision: ${decision.details}")
             val response = if (decision.block) {
                 CallResponse.Builder()

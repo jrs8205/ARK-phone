@@ -161,6 +161,77 @@ class CallRuleEvaluatorTest {
     }
 
     @Test
+    fun rulesLimitedToOneSimSkipCallsOnAnotherSim() = runTest {
+        val contacts = FakeContactsRepository()
+        val callLog = FakeCallLogRepository()
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(
+                FakeSettingsRepository(
+                    Settings(blockAllCallers = true, blockingSimAccountId = "sub-1"),
+                ),
+                backgroundScope,
+            ),
+            contacts,
+            callLog,
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertFalse(evaluator.evaluate("0401234567", simAccountId = "sub-2").block)
+        // A skipped SIM must not cost a contact lookup or a log read either.
+        assertEquals(0, contacts.lookupCalls)
+        assertEquals(emptyList<Long>(), callLog.callsSinceRequests)
+    }
+
+    @Test
+    fun rulesLimitedToOneSimStillBlockOnThatSim() = runTest {
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(
+                FakeSettingsRepository(
+                    Settings(blockAllCallers = true, blockingSimAccountId = "sub-1"),
+                ),
+                backgroundScope,
+            ),
+            FakeContactsRepository(),
+            FakeCallLogRepository(),
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertTrue(evaluator.evaluate("0401234567", simAccountId = "sub-1").block)
+    }
+
+    @Test
+    fun withoutASimRestrictionEveryCallIsEvaluated() = runTest {
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(FakeSettingsRepository(Settings(blockAllCallers = true)), backgroundScope),
+            FakeContactsRepository(),
+            FakeCallLogRepository(),
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertTrue(evaluator.evaluate("0401234567", simAccountId = "sub-2").block)
+        assertTrue(evaluator.evaluate("0401234567", simAccountId = null).block)
+    }
+
+    @Test
+    fun aCallWithoutAKnownSimIsStillEvaluatedUnderARestriction() = runTest {
+        // The account is missing on some devices and older API levels; a
+        // silent pass would leave the rules off entirely there.
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(
+                FakeSettingsRepository(
+                    Settings(blockAllCallers = true, blockingSimAccountId = "sub-1"),
+                ),
+                backgroundScope,
+            ),
+            FakeContactsRepository(),
+            FakeCallLogRepository(),
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertTrue(evaluator.evaluate("0401234567", simAccountId = null).block)
+    }
+
+    @Test
     fun prefixBlocksStillApplyWithoutContactsPermission() = runTest {
         val evaluator = CallRuleEvaluator(
             SettingsCache(

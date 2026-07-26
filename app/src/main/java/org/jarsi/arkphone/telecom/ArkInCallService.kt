@@ -115,7 +115,7 @@ class ArkInCallService : InCallService() {
         // here — pad the match window backwards to cover clock differences.
         val ringNotBeforeMillis = System.currentTimeMillis() - RING_START_MARGIN_MILLIS
         appScope.launch {
-            val decision = ruleEvaluator.evaluate(info.number)
+            val decision = ruleEvaluator.evaluate(info.number, info.simAccountId)
             val stillRinging = callController.calls.value
                 .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
             if (!stillRinging) return@launch

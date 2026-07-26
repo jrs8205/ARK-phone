@@ -36,7 +36,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -46,6 +49,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Settings
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import kotlin.math.roundToInt
@@ -60,8 +64,10 @@ fun BlockingScreen(
     val roleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { viewModel.refreshScreeningRole() }
+    val simAccounts by viewModel.simAccounts.collectAsStateWithLifecycle()
     LifecycleResumeEffect(Unit) {
         viewModel.refreshScreeningRole()
+        viewModel.refreshSimAccounts()
         onPauseOrDispose { }
     }
     BlockingContent(
@@ -80,6 +86,8 @@ fun BlockingScreen(
         onRemoveAllowedNumber = viewModel::onRemoveAllowedNumber,
         onScheduleEnabledChanged = viewModel::onBlockingScheduleEnabledChanged,
         onScheduleChanged = viewModel::onBlockingScheduleChanged,
+        simAccounts = simAccounts,
+        onBlockingSimAccountChanged = viewModel::onBlockingSimAccountChanged,
         onRequestScreeningRole = {
             viewModel.screeningRoleRequestIntent()?.let { intent ->
                 runCatching { roleLauncher.launch(intent) }
@@ -107,6 +115,8 @@ fun BlockingContent(
     onScheduleEnabledChanged: (Boolean) -> Unit = {},
     onScheduleChanged: (Int, Int) -> Unit = { _, _ -> },
     onRequestScreeningRole: () -> Unit = {},
+    simAccounts: List<SimAccount> = emptyList(),
+    onBlockingSimAccountChanged: (String?) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -355,12 +365,71 @@ fun BlockingContent(
                     Text(stringResource(R.string.blocking_prefix_add))
                 }
             }
+            // One SIM means the rules can only ever apply to that one.
+            if (simAccounts.size > 1) {
+                Text(
+                    text = stringResource(R.string.blocking_sim_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                BlockingSimRow(
+                    title = stringResource(R.string.blocking_sim_all),
+                    description = stringResource(R.string.blocking_sim_description),
+                    selected = settings.blockingSimAccountId == null,
+                    onSelect = { onBlockingSimAccountChanged(null) },
+                )
+                simAccounts.forEach { account ->
+                    BlockingSimRow(
+                        title = account.labelWithNumber,
+                        description = null,
+                        selected = settings.blockingSimAccountId == account.id,
+                        onSelect = { onBlockingSimAccountChanged(account.id) },
+                    )
+                }
+            }
             Text(
                 text = stringResource(R.string.blocking_footer),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun BlockingSimRow(
+    title: String,
+    description: String?,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = {
+                    haptics.click()
+                    onSelect()
+                },
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            description?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
