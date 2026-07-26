@@ -15,8 +15,22 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.15"
+    }
+
+    // Credentials live in the user's ~/.gradle/gradle.properties, never in the
+    // repo. Without them the release build stays unsigned instead of failing.
+    val releaseStoreFile = providers.gradleProperty("ARKPHONE_STORE_FILE").orNull
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("ARKPHONE_STORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("ARKPHONE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("ARKPHONE_KEY_PASSWORD").get()
+            }
+        }
     }
 
     buildTypes {
@@ -24,6 +38,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     lint {
