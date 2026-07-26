@@ -27,6 +27,7 @@ class RoomWhatsAppCallLogRepository @Inject constructor(
                 timestampMillis = call.timestampMillis,
                 durationSeconds = call.durationSeconds,
                 isVideo = call.isVideo,
+                sourcePackage = call.sourcePackage,
             ),
         )
     }
@@ -53,5 +54,6 @@ class RoomWhatsAppCallLogRepository @Inject constructor(
         timestampMillis = timestampMillis,
         durationSeconds = durationSeconds,
         source = CallSource.WHATSAPP,
+        whatsAppPackage = sourcePackage,
     )
 }

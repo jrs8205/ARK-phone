@@ -23,6 +23,20 @@ class CallTypeMappingTest {
     }
 
     @Test
+    fun derivesTheWhatsAppVariantFromThePhoneAccountComponent() {
+        assertEquals(
+            "com.whatsapp",
+            whatsAppPackageFrom("com.whatsapp/com.whatsapp.voipcalling.CallConnectionService"),
+        )
+        assertEquals(
+            "com.whatsapp.w4b",
+            whatsAppPackageFrom("com.whatsapp.w4b/com.whatsapp.voipcalling.CallConnectionService"),
+        )
+        assertEquals(null, whatsAppPackageFrom(null))
+        assertEquals(null, whatsAppPackageFrom("org.telegram.messenger/x.CallService"))
+    }
+
+    @Test
     fun mapsPhoneAccountComponentsToSources() {
         assertEquals(CallSource.PHONE, callSourceFrom(null))
         assertEquals(

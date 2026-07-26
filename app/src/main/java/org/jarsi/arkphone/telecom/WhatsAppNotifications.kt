@@ -9,6 +9,8 @@ internal data class WhatsAppCall(
     val callerName: String?,
     val callerNumber: String? = null,
     val isVideo: Boolean = false,
+    /** com.whatsapp or com.whatsapp.w4b — which app posted the notification. */
+    val sourcePackage: String = "com.whatsapp",
 )
 
 internal enum class WhatsAppCallNotificationKind { RINGING, ONGOING }

@@ -112,6 +112,7 @@ class RecentsViewModel @Inject constructor(
         whatsAppCallLauncher.startCall(
             number = entry.number.takeIf { it.isNotBlank() },
             name = entry.displayName,
+            sourcePackage = entry.whatsAppPackage,
         )
     }
 

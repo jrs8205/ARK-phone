@@ -8,4 +8,6 @@ data class WhatsAppCallRecord(
     val timestampMillis: Long,
     val durationSeconds: Long,
     val isVideo: Boolean,
+    /** The WhatsApp variant that carried the call, for callback routing. */
+    val sourcePackage: String = "com.whatsapp",
 )

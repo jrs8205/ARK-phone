@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -7,6 +8,8 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "whatsapp_calls")
@@ -18,6 +21,7 @@ data class WhatsAppCallEntity(
     val timestampMillis: Long,
     val durationSeconds: Long,
     val isVideo: Boolean,
+    @ColumnInfo(defaultValue = "com.whatsapp") val sourcePackage: String = "com.whatsapp",
 )
 
 @Dao
@@ -35,7 +39,18 @@ interface WhatsAppCallDao {
     suspend fun deleteByIds(ids: List<Long>)
 }
 
-@Database(entities = [WhatsAppCallEntity::class], version = 1, exportSchema = false)
+@Database(entities = [WhatsAppCallEntity::class], version = 2, exportSchema = false)
 abstract class ArkPhoneDatabase : RoomDatabase() {
     abstract fun whatsAppCallDao(): WhatsAppCallDao
+
+    companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE whatsapp_calls " +
+                        "ADD COLUMN sourcePackage TEXT NOT NULL DEFAULT 'com.whatsapp'",
+                )
+            }
+        }
+    }
 }

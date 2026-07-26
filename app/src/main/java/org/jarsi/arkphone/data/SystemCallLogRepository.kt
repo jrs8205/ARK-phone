@@ -55,6 +55,13 @@ internal fun callSourceFrom(phoneAccountComponent: String?): CallSource = when {
     else -> CallSource.OTHER
 }
 
+internal fun whatsAppPackageFrom(phoneAccountComponent: String?): String? = when {
+    phoneAccountComponent == null -> null
+    phoneAccountComponent.contains("com.whatsapp.w4b") -> "com.whatsapp.w4b"
+    phoneAccountComponent.contains("com.whatsapp") -> "com.whatsapp"
+    else -> null
+}
+
 class SystemCallLogRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val permissionChecker: PermissionChecker,
@@ -94,6 +101,7 @@ class SystemCallLogRepository @Inject constructor(
                         timestampMillis = cursor.getLong(4),
                         durationSeconds = cursor.getLong(5),
                         source = callSourceFrom(cursor.getString(6)),
+                        whatsAppPackage = whatsAppPackageFrom(cursor.getString(6)),
                     )
                 }
             }

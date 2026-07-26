@@ -144,6 +144,7 @@ class WhatsAppCallMonitor @Inject constructor(
                     timestampMillis = timestampMillis,
                     durationSeconds = durationSeconds,
                     isVideo = caller.isVideo,
+                    sourcePackage = caller.sourcePackage,
                 ),
             )
             Log.i(TAG, "WhatsApp call recorded: type=$type duration=${durationSeconds}s")

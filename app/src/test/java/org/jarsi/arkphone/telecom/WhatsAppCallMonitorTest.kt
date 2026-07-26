@@ -264,6 +264,21 @@ class WhatsAppCallMonitorTest {
     }
 
     @Test
+    fun theSourcePackageIsRecorded() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val monitor = monitor(repository)
+        monitor.onCallNotificationPosted(
+            "call-1",
+            WhatsAppCallNotificationKind.ONGOING,
+            caller().copy(sourcePackage = "com.whatsapp.w4b"),
+        )
+        advanceTimeBy(10_000)
+        monitor.onCallNotificationRemoved("call-1")
+        runCurrent()
+        assertEquals("com.whatsapp.w4b", repository.recorded.single().sourcePackage)
+    }
+
+    @Test
     fun videoFlagIsRecorded() = runTest {
         val repository = FakeWhatsAppCallLogRepository()
         val monitor = monitor(repository)

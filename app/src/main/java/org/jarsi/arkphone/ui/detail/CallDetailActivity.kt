@@ -58,7 +58,7 @@ class CallDetailActivity : ComponentActivity() {
                     onEditBeforeCall = ::openKeypadPrefilled,
                     onDeleteHistory = ::deleteHistoryWithPermission,
                     onWhatsAppCall = { target, name ->
-                        whatsAppCallLauncher.startCall(target.takeIf { it.isNotBlank() }, name)
+                        whatsAppCallLauncher.startCall(target.takeIf { it.isNotBlank() }, name, null)
                     },
                 )
             }

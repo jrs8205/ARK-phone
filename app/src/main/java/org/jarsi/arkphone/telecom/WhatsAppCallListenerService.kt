@@ -30,7 +30,7 @@ class WhatsAppCallListenerService : NotificationListenerService() {
         // silently: on the lock screen they arrive while the call still rings.
         val kind = classifyWhatsAppCallNotification(sbn.packageName, sbn.notification, sbn.tag)
             ?: return
-        val caller = whatsAppCaller(sbn.notification)
+        val caller = whatsAppCaller(sbn.notification).copy(sourcePackage = sbn.packageName)
         val established =
             sbn.notification.extras.getInt(EXTRA_CALL_TYPE, -1) == 2 ||
                 sbn.notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)

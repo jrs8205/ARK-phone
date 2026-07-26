@@ -52,6 +52,18 @@ class RoomWhatsAppCallLogRepositoryTest {
     }
 
     @Test
+    fun theSourcePackageRoundTripsIntoTheLogEntry() = runTest {
+        repository.record(record().copy(sourcePackage = "com.whatsapp.w4b"))
+        assertEquals("com.whatsapp.w4b", repository.calls().first().single().whatsAppPackage)
+    }
+
+    @Test
+    fun recordsDefaultToThePersonalWhatsAppPackage() = runTest {
+        repository.record(record())
+        assertEquals("com.whatsapp", repository.calls().first().single().whatsAppPackage)
+    }
+
+    @Test
     fun callsAreNewestFirst() = runTest {
         repository.record(record(timestampMillis = 1_000L))
         repository.record(record(timestampMillis = 3_000L))

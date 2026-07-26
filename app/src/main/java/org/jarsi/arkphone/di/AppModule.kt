@@ -163,7 +163,9 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): ArkPhoneDatabase =
-            Room.databaseBuilder(context, ArkPhoneDatabase::class.java, "arkphone.db").build()
+            Room.databaseBuilder(context, ArkPhoneDatabase::class.java, "arkphone.db")
+                .addMigrations(ArkPhoneDatabase.MIGRATION_1_2)
+                .build()
 
         @Provides
         fun provideWhatsAppCallDao(db: ArkPhoneDatabase): WhatsAppCallDao = db.whatsAppCallDao()

@@ -13,4 +13,6 @@ data class CallLogEntry(
     val timestampMillis: Long,
     val durationSeconds: Long,
     val source: CallSource = CallSource.PHONE,
+    /** The WhatsApp variant that carried the call, for callback routing. */
+    val whatsAppPackage: String? = null,
 )

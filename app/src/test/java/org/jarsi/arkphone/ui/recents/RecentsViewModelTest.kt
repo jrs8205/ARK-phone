@@ -23,8 +23,10 @@ class RecentsViewModelTest {
 
     private val repository = FakeCallLogRepository()
     private val permissions = FakePermissionChecker()
-    private val launchedCalls = mutableListOf<Pair<String?, String?>>()
-    private val launcher = WhatsAppCallLauncher { number, name -> launchedCalls += number to name }
+    private val launchedCalls = mutableListOf<Triple<String?, String?, String?>>()
+    private val launcher = WhatsAppCallLauncher { number, name, sourcePackage ->
+        launchedCalls += Triple(number, name, sourcePackage)
+    }
 
     private fun entry(
         id: Long,
@@ -52,14 +54,27 @@ class RecentsViewModelTest {
         viewModel.onWhatsAppCall(
             entry(1).copy(number = "+358 44 5552841", displayName = "Matti"),
         )
-        assertEquals(listOf<Pair<String?, String?>>("+358 44 5552841" to "Matti"), launchedCalls)
+        assertEquals(listOf(Triple<String?, String?, String?>("+358 44 5552841", "Matti", null)), launchedCalls)
     }
 
     @Test
     fun whatsAppCallWithoutANumberPassesNull() {
         val viewModel = RecentsViewModel(repository, permissions, launcher)
         viewModel.onWhatsAppCall(entry(1).copy(number = "", displayName = "Matti"))
-        assertEquals(listOf<Pair<String?, String?>>(null to "Matti"), launchedCalls)
+        assertEquals(listOf(Triple<String?, String?, String?>(null, "Matti", null)), launchedCalls)
+    }
+
+    @Test
+    fun whatsAppCallRoutesThroughTheRecordedSourcePackage() {
+        val viewModel = RecentsViewModel(repository, permissions, launcher)
+        viewModel.onWhatsAppCall(
+            entry(1).copy(
+                number = "+358 44 5552841",
+                displayName = "Matti",
+                whatsAppPackage = "com.whatsapp.w4b",
+            ),
+        )
+        assertEquals("com.whatsapp.w4b", launchedCalls.single().third)
     }
 
     @Test
