@@ -245,6 +245,25 @@ class WhatsAppCallMonitorTest {
     }
 
     @Test
+    fun anAmbiguousContactNameResolvesNoNumber() = runTest {
+        val repository = FakeWhatsAppCallLogRepository()
+        val contacts = FakeContactsRepository().apply {
+            allContacts.value = listOf(
+                Contact(1, "Matti Meikäläinen", "+358 44 5552841", null, false),
+                Contact(2, "Matti Meikäläinen", "+358 40 1112223", null, false),
+            )
+        }
+        val monitor = monitor(repository, contacts)
+        monitor.onCallNotificationPosted("call-1", WhatsAppCallNotificationKind.ONGOING, caller())
+        advanceTimeBy(10_000)
+        monitor.onCallNotificationRemoved("call-1")
+        runCurrent()
+        val record = repository.recorded.single()
+        assertEquals("Matti Meikäläinen", record.callerName)
+        assertEquals(null, record.callerNumber)
+    }
+
+    @Test
     fun videoFlagIsRecorded() = runTest {
         val repository = FakeWhatsAppCallLogRepository()
         val monitor = monitor(repository)

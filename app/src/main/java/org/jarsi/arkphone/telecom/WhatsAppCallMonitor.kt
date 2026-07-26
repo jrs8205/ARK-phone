@@ -151,11 +151,13 @@ class WhatsAppCallMonitor @Inject constructor(
     }
 
     /** WhatsApp shows a contact's name instead of the number; the number makes
-     *  the log row callable and lets the detail view group it, so look it up. */
+     *  the log row callable and lets the detail view group it, so look it up.
+     *  Display names are not unique — with several matches, guessing could
+     *  attach the call to the wrong person, so a name-only record is kept. */
     private suspend fun numberFromContacts(name: String?): String? {
         if (name == null) return null
-        return contactsRepository.contacts().first()
-            .firstOrNull { it.displayName == name }
-            ?.phoneNumber
+        val matches = contactsRepository.contacts().first()
+            .filter { it.displayName == name }
+        return matches.singleOrNull()?.phoneNumber
     }
 }
