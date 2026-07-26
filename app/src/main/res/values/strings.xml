@@ -137,8 +137,9 @@
     <string name="sim_slot_esim" translatable="false">eSIM (SIM %1$d)</string>
     <string name="sim_esim" translatable="false">eSIM</string>
     <string name="settings_speech_unavailable">Speech is not available on this phone. Choose or install a speech engine in the system settings to announce callers.</string>
-    <string name="settings_speech_voice_missing">The speech engine does not have this language installed, so a caller\'s name may be hard to make out.</string>
+    <string name="settings_speech_voice_missing">The speech engine does not have this language (%1$s) installed, so a caller\'s name may be hard to make out.</string>
     <string name="settings_speech_settings">Speech settings</string>
+    <string name="settings_version">ARK-phone %1$s</string>
     <string name="settings_speech_install">Install voice</string>
     <string name="settings_call_sim_title">SIM for calls</string>
     <string name="settings_call_sim_description">Which SIM ARK-phone places calls with</string>

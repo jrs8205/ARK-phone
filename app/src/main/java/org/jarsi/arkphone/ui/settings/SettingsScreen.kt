@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -75,6 +76,12 @@ fun SettingsScreen(
         simAccounts = simAccounts,
         onCallSimAccountChanged = viewModel::onCallSimAccountChanged,
         speechStatus = speechStatus,
+        speechLanguage = LocalConfiguration.current.locales[0].let { it.getDisplayLanguage(it) },
+        versionName = remember(context) {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull().orEmpty()
+        },
         onOpenSpeechSettings = {
             // The voice installer is the engine's own screen and not every
             // engine offers it; the system speech settings always exist.
@@ -128,6 +135,8 @@ fun SettingsContent(
     onCallSimAccountChanged: (String?) -> Unit = {},
     speechStatus: SpeechStatus = SpeechStatus.READY,
     onOpenSpeechSettings: () -> Unit = {},
+    versionName: String = "",
+    speechLanguage: String = "",
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -173,7 +182,7 @@ fun SettingsContent(
             } else {
             if (speechStatus == SpeechStatus.VOICE_MISSING) {
                 SpeechNotice(
-                    text = stringResource(R.string.settings_speech_voice_missing),
+                    text = stringResource(R.string.settings_speech_voice_missing, speechLanguage),
                     button = stringResource(R.string.settings_speech_install),
                     onClick = onOpenSpeechSettings,
                 )
@@ -312,6 +321,12 @@ fun SettingsContent(
                     haptics.click()
                     onOpenCallSettings()
                 },
+            )
+            Text(
+                text = stringResource(R.string.settings_version, versionName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             )
         }
     }

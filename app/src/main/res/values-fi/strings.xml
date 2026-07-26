@@ -133,8 +133,9 @@
     <string name="sim_slot">Paikka</string>
     <string name="sim_country">Maa</string>
     <string name="settings_speech_unavailable">Puhetoiminto ei ole käytettävissä tässä puhelimessa. Valitse tai asenna puhemoottori järjestelmän asetuksista, niin soittajan nimi voidaan sanoa ääneen.</string>
-    <string name="settings_speech_voice_missing">Puhemoottorista puuttuu tämä kieli, joten soittajan nimestä voi olla vaikea saada selvää.</string>
+    <string name="settings_speech_voice_missing">Puhemoottorista puuttuu tämä kieli (%1$s), joten soittajan nimestä voi olla vaikea saada selvää.</string>
     <string name="settings_speech_settings">Puheasetukset</string>
+    <string name="settings_version">ARK-phone %1$s</string>
     <string name="settings_speech_install">Asenna puheääni</string>
     <string name="settings_call_sim_title">Puheluiden SIM</string>
     <string name="settings_call_sim_description">Millä SIM-kortilla ARK-phone soittaa</string>

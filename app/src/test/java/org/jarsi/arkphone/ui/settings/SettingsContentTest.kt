@@ -44,6 +44,8 @@ class SettingsContentTest {
         onOpenCallSettings: () -> Unit = {},
         onCallSimChanged: (String?) -> Unit = {},
         onOpenSpeechSettings: () -> Unit = {},
+        versionName: String = "1.16",
+        speechLanguage: String = "suomi",
         onBack: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -60,6 +62,8 @@ class SettingsContentTest {
                 onOpenCallSettings = onOpenCallSettings,
                 onCallSimAccountChanged = onCallSimChanged,
                 onOpenSpeechSettings = onOpenSpeechSettings,
+                versionName = versionName,
+                speechLanguage = speechLanguage,
                 onBack = onBack,
             )
         }
@@ -205,6 +209,7 @@ class SettingsContentTest {
         setContent(speechStatus = SpeechStatus.VOICE_MISSING)
         composeRule.onNodeWithText("Voice only").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Install voice").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("suomi", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -220,5 +225,11 @@ class SettingsContentTest {
         setContent(speechStatus = SpeechStatus.UNAVAILABLE, onOpenSpeechSettings = { opened++ })
         composeRule.onNodeWithText("Speech settings").performScrollTo().performClick()
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun theVersionIsShownAtTheBottom() {
+        setContent(versionName = "1.17")
+        composeRule.onNodeWithText("1.17", substring = true).performScrollTo().assertIsDisplayed()
     }
 }
