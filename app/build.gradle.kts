@@ -22,8 +22,21 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+    lint {
+        // Version-currency checks flip on upstream releases, not on code
+        // changes — they would break the warning-free gate on their own
+        // schedule. Everything else must stay clean: a new warning fails.
+        disable += listOf(
+            "AndroidGradlePluginVersion",
+            "GradleDependency",
+            "NewerVersionAvailable",
+            "OldTargetApi",
+        )
+        warningsAsErrors = true
     }
     buildFeatures {
         compose = true

@@ -118,7 +118,10 @@
     <string name="announce_mode_with_ringtone_description">Says the name twice while the ringtone plays</string>
     <string name="announce_mode_voice_only">Voice only</string>
     <string name="announce_mode_voice_only_description">Silences the ringtone and repeats the name</string>
-    <string name="announce_interval_label">Repeat every %1$d seconds</string>
+    <plurals name="announce_interval_label">
+        <item quantity="one">Repeat every second</item>
+        <item quantity="other">Repeat every %1$d seconds</item>
+    </plurals>
     <string name="notification_channel_incoming_silent">Incoming calls (silent)</string>
     <string name="notification_channel_incoming_silenced">Incoming calls (silenced by you)</string>
     <string name="sim_cards_title">SIM cards</string>
@@ -128,6 +131,7 @@
     <string name="sim_slot">Slot</string>
     <string name="sim_slot_physical" translatable="false">SIM %1$d</string>
     <string name="sim_slot_esim" translatable="false">eSIM (SIM %1$d)</string>
+    <string name="sim_esim" translatable="false">eSIM</string>
     <string name="settings_call_settings_title">Call settings</string>
     <string name="settings_call_settings_description">Call waiting, caller ID and call forwarding (carrier)</string>
     <string name="sim_country">Country</string>

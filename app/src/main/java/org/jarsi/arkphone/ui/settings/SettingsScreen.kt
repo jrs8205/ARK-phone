@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -303,7 +304,11 @@ private fun IntervalSlider(
     var sliderValue by remember(intervalSeconds) { mutableFloatStateOf(intervalSeconds.toFloat()) }
     Column(Modifier.padding(horizontal = 16.dp)) {
         Text(
-            text = stringResource(R.string.announce_interval_label, sliderValue.roundToInt()),
+            text = pluralStringResource(
+                R.plurals.announce_interval_label,
+                sliderValue.roundToInt(),
+                sliderValue.roundToInt(),
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.ContactsContract
 import android.telephony.PhoneNumberUtils
 import android.telephony.TelephonyManager
@@ -52,10 +53,10 @@ internal fun whatsAppRowMatches(
  *  region confirms Finland; anything else ambiguous gets no link. */
 internal fun waMeUri(number: String, regionCountryIso: String?): Uri? {
     val international = internationalDigits(number)
-    if (international != null) return Uri.parse("https://wa.me/$international")
+    if (international != null) return "https://wa.me/$international".toUri()
     if (!"FI".equals(regionCountryIso, ignoreCase = true)) return null
     val significant = nationalSignificantDigits(number) ?: return null
-    return Uri.parse("https://wa.me/358$significant")
+    return "https://wa.me/358$significant".toUri()
 }
 
 /** Which installed WhatsApp variant a callback should go through: the one

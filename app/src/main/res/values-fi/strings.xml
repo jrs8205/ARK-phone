@@ -116,7 +116,10 @@
     <string name="announce_mode_with_ringtone_description">Sanoo nimen kahdesti soittoäänen soidessa</string>
     <string name="announce_mode_voice_only">Vain puhe</string>
     <string name="announce_mode_voice_only_description">Hiljentää soittoäänen ja toistaa nimeä</string>
-    <string name="announce_interval_label">Toista %1$d sekunnin välein</string>
+    <plurals name="announce_interval_label">
+        <item quantity="one">Toista sekunnin välein</item>
+        <item quantity="other">Toista %1$d sekunnin välein</item>
+    </plurals>
     <string name="notification_channel_incoming_silent">Saapuvat puhelut (äänetön)</string>
     <string name="notification_channel_incoming_silenced">Saapuvat puhelut (hiljennetty)</string>
     <string name="sim_cards_title">SIM-kortit</string>

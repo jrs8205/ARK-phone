@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.core.net.toUri
 import android.telecom.TelecomManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -132,7 +133,7 @@ class MissedCallNotifier @Inject constructor(
 
     private suspend fun loadBitmap(uriString: String): Bitmap? = withContext(ioDispatcher) {
         runCatching {
-            context.contentResolver.openInputStream(Uri.parse(uriString))
+            context.contentResolver.openInputStream(uriString.toUri())
                 ?.use(BitmapFactory::decodeStream)
         }.getOrNull()
     }

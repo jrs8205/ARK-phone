@@ -139,7 +139,7 @@ private fun SimCardItem(sim: SimCard) {
         // Embedded profiles can report -1 while inactive; skip the number then.
         sim.isEmbedded && sim.slotIndex >= 0 ->
             stringResource(R.string.sim_slot_esim, sim.slotIndex + 1)
-        sim.isEmbedded -> "eSIM"
+        sim.isEmbedded -> stringResource(R.string.sim_esim)
         else -> stringResource(R.string.sim_slot_physical, sim.slotIndex + 1)
     }
     Card(Modifier.fillMaxWidth()) {

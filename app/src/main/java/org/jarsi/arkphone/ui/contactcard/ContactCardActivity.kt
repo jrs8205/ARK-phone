@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Bundle
 import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
@@ -57,11 +58,11 @@ class ContactCardActivity : ComponentActivity() {
                     onMessage = { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", it, null))) },
                     onEmail = { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", it, null))) },
                     onOpenAddress = {
-                        open(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(it))))
+                        open(Intent(Intent.ACTION_VIEW, ("geo:0,0?q=" + Uri.encode(it)).toUri()))
                     },
                     onOpenWebsite = { url ->
                         val target = if (url.contains("://")) url else "https://$url"
-                        open(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                        open(Intent(Intent.ACTION_VIEW, target.toUri()))
                     },
                     onOpenCallHistory = {
                         startActivity(CallDetailActivity.intent(this, it))

@@ -41,7 +41,7 @@ import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.SearchField
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
 import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
@@ -213,7 +213,7 @@ private fun ContactRowItem(
     val copiedText = stringResource(R.string.number_copied)
     ListItem(
         colors = transparentListItemColors(),
-        modifier = clickableListItemModifier(
+        modifier = Modifier.clickableListItem(
             onClick = { onOpenContact(contact.id) },
             onLongClick = {
                 contact.phoneNumber?.let { number ->

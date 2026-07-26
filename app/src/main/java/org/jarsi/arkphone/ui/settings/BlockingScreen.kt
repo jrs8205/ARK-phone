@@ -46,7 +46,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Settings
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import kotlin.math.roundToInt
 
@@ -213,12 +213,12 @@ fun BlockingContent(
                 var editStart by rememberSaveable { mutableStateOf(false) }
                 var editEnd by rememberSaveable { mutableStateOf(false) }
                 ListItem(
-                    modifier = clickableListItemModifier { editStart = true },
+                    modifier = Modifier.clickableListItem { editStart = true },
                     headlineContent = { Text(stringResource(R.string.blocking_schedule_start)) },
                     trailingContent = { Text(formatScheduleTime(settings.blockingScheduleStartMinutes)) },
                 )
                 ListItem(
-                    modifier = clickableListItemModifier { editEnd = true },
+                    modifier = Modifier.clickableListItem { editEnd = true },
                     headlineContent = { Text(stringResource(R.string.blocking_schedule_end)) },
                     trailingContent = { Text(formatScheduleTime(settings.blockingScheduleEndMinutes)) },
                 )
@@ -413,7 +413,7 @@ private fun BlockingSwitchRow(
 ) {
     val haptics = rememberHaptics()
     ListItem(
-        modifier = clickableListItemModifier { onCheckedChange(!checked) },
+        modifier = Modifier.clickableListItem { onCheckedChange(!checked) },
         headlineContent = { Text(title) },
         supportingContent = { Text(description) },
         trailingContent = {

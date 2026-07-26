@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.ui.components.ContactAvatar
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadGrid
 import org.jarsi.arkphone.ui.theme.CallAnswerGreen
@@ -166,7 +166,7 @@ private fun IncomingCallActions(actions: InCallActions) {
                 Column {
                     replies.forEach { reply ->
                         ListItem(
-                            modifier = clickableListItemModifier {
+                            modifier = Modifier.clickableListItem {
                                 showReplies = false
                                 actions.onRejectWithMessage(reply)
                             },

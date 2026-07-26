@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- AAPT only accepts adaptive icons from a -v26 folder, so the
+         "unnecessary version qualifier" warning is unavoidable there. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="**/mipmap-anydpi-v26" />
+    </issue>
+</lint>

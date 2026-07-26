@@ -29,8 +29,8 @@ fun ContactAvatar(contact: Contact, size: Dp = 40.dp) {
 fun ContactAvatar(
     displayName: String?,
     photoUri: String?,
-    size: Dp = 40.dp,
     modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
     initialTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
 ) {
     if (photoUri != null) {

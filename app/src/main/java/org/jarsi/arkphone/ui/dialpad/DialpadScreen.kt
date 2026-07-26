@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 
 @Composable
@@ -138,7 +138,7 @@ fun DialpadContent(
         LazyColumn(Modifier.weight(1f, fill = true)) {
             items(uiState.suggestions, key = { it.id }) { contact ->
                 ListItem(
-                    modifier = clickableListItemModifier {
+                    modifier = Modifier.clickableListItem {
                         contact.phoneNumber?.let(onSuggestion)
                     },
                     headlineContent = { Text(contact.displayName) },

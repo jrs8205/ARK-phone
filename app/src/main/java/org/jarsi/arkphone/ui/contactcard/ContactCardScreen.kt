@@ -62,7 +62,7 @@ import org.jarsi.arkphone.data.model.ContactAppAction
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.LabeledField
 import org.jarsi.arkphone.ui.components.ContactAvatar
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
 
@@ -337,7 +337,7 @@ private fun ContactCardDetails(
             SectionCard(true) {
                 details.appActions.forEach { action ->
                     ListItem(
-                        modifier = clickableListItemModifier { onOpenAppAction(action) },
+                        modifier = Modifier.clickableListItem { onOpenAppAction(action) },
                         colors = transparentListItemColors(),
                         headlineContent = { Text(action.label) },
                         leadingContent = { AppActionIcon(action) },
@@ -348,7 +348,7 @@ private fun ContactCardDetails(
         SectionCard(true) {
             details.lookupKey?.let {
                 ListItem(
-                    modifier = clickableListItemModifier(onShare),
+                    modifier = Modifier.clickableListItem(onShare),
                     colors = transparentListItemColors(),
                     headlineContent = { Text(stringResource(R.string.contact_card_share)) },
                     leadingContent = { Icon(Icons.Outlined.Share, contentDescription = null) },
@@ -356,7 +356,7 @@ private fun ContactCardDetails(
             }
             if (canBlock && details.phones.isNotEmpty()) {
                 ListItem(
-                    modifier = clickableListItemModifier(onToggleBlocked),
+                    modifier = Modifier.clickableListItem(onToggleBlocked),
                     colors = transparentListItemColors(),
                     headlineContent = {
                         Text(
@@ -377,7 +377,7 @@ private fun ContactCardDetails(
             }
             if (firstNumber != null) {
                 ListItem(
-                    modifier = clickableListItemModifier { onOpenCallHistory(firstNumber) },
+                    modifier = Modifier.clickableListItem { onOpenCallHistory(firstNumber) },
                     colors = transparentListItemColors(),
                     headlineContent = { Text(stringResource(R.string.contact_card_call_history)) },
                     leadingContent = { Icon(Icons.Outlined.History, contentDescription = null) },
@@ -446,7 +446,7 @@ private fun FieldRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     ListItem(
-        modifier = if (onTap != null) clickableListItemModifier(onTap) else Modifier,
+        modifier = if (onTap != null) Modifier.clickableListItem(onTap) else Modifier,
         colors = transparentListItemColors(),
         headlineContent = { Text(field.value) },
         supportingContent = field.label?.let { label -> { Text(label) } },

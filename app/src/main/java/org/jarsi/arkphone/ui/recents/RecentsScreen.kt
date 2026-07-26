@@ -50,7 +50,7 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.ui.components.RowCard
-import org.jarsi.arkphone.ui.components.clickableListItemModifier
+import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
 
@@ -188,7 +188,7 @@ private fun RecentsRowItem(
     val copiedText = stringResource(R.string.number_copied)
     ListItem(
         colors = transparentListItemColors(),
-        modifier = clickableListItemModifier(
+        modifier = Modifier.clickableListItem(
             onClick = {
                 when {
                     entry.number.isNotBlank() -> onOpenDetails(entry.number)
