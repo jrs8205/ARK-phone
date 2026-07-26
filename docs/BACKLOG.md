@@ -174,15 +174,17 @@ provider-backed block state on the contact card, redacted settings log,
 role-first onboarding order, contact-name fallback for API 26–29 and the
 lone-zero search guard.
 
-- [ ] Persist the source package of WhatsApp call notifications (Room
+Round 2 shipped 2026-07-26: all four items below.
+
+- [x] Persist the source package of WhatsApp call notifications (Room
       migration) and route callbacks through it — WhatsApp Business installs
       currently open regular WhatsApp; the wa.me fallback also needs the
       international form for nationally formatted numbers
-- [ ] Rewrite the call-log row type to BLOCKED after an in-call rule
+- [x] Rewrite the call-log row type to BLOCKED after an in-call rule
       rejection so saved-contact blocks appear under the Blocked filter
-- [ ] Don't resolve a WhatsApp caller's number from a display name shared by
+- [x] Don't resolve a WhatsApp caller's number from a display name shared by
       several contacts — an ambiguous name should store no number
-- [ ] Re-query the call log and contacts right after a runtime permission
+- [x] Re-query the call log and contacts right after a runtime permission
       grant instead of waiting for the flow to restart
 
 ## Technical debt / polish
