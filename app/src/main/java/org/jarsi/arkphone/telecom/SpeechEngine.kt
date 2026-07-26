@@ -5,7 +5,10 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.speech.tts.TextToSpeech
+import android.util.Log
+import androidx.core.os.ConfigurationCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,6 +16,18 @@ interface SpeechEngine {
     fun speak(text: String)
     fun stop()
 }
+
+/**
+ * The voice the announcement should use: the language the app itself speaks,
+ * when the engine actually has it. Null leaves the engine's own default in
+ * place — which is what the app relied on until a device whose Google TTS
+ * lacked the Finnish voice read Finnish names in another language, turning
+ * the announcement into something the user could not make out.
+ */
+internal fun announcementLocale(
+    appLocale: Locale,
+    availability: (Locale) -> Int,
+): Locale? = appLocale.takeIf { availability(it) >= TextToSpeech.LANG_AVAILABLE }
 
 /**
  * Lazily initialized system TTS. The engine initializes asynchronously, so the
@@ -88,11 +103,25 @@ class TtsSpeechEngine @Inject constructor(
     private fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             ready = true
+            applyLanguage()
             pending?.let { speak(it) }
             pending = null
         } else {
             tts = null
             pending = null
         }
+    }
+
+    private fun applyLanguage() {
+        val engine = tts ?: return
+        val appLocale = ConfigurationCompat.getLocales(context.resources.configuration)[0]
+            ?: Locale.getDefault()
+        val locale = announcementLocale(appLocale) { engine.isLanguageAvailable(it) }
+        if (locale != null) engine.language = locale
+        Log.i(
+            "ArkPhone",
+            "Announcement voice: app=$appLocale applied=${locale ?: "engine default"}" +
+                " voice=${runCatching { engine.voice?.locale }.getOrNull()}",
+        )
     }
 }
