@@ -3,6 +3,7 @@ package org.jarsi.arkphone
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 import org.jarsi.arkphone.data.SettingsCache
+import org.jarsi.arkphone.telecom.CallNotifications
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -13,4 +14,14 @@ class ArkPhoneApp : Application() {
     // lazily at that point would still hold defaults (voice-only rang the
     // ringtone because of exactly that).
     @Inject lateinit var settingsCache: SettingsCache
+
+    @Inject lateinit var callNotifications: CallNotifications
+
+    override fun onCreate() {
+        super.onCreate()
+        // Also done when a call arrives, but doing it at start means a channel
+        // definition that changed in an update takes effect before the first
+        // call rather than during it.
+        callNotifications.ensureChannels()
+    }
 }
