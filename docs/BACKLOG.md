@@ -39,8 +39,10 @@ requesting them and stop using them if the role is revoked.
 - [x] Speed dial via long-press (keys 2–9, assigned from the key itself;
       clearing an assignment is not built yet)
 - [x] Call voicemail via long-press on 1
-- [ ] SIM selection before placing a call
-- [ ] Remember the last-used SIM per contact
+- [x] SIM selection before placing a call (2026-07-26: a default-SIM setting,
+      like the system's own, shown only on a multi-SIM device)
+- [ ] ~~Remember the last-used SIM per contact~~ — dropped 2026-07-26: one
+      clear default setting is enough and less surprising
 
 ## Contacts
 
@@ -75,7 +77,7 @@ device-only.
 - [x] Blocked calls in the log
 - [ ] Calls handled by an AI agent in the log
 - [x] Call date, time and duration
-- [ ] SIM used per call
+- [x] SIM used per call (2026-07-26)
 - [x] Search by name or number (home screen, Pixel-style; digit search
       matches national and international formats)
 - [x] Filter chips: All / Missed / Outgoing / WhatsApp (horizontally
@@ -97,7 +99,7 @@ device-only.
 - [x] Business/CNAP caller name when the network provides one (was already
       wired: callerDisplayName is the fallback when the caller isn't saved)
 - [x] "Last called ..." info on the incoming screen (v1.11)
-- [ ] SIM used for the incoming call
+- [x] SIM used for the incoming call (2026-07-26; also shown during the call)
 - [ ] Full-screen vs compact heads-up preference
 - [ ] AMOLED black theme option
 - [~] Color coding for known, unknown and suspected-spam callers (unknown
@@ -137,7 +139,8 @@ device-only.
       foreign and premium prefixes via the user's own list)
 - [x] Scheduled (time-based) blocking (rules limited to a time window,
       overnight windows supported; v1.13)
-- [ ] Separate block lists per SIM
+- [x] Blocking limited to one SIM (2026-07-26; one rule set with a SIM
+      scope rather than separate lists per SIM)
 - [x] Allow list (whitelist) — allowed numbers always get through (v1.13)
 - [x] Always allow favorites (on by default; v1.13)
 - [x] Allow repeat callers (second call within 15 minutes; on by default; v1.12)
