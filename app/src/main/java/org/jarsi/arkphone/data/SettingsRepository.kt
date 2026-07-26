@@ -16,13 +16,17 @@ interface SettingsRepository {
 
     suspend fun setBlockUnknownCallers(enabled: Boolean)
 
-    suspend fun setBlockedPrefixes(prefixes: Set<String>)
+    /** Atomic add/remove: two quick edits from a stale UI snapshot must not
+     *  resurrect or lose an entry, so the stored set is modified in place. */
+    suspend fun addBlockedPrefix(prefix: String)
+    suspend fun removeBlockedPrefix(prefix: String)
+    suspend fun addAllowedNumber(number: String)
+    suspend fun removeAllowedNumber(number: String)
 
     suspend fun setAllowRepeatCallers(enabled: Boolean)
 
     suspend fun setRepeatCallerWindowMinutes(minutes: Int)
 
-    suspend fun setAllowedNumbers(numbers: Set<String>)
 
     suspend fun setAlwaysAllowFavorites(enabled: Boolean)
 

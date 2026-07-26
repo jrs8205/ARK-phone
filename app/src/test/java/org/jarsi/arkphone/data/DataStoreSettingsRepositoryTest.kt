@@ -42,10 +42,24 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
-    fun blockedPrefixesPersistTrimmedAndNonEmpty() = runTest {
+    fun addedBlockedPrefixPersistsTrimmed() = runTest {
         val repository = DataStoreSettingsRepository(createDataStore())
-        repository.setBlockedPrefixes(setOf(" +358700 ", "0700", "  "))
-        assertEquals(setOf("+358700", "0700"), repository.settings.first().blockedPrefixes)
+        repository.addBlockedPrefix(" +358700 ")
+        assertEquals(setOf("+358700"), repository.settings.first().blockedPrefixes)
+    }
+
+    @Test
+    fun blankPrefixIsNotAdded() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.addBlockedPrefix("   ")
+        assertEquals(emptySet<String>(), repository.settings.first().blockedPrefixes)
+    }
+
+    @Test
+    fun addedAllowedNumberPersistsTrimmed() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.addAllowedNumber(" 0401234567 ")
+        assertEquals(setOf("0401234567"), repository.settings.first().allowedNumbers)
     }
 
     @Test

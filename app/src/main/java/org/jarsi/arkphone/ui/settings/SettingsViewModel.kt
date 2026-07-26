@@ -74,17 +74,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onAddBlockedPrefix(prefix: String) {
-        val trimmed = prefix.trim()
-        if (trimmed.isEmpty()) return
-        viewModelScope.launch {
-            settingsRepository.setBlockedPrefixes(uiState.value.blockedPrefixes + trimmed)
-        }
+        viewModelScope.launch { settingsRepository.addBlockedPrefix(prefix) }
     }
 
     fun onRemoveBlockedPrefix(prefix: String) {
-        viewModelScope.launch {
-            settingsRepository.setBlockedPrefixes(uiState.value.blockedPrefixes - prefix)
-        }
+        viewModelScope.launch { settingsRepository.removeBlockedPrefix(prefix) }
     }
 
     fun onRepeatCallerWindowChanged(minutes: Int) {
@@ -96,17 +90,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onAddAllowedNumber(number: String) {
-        val trimmed = number.trim()
-        if (trimmed.isEmpty()) return
-        viewModelScope.launch {
-            settingsRepository.setAllowedNumbers(uiState.value.allowedNumbers + trimmed)
-        }
+        viewModelScope.launch { settingsRepository.addAllowedNumber(number) }
     }
 
     fun onRemoveAllowedNumber(number: String) {
-        viewModelScope.launch {
-            settingsRepository.setAllowedNumbers(uiState.value.allowedNumbers - number)
-        }
+        viewModelScope.launch { settingsRepository.removeAllowedNumber(number) }
     }
 
     fun onBlockingScheduleEnabledChanged(enabled: Boolean) {

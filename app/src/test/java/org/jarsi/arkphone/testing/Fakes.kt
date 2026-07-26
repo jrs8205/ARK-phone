@@ -103,17 +103,27 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setBlockUnknownCallers(enabled: Boolean) {
         state.value = state.value.copy(blockUnknownCallers = enabled)
     }
-    override suspend fun setBlockedPrefixes(prefixes: Set<String>) {
-        state.value = state.value.copy(blockedPrefixes = prefixes)
+    override suspend fun addBlockedPrefix(prefix: String) {
+        val trimmed = prefix.trim()
+        if (trimmed.isEmpty()) return
+        state.value = state.value.copy(blockedPrefixes = state.value.blockedPrefixes + trimmed)
+    }
+    override suspend fun removeBlockedPrefix(prefix: String) {
+        state.value = state.value.copy(blockedPrefixes = state.value.blockedPrefixes - prefix)
+    }
+    override suspend fun addAllowedNumber(number: String) {
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return
+        state.value = state.value.copy(allowedNumbers = state.value.allowedNumbers + trimmed)
+    }
+    override suspend fun removeAllowedNumber(number: String) {
+        state.value = state.value.copy(allowedNumbers = state.value.allowedNumbers - number)
     }
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         state.value = state.value.copy(allowRepeatCallers = enabled)
     }
     override suspend fun setRepeatCallerWindowMinutes(minutes: Int) {
         state.value = state.value.copy(repeatCallerWindowMinutes = minutes)
-    }
-    override suspend fun setAllowedNumbers(numbers: Set<String>) {
-        state.value = state.value.copy(allowedNumbers = numbers)
     }
     override suspend fun setAlwaysAllowFavorites(enabled: Boolean) {
         state.value = state.value.copy(alwaysAllowFavorites = enabled)

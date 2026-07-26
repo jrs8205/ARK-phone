@@ -109,13 +109,30 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.BLOCK_UNKNOWN] = enabled }
     }
 
-    override suspend fun setBlockedPrefixes(prefixes: Set<String>) {
-        dataStore.edit {
-            it[Keys.BLOCKED_PREFIXES] = prefixes
-                .map(String::trim)
-                .filter(String::isNotEmpty)
-                .toSet()
-        }
+    override suspend fun addBlockedPrefix(prefix: String) {
+        addTo(Keys.BLOCKED_PREFIXES, prefix)
+    }
+
+    override suspend fun removeBlockedPrefix(prefix: String) {
+        removeFrom(Keys.BLOCKED_PREFIXES, prefix)
+    }
+
+    override suspend fun addAllowedNumber(number: String) {
+        addTo(Keys.ALLOWED_NUMBERS, number)
+    }
+
+    override suspend fun removeAllowedNumber(number: String) {
+        removeFrom(Keys.ALLOWED_NUMBERS, number)
+    }
+
+    private suspend fun addTo(key: Preferences.Key<Set<String>>, value: String) {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) return
+        dataStore.edit { it[key] = (it[key] ?: emptySet()) + trimmed }
+    }
+
+    private suspend fun removeFrom(key: Preferences.Key<Set<String>>, value: String) {
+        dataStore.edit { it[key] = (it[key] ?: emptySet()) - value }
     }
 
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
@@ -128,15 +145,6 @@ class DataStoreSettingsRepository @Inject constructor(
                 Settings.MIN_REPEAT_WINDOW_MINUTES,
                 Settings.MAX_REPEAT_WINDOW_MINUTES,
             )
-        }
-    }
-
-    override suspend fun setAllowedNumbers(numbers: Set<String>) {
-        dataStore.edit {
-            it[Keys.ALLOWED_NUMBERS] = numbers
-                .map(String::trim)
-                .filter(String::isNotEmpty)
-                .toSet()
         }
     }
 
