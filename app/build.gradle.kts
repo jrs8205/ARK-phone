@@ -15,8 +15,8 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.15"
+        versionCode = 3
+        versionName = "1.16"
     }
 
     // Credentials live in the user's ~/.gradle/gradle.properties, never in the
