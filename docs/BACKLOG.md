@@ -187,19 +187,20 @@ Round 2 shipped 2026-07-26: all four items below.
 - [x] Re-query the call log and contacts right after a runtime permission
       grant instead of waiting for the flow to restart
 
-Improvement suggestions from the same review (not bugs, still open):
+Improvement suggestions from the same review (shipped 2026-07-26):
 
-- [ ] Short-circuit call-path provider work: skip the contact lookup and the
+- [x] Short-circuit call-path provider work: skip the contact lookup and the
       full merged-history read when no enabled rule needs them, and query
       only recent incoming rows for the repeat-caller window
-- [ ] Make set-valued settings edits atomic: add/remove blocked prefixes and
+- [x] Make set-valued settings edits atomic: add/remove blocked prefixes and
       allowed numbers inside one DataStore edit instead of replacing a set
       computed from a possibly stale UI snapshot
-- [ ] Give name-only WhatsApp rows a usable detail path: open details via an
+- [x] Give name-only WhatsApp rows a usable detail path: open details via an
       app-owned record key, hide phone actions, allow deletion (the
       name-delete repository method exists but is unused)
-- [ ] Make the lint gate warning-clean: fix project-owned warnings, move the
-      hard-coded "eSIM" into locale resources, baseline the accepted rest
+- [x] Make the lint gate warning-clean: fix project-owned warnings, move the
+      hard-coded "eSIM" into locale resources, disable only the
+      time-sensitive version checks and fail the gate on new warnings
 
 ## Technical debt / polish
 
@@ -207,5 +208,5 @@ Improvement suggestions from the same review (not bugs, still open):
 - [ ] InCallFinishGuard: same-frame tie at the grace boundary + combined
       "call arrives near grace expiry then ends" test
 - [ ] `DeviceDefault` parents for window themes
-- [ ] Monochrome launcher icon (lint warning)
+- [x] Monochrome launcher icon (2026-07-26, with the lint cleanup)
 - [ ] targetSdk bump when a newer stable SDK is available
