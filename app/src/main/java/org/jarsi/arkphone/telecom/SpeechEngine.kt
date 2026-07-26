@@ -70,6 +70,10 @@ class TtsSpeechEngine @Inject constructor(
         val engine = tts ?: create() ?: return
         takeAudioFocus()
         if (ready) {
+            // Re-read every time: the engine outlives the process's first call,
+            // so a speed changed in system settings meanwhile would otherwise
+            // not reach the announcement until the process restarted.
+            engine.setSpeechRate(currentSpeechRate())
             engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
         } else {
             pending = text
@@ -135,16 +139,18 @@ class TtsSpeechEngine @Inject constructor(
             ?: Locale.getDefault()
         val locale = announcementLocale(appLocale) { engine.isLanguageAvailable(it) }
         if (locale != null) engine.language = locale
-        val systemRate = runCatching {
-            Settings.Secure.getInt(context.contentResolver, "tts_default_rate", 100) / 100f
-        }.getOrDefault(1f)
-        val rate = announcementSpeechRate(systemRate)
-        engine.setSpeechRate(rate)
         Log.i(
             "ArkPhone",
             "Announcement voice: app=$appLocale applied=${locale ?: "engine default"}" +
                 " voice=${runCatching { engine.voice?.locale }.getOrNull()}" +
-                " systemRate=$systemRate rate=$rate",
+                " rate=${currentSpeechRate()}",
         )
+    }
+
+    private fun currentSpeechRate(): Float {
+        val systemRate = runCatching {
+            Settings.Secure.getInt(context.contentResolver, "tts_default_rate", 100) / 100f
+        }.getOrDefault(1f)
+        return announcementSpeechRate(systemRate)
     }
 }
