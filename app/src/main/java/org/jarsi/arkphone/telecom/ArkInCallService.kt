@@ -27,6 +27,7 @@ class ArkInCallService : InCallService() {
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
     @Inject lateinit var settingsCache: SettingsCache
     @Inject lateinit var ruleEvaluator: CallRuleEvaluator
+    @Inject lateinit var rejectedCallReclassifier: RejectedCallReclassifier
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
@@ -110,6 +111,9 @@ class ArkInCallService : InCallService() {
      * rejected here before any ringtone, announcement or UI.
      */
     private fun handleRinging(info: CallInfo) {
+        // The log row is dated at ring start, which is already in the past
+        // here — pad the match window backwards to cover clock differences.
+        val ringNotBeforeMillis = System.currentTimeMillis() - RING_START_MARGIN_MILLIS
         appScope.launch {
             val decision = ruleEvaluator.evaluate(info.number)
             val stillRinging = callController.calls.value
@@ -118,6 +122,7 @@ class ArkInCallService : InCallService() {
             if (decision.block) {
                 Log.i(TAG, "In-call rule block: ${decision.details}")
                 callController.reject(info.id)
+                rejectedCallReclassifier.markBlocked(info.number.orEmpty(), ringNotBeforeMillis)
                 return@launch
             }
             val settings = settingsCache.current
@@ -139,6 +144,7 @@ class ArkInCallService : InCallService() {
     private companion object {
         const val TAG = "ArkPhone"
         const val SETTINGS_WAIT_TIMEOUT_MILLIS = 500L
+        const val RING_START_MARGIN_MILLIS = 10_000L
     }
 
     /**

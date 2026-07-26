@@ -17,4 +17,12 @@ interface CallLogRepository {
      * WRITE_CALL_LOG is missing or the delete failed.
      */
     suspend fun deleteCallsFor(number: String): Boolean
+
+    /**
+     * Rewrites the newest rejected row from [number] (dated at or after
+     * [notBeforeMillis]) to the blocked type, so in-call rule blocks appear
+     * under the Blocked filter. Returns false while the row has not been
+     * inserted yet or the update failed.
+     */
+    suspend fun reclassifyLatestRejectionAsBlocked(number: String, notBeforeMillis: Long): Boolean
 }

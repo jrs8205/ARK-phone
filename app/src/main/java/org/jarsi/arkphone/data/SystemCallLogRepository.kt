@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.data
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.Context
 import android.database.ContentObserver
 import android.os.Handler
@@ -18,6 +19,7 @@ import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.util.PermissionChecker
+import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
 
 internal fun callTypeFrom(systemType: Int): CallType = when (systemType) {
@@ -27,6 +29,22 @@ internal fun callTypeFrom(systemType: Int): CallType = when (systemType) {
     CallLog.Calls.REJECTED_TYPE -> CallType.REJECTED
     CallLog.Calls.BLOCKED_TYPE -> CallType.BLOCKED
     else -> CallType.OTHER
+}
+
+/** The rejected row produced by an in-call rule block, or null while it has
+ *  not been inserted yet. A hidden caller has no digits to compare, so it
+ *  only ever matches rows that are themselves numberless. */
+internal fun rejectedRowToReclassify(
+    rows: List<CallLogEntry>,
+    number: String,
+    notBeforeMillis: Long,
+): Long? {
+    val hiddenCaller = number.none { it.isDigit() }
+    return rows.filter { row ->
+        row.type == CallType.REJECTED &&
+            row.timestampMillis >= notBeforeMillis &&
+            if (hiddenCaller) row.number.none { it.isDigit() } else sameCaller(row.number, number)
+    }.maxByOrNull { it.timestampMillis }?.id
 }
 
 internal fun callSourceFrom(phoneAccountComponent: String?): CallSource = when {
@@ -98,6 +116,50 @@ class SystemCallLogRepository @Inject constructor(
             refreshSignal = refreshSignal,
             query = ::query,
         ).flowOn(ioDispatcher)
+    }
+
+    override suspend fun reclassifyLatestRejectionAsBlocked(
+        number: String,
+        notBeforeMillis: Long,
+    ): Boolean = withContext(ioDispatcher) {
+        if (!permissionChecker.has(Manifest.permission.READ_CALL_LOG) ||
+            !permissionChecker.has(Manifest.permission.WRITE_CALL_LOG)
+        ) {
+            return@withContext false
+        }
+        runCatching {
+            val rows = mutableListOf<CallLogEntry>()
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE),
+                CallLog.Calls.DATE + " >= ?",
+                arrayOf(notBeforeMillis.toString()),
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    rows += CallLogEntry(
+                        id = cursor.getLong(0),
+                        number = cursor.getString(1).orEmpty(),
+                        displayName = null,
+                        type = callTypeFrom(cursor.getInt(2)),
+                        timestampMillis = cursor.getLong(3),
+                        durationSeconds = 0,
+                        source = CallSource.PHONE,
+                    )
+                }
+            }
+            val rowId = rejectedRowToReclassify(rows, number, notBeforeMillis)
+                ?: return@runCatching false
+            val values = ContentValues().apply {
+                put(CallLog.Calls.TYPE, CallLog.Calls.BLOCKED_TYPE)
+            }
+            context.contentResolver.update(
+                CallLog.Calls.CONTENT_URI,
+                values,
+                CallLog.Calls._ID + " = ?",
+                arrayOf(rowId.toString()),
+            ) > 0
+        }.getOrDefault(false)
     }
 
     override suspend fun deleteCallsFor(number: String): Boolean = withContext(ioDispatcher) {

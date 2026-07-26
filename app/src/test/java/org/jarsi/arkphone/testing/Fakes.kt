@@ -23,6 +23,8 @@ class FakeCallLogRepository : CallLogRepository {
     val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
     val deletedNumbers = mutableListOf<String>()
     var refreshCalls = 0
+    val reclassifyRequests = mutableListOf<Pair<String, Long>>()
+    val reclassifyResults = ArrayDeque<Boolean>()
     override fun callLog(): Flow<List<CallLogEntry>> = entries
     override fun refresh() {
         refreshCalls++
@@ -30,6 +32,13 @@ class FakeCallLogRepository : CallLogRepository {
     override suspend fun deleteCallsFor(number: String): Boolean {
         deletedNumbers += number
         return true
+    }
+    override suspend fun reclassifyLatestRejectionAsBlocked(
+        number: String,
+        notBeforeMillis: Long,
+    ): Boolean {
+        reclassifyRequests += number to notBeforeMillis
+        return reclassifyResults.removeFirstOrNull() ?: true
     }
 }
 

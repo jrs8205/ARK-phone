@@ -29,4 +29,9 @@ class CombinedCallLogRepository(
         whatsApp.deleteCallsFor(number)
         return systemDeleted
     }
+
+    override suspend fun reclassifyLatestRejectionAsBlocked(
+        number: String,
+        notBeforeMillis: Long,
+    ): Boolean = system.reclassifyLatestRejectionAsBlocked(number, notBeforeMillis)
 }
