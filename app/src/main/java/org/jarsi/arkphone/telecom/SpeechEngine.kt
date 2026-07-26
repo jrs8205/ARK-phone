@@ -2,6 +2,8 @@ package org.jarsi.arkphone.telecom
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -30,9 +32,11 @@ class TtsSpeechEngine @Inject constructor(
     private var tts: TextToSpeech? = null
     private var ready = false
     private var pending: String? = null
+    private var focusRequest: AudioFocusRequest? = null
 
     override fun speak(text: String) {
         val engine = tts ?: create() ?: return
+        takeAudioFocus()
         if (ready) {
             engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
         } else {
@@ -43,16 +47,40 @@ class TtsSpeechEngine @Inject constructor(
     override fun stop() {
         pending = null
         if (ready) tts?.stop()
+        releaseAudioFocus()
     }
+
+    /**
+     * Ducks whatever else is playing for as long as the announcements run.
+     * A WhatsApp call rings from WhatsApp's own player on the same stream —
+     * and its ringtone cannot be silenced from here — so without ducking the
+     * two mix into something the caller's name is unrecognizable in.
+     */
+    private fun takeAudioFocus() {
+        if (focusRequest != null) return
+        val audioManager = context.getSystemService(AudioManager::class.java) ?: return
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            .setAudioAttributes(announcementAudioAttributes)
+            .build()
+        if (audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            focusRequest = request
+        }
+    }
+
+    private fun releaseAudioFocus() {
+        val request = focusRequest ?: return
+        focusRequest = null
+        context.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(request)
+    }
+
+    private val announcementAudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
 
     private fun create(): TextToSpeech? = runCatching {
         TextToSpeech(context, ::onInit).also { engine ->
-            engine.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
+            engine.setAudioAttributes(announcementAudioAttributes)
             tts = engine
         }
     }.getOrNull()

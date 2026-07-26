@@ -8,10 +8,7 @@
 # Room resolves this entity's columns by field name through generated code.
 -keep class org.jarsi.arkphone.data.WhatsAppCallEntity { *; }
 
-# Release builds must not carry the call-path diagnostics: they exist for
-# field debugging and some of them describe who is calling.
--assumenosideeffects class android.util.Log {
-    public static int i(...);
-    public static int d(...);
-    public static int v(...);
-}
+# The call-path diagnostics stay in release builds: field problems only ever
+# reproduce on a real phone with a real network, and every one of these lines
+# was added to solve a bug that could not be reproduced any other way. They
+# already carry no numbers or caller names.
