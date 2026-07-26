@@ -22,7 +22,11 @@ import org.jarsi.arkphone.util.PermissionChecker
 class FakeCallLogRepository : CallLogRepository {
     val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
     val deletedNumbers = mutableListOf<String>()
+    var refreshCalls = 0
     override fun callLog(): Flow<List<CallLogEntry>> = entries
+    override fun refresh() {
+        refreshCalls++
+    }
     override suspend fun deleteCallsFor(number: String): Boolean {
         deletedNumbers += number
         return true
@@ -60,7 +64,11 @@ class FakeContactsRepository : ContactsRepository {
     val allContacts = MutableStateFlow<List<Contact>>(emptyList())
     val matchesByNumber = mutableMapOf<String, ContactMatch>()
     val detailsById = mutableMapOf<Long, ContactDetails>()
+    var refreshCalls = 0
     override fun contacts(): Flow<List<Contact>> = allContacts
+    override fun refresh() {
+        refreshCalls++
+    }
     override suspend fun lookupContact(number: String): ContactMatch? = matchesByNumber[number]
     override suspend fun contactDetails(contactId: Long): ContactDetails? = detailsById[contactId]
 }

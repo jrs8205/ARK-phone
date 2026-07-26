@@ -40,6 +40,15 @@ class ContactsViewModelTest {
     }
 
     @Test
+    fun refreshPermissionStateAlsoRefreshesBothRepositories() {
+        val callLog = FakeCallLogRepository()
+        val viewModel = ContactsViewModel(repository, callLog, permissions)
+        viewModel.refreshPermissionState()
+        assertEquals(1, repository.refreshCalls)
+        assertEquals(1, callLog.refreshCalls)
+    }
+
+    @Test
     fun filtersByQuery() = runTest {
         repository.allContacts.value = listOf(contact(1, "Alice"), contact(2, "Bob"))
         val viewModel = ContactsViewModel(repository, FakeCallLogRepository(), permissions)

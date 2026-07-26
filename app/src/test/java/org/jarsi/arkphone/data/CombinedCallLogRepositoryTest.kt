@@ -50,6 +50,12 @@ class CombinedCallLogRepositoryTest {
     }
 
     @Test
+    fun refreshDelegatesToTheSystemLog() {
+        repository.refresh()
+        assertEquals(1, system.refreshCalls)
+    }
+
+    @Test
     fun deleteFansOutToBothLogs() = runTest {
         assertEquals(true, repository.deleteCallsFor("0401234567"))
         assertEquals(listOf("0401234567"), system.deletedNumbers)

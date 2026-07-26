@@ -7,6 +7,12 @@ interface CallLogRepository {
     fun callLog(): Flow<List<CallLogEntry>>
 
     /**
+     * Re-checks permission, starts provider observation if it just became
+     * possible, and re-queries. Call after a runtime permission change.
+     */
+    fun refresh()
+
+    /**
      * Deletes every log row whose number matches [number]. Returns false when
      * WRITE_CALL_LOG is missing or the delete failed.
      */

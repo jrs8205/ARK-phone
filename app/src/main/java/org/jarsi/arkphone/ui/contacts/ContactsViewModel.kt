@@ -26,8 +26,8 @@ data class ContactsUiState(
 
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
-    repository: ContactsRepository,
-    callLogRepository: CallLogRepository,
+    private val repository: ContactsRepository,
+    private val callLogRepository: CallLogRepository,
     private val permissionChecker: PermissionChecker,
 ) : ViewModel() {
 
@@ -69,6 +69,8 @@ class ContactsViewModel @Inject constructor(
 
     fun refreshPermissionState() {
         permissionState.value = hasContactsPermission()
+        repository.refresh()
+        callLogRepository.refresh()
     }
 
     private fun hasContactsPermission() = permissionChecker.has(Manifest.permission.READ_CONTACTS)

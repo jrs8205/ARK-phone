@@ -21,6 +21,9 @@ class CombinedCallLogRepository(
                 .sortedByDescending { it.timestampMillis }
         }
 
+    // The Room-backed WhatsApp log needs no permission-driven refresh.
+    override fun refresh() = system.refresh()
+
     override suspend fun deleteCallsFor(number: String): Boolean {
         val systemDeleted = system.deleteCallsFor(number)
         whatsApp.deleteCallsFor(number)

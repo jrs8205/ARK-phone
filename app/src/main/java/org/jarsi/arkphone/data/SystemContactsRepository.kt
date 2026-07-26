@@ -14,12 +14,9 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Contact
@@ -37,6 +34,12 @@ class SystemContactsRepository @Inject constructor(
     private val permissionChecker: PermissionChecker,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ContactsRepository {
+
+    private val refreshSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override fun refresh() {
+        refreshSignal.tryEmit(Unit)
+    }
 
     override fun contacts(): Flow<List<Contact>> {
         val resolver = context.contentResolver
@@ -67,18 +70,22 @@ class SystemContactsRepository @Inject constructor(
             return dedupeByContactId(rows)
         }
 
-        return callbackFlow {
-            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                override fun onChange(selfChange: Boolean) {
-                    trySend(Unit)
+        var observer: ContentObserver? = null
+        return observedQueryFlow(
+            hasPermission = { permissionChecker.has(Manifest.permission.READ_CONTACTS) },
+            registerObserver = { notifyChange ->
+                val registered = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        notifyChange()
+                    }
                 }
-            }
-            if (permissionChecker.has(Manifest.permission.READ_CONTACTS)) {
-                resolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, observer)
-            }
-            send(Unit)
-            awaitClose { resolver.unregisterContentObserver(observer) }
-        }.conflate().map { query() }.flowOn(ioDispatcher)
+                observer = registered
+                resolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, registered)
+            },
+            unregisterObserver = { observer?.let(resolver::unregisterContentObserver) },
+            refreshSignal = refreshSignal,
+            query = ::query,
+        ).flowOn(ioDispatcher)
     }
 
     override suspend fun contactDetails(contactId: Long): ContactDetails? = withContext(ioDispatcher) {

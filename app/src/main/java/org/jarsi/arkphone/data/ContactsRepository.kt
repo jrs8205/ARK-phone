@@ -8,6 +8,12 @@ import org.jarsi.arkphone.data.model.ContactMatch
 interface ContactsRepository {
     fun contacts(): Flow<List<Contact>>
 
+    /**
+     * Re-checks permission, starts provider observation if it just became
+     * possible, and re-queries. Call after a runtime permission change.
+     */
+    fun refresh()
+
     /** Resolves a number to a saved contact, or null when there is no match. */
     suspend fun lookupContact(number: String): ContactMatch?
 

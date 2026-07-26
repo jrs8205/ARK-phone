@@ -178,6 +178,13 @@ class RecentsViewModelTest {
     }
 
     @Test
+    fun refreshPermissionStateAlsoRefreshesTheRepository() {
+        val viewModel = RecentsViewModel(repository, permissions, launcher)
+        viewModel.refreshPermissionState()
+        assertEquals(1, repository.refreshCalls)
+    }
+
+    @Test
     fun reportsMissingPermission() = runTest {
         val viewModel = RecentsViewModel(repository, permissions, launcher)
         viewModel.uiState.test {

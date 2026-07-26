@@ -69,7 +69,7 @@ private fun matchesFilter(entry: CallLogEntry, filter: RecentsFilter): Boolean =
 
 @HiltViewModel
 class RecentsViewModel @Inject constructor(
-    repository: CallLogRepository,
+    private val repository: CallLogRepository,
     private val permissionChecker: PermissionChecker,
     private val whatsAppCallLauncher: WhatsAppCallLauncher,
 ) : ViewModel() {
@@ -97,6 +97,7 @@ class RecentsViewModel @Inject constructor(
 
     fun refreshPermissionState() {
         permissionState.value = hasCallLogPermission()
+        repository.refresh()
     }
 
     fun onQueryChange(value: String) {

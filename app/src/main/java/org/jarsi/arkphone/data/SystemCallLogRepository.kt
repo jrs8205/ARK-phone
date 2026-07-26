@@ -8,12 +8,9 @@ import android.os.Looper
 import android.provider.CallLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import android.telephony.PhoneNumberUtils
 import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.CallLogEntry
@@ -45,6 +42,12 @@ class SystemCallLogRepository @Inject constructor(
     private val permissionChecker: PermissionChecker,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CallLogRepository {
+
+    private val refreshSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override fun refresh() {
+        refreshSignal.tryEmit(Unit)
+    }
 
     override fun callLog(): Flow<List<CallLogEntry>> {
         val resolver = context.contentResolver
@@ -79,18 +82,22 @@ class SystemCallLogRepository @Inject constructor(
             return entries
         }
 
-        return callbackFlow {
-            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                override fun onChange(selfChange: Boolean) {
-                    trySend(Unit)
+        var observer: ContentObserver? = null
+        return observedQueryFlow(
+            hasPermission = { permissionChecker.has(Manifest.permission.READ_CALL_LOG) },
+            registerObserver = { notifyChange ->
+                val registered = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        notifyChange()
+                    }
                 }
-            }
-            if (permissionChecker.has(Manifest.permission.READ_CALL_LOG)) {
-                resolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer)
-            }
-            send(Unit)
-            awaitClose { resolver.unregisterContentObserver(observer) }
-        }.conflate().map { query() }.flowOn(ioDispatcher)
+                observer = registered
+                resolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, registered)
+            },
+            unregisterObserver = { observer?.let(resolver::unregisterContentObserver) },
+            refreshSignal = refreshSignal,
+            query = ::query,
+        ).flowOn(ioDispatcher)
     }
 
     override suspend fun deleteCallsFor(number: String): Boolean = withContext(ioDispatcher) {
