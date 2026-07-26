@@ -33,15 +33,41 @@ class CallNotificationsTest {
     )
 
     @Test
-    fun incomingNotificationUsesCallStyleWithFullScreenIntent() {
+    fun theRingingNotificationNeverHeadsUpOverTheCallScreen() {
+        // ARK-phone always opens its own call screen, so a heads-up would
+        // stack a second set of answer/decline buttons on top of it. A
+        // CallStyle notification demands a full-screen intent, and both of
+        // those are what make the system draw the banner.
         val notification = CallNotifications(context).buildIncomingCall(incomingCall())
         assertEquals(NotificationCompat.CATEGORY_CALL, notification.category)
-        assertNotNull(notification.fullScreenIntent)
-        assertEquals(
-            NotificationCompat.CallStyle.CALL_TYPE_INCOMING,
-            notification.extras.getInt(NotificationCompat.EXTRA_CALL_TYPE),
-        )
+        assertNull(notification.fullScreenIntent)
+        assertEquals(0, notification.extras.getInt(NotificationCompat.EXTRA_CALL_TYPE))
+    }
+
+    @Test
+    fun theRingingNotificationKeepsAnswerAndDeclineInTheShade() {
+        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
         assertEquals(2, notification.actions.size)
+    }
+
+    @Test
+    fun theRingingNotificationStillRingsInsistently() {
+        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        assertEquals(Notification.FLAG_INSISTENT, notification.flags and Notification.FLAG_INSISTENT)
+    }
+
+    @Test
+    fun theRingingChannelsAreQuietEnoughToNotBanner() {
+        val notifications = CallNotifications(context)
+        notifications.ensureChannels()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        listOf(CallNotifications.CHANNEL_INCOMING, CallNotifications.CHANNEL_INCOMING_SILENT)
+            .forEach { id ->
+                assertEquals(
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                    manager.getNotificationChannel(id).importance,
+                )
+            }
     }
 
     @Test

@@ -22,8 +22,12 @@ class CallNotifications @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     companion object {
-        const val CHANNEL_INCOMING = "incoming_calls"
-        const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent"
+        // Bumped ids: a channel's importance is fixed once created, and these
+        // dropped from HIGH to DEFAULT to stop the ringing notification from
+        // bannering answer/decline buttons over ARK-phone's own call screen.
+        const val CHANNEL_INCOMING = "incoming_calls_v2"
+        const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent_v2"
+        private val REPLACED_CHANNELS = listOf("incoming_calls", "incoming_calls_silent")
         const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
         const val CHANNEL_ONGOING = "ongoing_calls"
         const val NOTIFICATION_ID = 1
@@ -55,7 +59,7 @@ class CallNotifications @Inject constructor(
         val incoming = NotificationChannel(
             CHANNEL_INCOMING,
             context.getString(R.string.notification_channel_incoming),
-            NotificationManager.IMPORTANCE_HIGH,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             setSound(ringtone, audioAttributes)
             enableVibration(true)
@@ -66,7 +70,7 @@ class CallNotifications @Inject constructor(
         val incomingSilent = NotificationChannel(
             CHANNEL_INCOMING_SILENT,
             context.getString(R.string.notification_channel_incoming_silent),
-            NotificationManager.IMPORTANCE_HIGH,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             setSound(null, null)
             enableVibration(true)
@@ -92,6 +96,7 @@ class CallNotifications @Inject constructor(
         notificationManager.createNotificationChannel(incomingSilent)
         notificationManager.createNotificationChannel(incomingSilenced)
         notificationManager.createNotificationChannel(ongoing)
+        REPLACED_CHANNELS.forEach(notificationManager::deleteNotificationChannel)
     }
 
     fun showIncomingCall(info: CallInfo, silentRing: Boolean = false) {
@@ -103,7 +108,7 @@ class CallNotifications @Inject constructor(
         silentRing: Boolean = false,
         quiet: Boolean = false,
     ): Notification {
-        val fullScreen = PendingIntent.getActivity(
+        val openCallScreen = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -116,30 +121,33 @@ class CallNotifications @Inject constructor(
             silentRing -> CHANNEL_INCOMING_SILENT
             else -> CHANNEL_INCOMING
         }
+        // No CallStyle and no full-screen intent: ARK-phone opens its own call
+        // screen for every ringing call, and either of those would make the
+        // system banner a second set of answer/decline buttons over it. The
+        // actions stay as plain ones so the shade and lock screen keep them.
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))
             .apply {
-                // CallStyle demands a full-screen intent (or a foreground
-                // service) — with neither, notify() throws. The quiet re-post
-                // after "silence" must therefore stay a plain notification.
                 if (!quiet) {
-                    setStyle(
-                        NotificationCompat.CallStyle.forIncomingCall(
-                            caller,
-                            declineIntent(info.id),
-                            answerIntent(info.id),
-                        ),
+                    addAction(
+                        R.drawable.ic_launcher_foreground,
+                        context.getString(R.string.incall_decline),
+                        declineIntent(info.id),
+                    )
+                    addAction(
+                        R.drawable.ic_launcher_foreground,
+                        context.getString(R.string.incall_answer),
+                        answerIntent(info.id),
                     )
                 }
             }
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .apply { if (!quiet) setFullScreenIntent(fullScreen, true) }
-            .setContentIntent(fullScreen)
+            .setContentIntent(openCallScreen)
             .build()
             .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }
     }
