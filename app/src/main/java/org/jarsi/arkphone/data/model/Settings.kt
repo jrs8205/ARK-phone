@@ -20,6 +20,8 @@ data class Settings(
     val allowRepeatCallers: Boolean = true,
     val repeatCallerWindowMinutes: Int = DEFAULT_REPEAT_WINDOW_MINUTES,
     val allowedNumbers: Set<String> = emptySet(),
+    /** Individually blocked numbers; always active, immune to exceptions. */
+    val blockedNumbers: Set<String> = emptySet(),
     val alwaysAllowFavorites: Boolean = true,
     val blockingScheduleEnabled: Boolean = false,
     val blockingScheduleStartMinutes: Int = DEFAULT_SCHEDULE_START_MINUTES,

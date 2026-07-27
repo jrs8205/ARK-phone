@@ -31,6 +31,8 @@ interface SettingsRepository {
     suspend fun removeBlockedPrefix(prefix: String)
     suspend fun addAllowedNumber(number: String)
     suspend fun removeAllowedNumber(number: String)
+    suspend fun addBlockedNumber(number: String)
+    suspend fun removeBlockedNumber(number: String)
 
     suspend fun setAllowRepeatCallers(enabled: Boolean)
 

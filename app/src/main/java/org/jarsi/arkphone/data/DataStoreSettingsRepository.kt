@@ -34,6 +34,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val ALLOW_REPEAT_CALLERS = booleanPreferencesKey("allow_repeat_callers")
         val REPEAT_WINDOW = intPreferencesKey("repeat_caller_window_minutes")
         val ALLOWED_NUMBERS = stringSetPreferencesKey("allowed_numbers")
+        val BLOCKED_NUMBERS = stringSetPreferencesKey("blocked_numbers")
         val ALWAYS_ALLOW_FAVORITES = booleanPreferencesKey("always_allow_favorites")
         val SCHEDULE_ENABLED = booleanPreferencesKey("blocking_schedule_enabled")
         val SCHEDULE_START = intPreferencesKey("blocking_schedule_start_minutes")
@@ -75,6 +76,7 @@ class DataStoreSettingsRepository @Inject constructor(
                     Settings.MAX_REPEAT_WINDOW_MINUTES,
                 ),
                 allowedNumbers = preferences[Keys.ALLOWED_NUMBERS] ?: emptySet(),
+                blockedNumbers = preferences[Keys.BLOCKED_NUMBERS] ?: emptySet(),
                 alwaysAllowFavorites = preferences[Keys.ALWAYS_ALLOW_FAVORITES] ?: true,
                 blockingScheduleEnabled = preferences[Keys.SCHEDULE_ENABLED] ?: false,
                 blockingScheduleStartMinutes = preferences[Keys.SCHEDULE_START]
@@ -137,6 +139,14 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun removeAllowedNumber(number: String) {
         removeFrom(Keys.ALLOWED_NUMBERS, number)
+    }
+
+    override suspend fun addBlockedNumber(number: String) {
+        addTo(Keys.BLOCKED_NUMBERS, number)
+    }
+
+    override suspend fun removeBlockedNumber(number: String) {
+        removeFrom(Keys.BLOCKED_NUMBERS, number)
     }
 
     override suspend fun setCallSimAccountId(accountId: String?) {

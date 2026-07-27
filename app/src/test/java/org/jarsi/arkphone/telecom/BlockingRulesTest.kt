@@ -38,6 +38,47 @@ class BlockingRulesTest {
     }
 
     @Test
+    fun anExplicitlyBlockedNumberIsBlocked() {
+        val settings = Settings(blockedNumbers = setOf("+358445552841"))
+        assertTrue(blocked(number = "+358 44 5552841", settings = settings))
+        assertTrue(blocked(number = "044 555 2841", settings = settings))
+        assertFalse(blocked(number = "0401234567", settings = settings))
+    }
+
+    @Test
+    fun anExplicitBlockBeatsEveryException() {
+        // Blocking one specific number is the user's most specific intent:
+        // favorites, the allow list and the repeat exception must not undo it.
+        val settings = Settings(
+            blockedNumbers = setOf("0445552841"),
+            allowedNumbers = setOf("0445552841"),
+            alwaysAllowFavorites = true,
+            allowRepeatCallers = true,
+        )
+        assertTrue(
+            blocked(
+                number = "0445552841",
+                isInContacts = true,
+                isFavorite = true,
+                isRepeatCaller = true,
+                settings = settings,
+            ),
+        )
+    }
+
+    @Test
+    fun anExplicitBlockIgnoresTheSchedule() {
+        val settings = Settings(
+            blockedNumbers = setOf("0445552841"),
+            blockingScheduleEnabled = true,
+            blockingScheduleStartMinutes = 21 * 60,
+            blockingScheduleEndMinutes = 7 * 60,
+        )
+        // Midday, outside the 21–07 window.
+        assertTrue(blocked(number = "0445552841", minutesOfDay = 12 * 60, settings = settings))
+    }
+
+    @Test
     fun blockedPrefixesMatchIgnoringFormatting() {
         val settings = Settings(blockedPrefixes = setOf("+358700"))
         assertTrue(blocked(number = "+358 700 123 456", settings = settings))

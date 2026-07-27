@@ -19,12 +19,15 @@ interface BlockedNumbersRepository {
 
 /**
  * Android's system block list. The default dialer may read and write it
- * without extra permissions, and blocking applies system-wide.
+ * without extra permissions, and blocking applies system-wide. No longer
+ * where the app blocks numbers — the platform rejects these before the app
+ * sees the call, which is why [BlockedNumbersMigration] drains this list
+ * into the app-owned one at start.
  */
 class AndroidBlockedNumbersRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-) : BlockedNumbersRepository {
+) : BlockedNumbersRepository, SystemBlockedNumberList {
 
     override suspend fun canBlock(): Boolean = withContext(ioDispatcher) {
         runCatching { BlockedNumberContract.canCurrentUserBlockNumbers(context) }
@@ -50,5 +53,25 @@ class AndroidBlockedNumbersRepository @Inject constructor(
         runCatching {
             BlockedNumberContract.unblock(context, number) > 0
         }.getOrDefault(false)
+    }
+
+    override suspend fun numbers(): List<String> = withContext(ioDispatcher) {
+        runCatching {
+            context.contentResolver.query(
+                BlockedNumberContract.BlockedNumbers.CONTENT_URI,
+                arrayOf(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER),
+                null, null, null,
+            )?.use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        cursor.getString(0)?.takeIf { it.isNotBlank() }?.let(::add)
+                    }
+                }
+            }.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+
+    override suspend fun remove(number: String) {
+        unblock(number)
     }
 }

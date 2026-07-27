@@ -2,7 +2,11 @@ package org.jarsi.arkphone
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import org.jarsi.arkphone.data.BlockedNumbersMigration
 import org.jarsi.arkphone.data.SettingsCache
+import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.telecom.CallNotifications
 import javax.inject.Inject
 
@@ -17,11 +21,16 @@ class ArkPhoneApp : Application() {
 
     @Inject lateinit var callNotifications: CallNotifications
 
+    @Inject lateinit var blockedNumbersMigration: BlockedNumbersMigration
+
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
     override fun onCreate() {
         super.onCreate()
         // Also done when a call arrives, but doing it at start means a channel
         // definition that changed in an update takes effect before the first
         // call rather than during it.
         callNotifications.ensureChannels()
+        appScope.launch { blockedNumbersMigration.migrate() }
     }
 }

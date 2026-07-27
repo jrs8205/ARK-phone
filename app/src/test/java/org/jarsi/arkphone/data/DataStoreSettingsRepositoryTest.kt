@@ -64,6 +64,13 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
+    fun addedBlockedNumberPersistsTrimmed() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.addBlockedNumber(" +358445552841 ")
+        assertEquals(setOf("+358445552841"), repository.settings.first().blockedNumbers)
+    }
+
+    @Test
     fun announceModePersists() = runTest {
         val repository = DataStoreSettingsRepository(createDataStore())
         repository.setAnnounceMode(AnnounceMode.VOICE_ONLY)

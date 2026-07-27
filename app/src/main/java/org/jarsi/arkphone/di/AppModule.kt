@@ -19,6 +19,8 @@ import androidx.room.Room
 import org.jarsi.arkphone.data.AndroidBlockedNumbersRepository
 import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.BlockedNumbersRepository
+import org.jarsi.arkphone.data.DataStoreBlockedNumbersRepository
+import org.jarsi.arkphone.data.SystemBlockedNumberList
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.CombinedCallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
@@ -113,11 +115,20 @@ abstract class AppModule {
     @Singleton
     abstract fun bindTelecomCallPlacer(impl: AndroidTelecomCallPlacer): TelecomCallPlacer
 
+    // The app's own list, not the platform's: the platform rejects its
+    // entries before the app sees the call, so the reject-or-voicemail
+    // choice could never apply to them.
     @Binds
     @Singleton
     abstract fun bindBlockedNumbersRepository(
-        impl: AndroidBlockedNumbersRepository,
+        impl: DataStoreBlockedNumbersRepository,
     ): BlockedNumbersRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSystemBlockedNumberList(
+        impl: AndroidBlockedNumbersRepository,
+    ): SystemBlockedNumberList
 
     @Binds
     @Singleton

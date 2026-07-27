@@ -101,6 +101,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setBlockedCallAction(action) }
     }
 
+    fun onAddBlockedNumber(number: String) {
+        viewModelScope.launch { settingsRepository.addBlockedNumber(number) }
+    }
+
+    fun onRemoveBlockedNumber(number: String) {
+        viewModelScope.launch { settingsRepository.removeBlockedNumber(number) }
+    }
+
     fun onBlockHiddenNumbersChanged(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setBlockHiddenNumbers(enabled) }
     }

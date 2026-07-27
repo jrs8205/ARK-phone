@@ -145,6 +145,14 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun removeAllowedNumber(number: String) {
         state.value = state.value.copy(allowedNumbers = state.value.allowedNumbers - number)
     }
+    override suspend fun addBlockedNumber(number: String) {
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return
+        state.value = state.value.copy(blockedNumbers = state.value.blockedNumbers + trimmed)
+    }
+    override suspend fun removeBlockedNumber(number: String) {
+        state.value = state.value.copy(blockedNumbers = state.value.blockedNumbers - number)
+    }
     override suspend fun setAllowRepeatCallers(enabled: Boolean) {
         state.value = state.value.copy(allowRepeatCallers = enabled)
     }

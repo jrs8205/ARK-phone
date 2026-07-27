@@ -90,6 +90,8 @@ fun BlockingScreen(
         simAccounts = simAccounts,
         onBlockingSimAccountChanged = viewModel::onBlockingSimAccountChanged,
         onBlockedCallActionChanged = viewModel::onBlockedCallActionChanged,
+        onAddBlockedNumber = viewModel::onAddBlockedNumber,
+        onRemoveBlockedNumber = viewModel::onRemoveBlockedNumber,
         onRequestScreeningRole = {
             viewModel.screeningRoleRequestIntent()?.let { intent ->
                 runCatching { roleLauncher.launch(intent) }
@@ -120,6 +122,8 @@ fun BlockingContent(
     simAccounts: List<SimAccount> = emptyList(),
     onBlockingSimAccountChanged: (String?) -> Unit = {},
     onBlockedCallActionChanged: (BlockedCallAction) -> Unit = {},
+    onAddBlockedNumber: (String) -> Unit = {},
+    onRemoveBlockedNumber: (String) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -381,6 +385,62 @@ fun BlockingContent(
                         haptics.click()
                         onAddBlockedPrefix(newPrefix)
                         newPrefix = ""
+                    },
+                    modifier = Modifier.padding(start = 12.dp),
+                ) {
+                    Text(stringResource(R.string.blocking_prefix_add))
+                }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                text = stringResource(R.string.blocking_numbers_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Text(
+                text = stringResource(R.string.blocking_numbers_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            settings.blockedNumbers.sorted().forEach { number ->
+                ListItem(
+                    headlineContent = { Text(number) },
+                    trailingContent = {
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                onRemoveBlockedNumber(number)
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.blocking_prefix_remove),
+                            )
+                        }
+                    },
+                )
+            }
+            var newBlocked by rememberSaveable { mutableStateOf("") }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                OutlinedTextField(
+                    value = newBlocked,
+                    onValueChange = { newBlocked = it },
+                    placeholder = { Text(stringResource(R.string.blocking_numbers_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        haptics.click()
+                        onAddBlockedNumber(newBlocked)
+                        newBlocked = ""
                     },
                     modifier = Modifier.padding(start = 12.dp),
                 ) {

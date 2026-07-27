@@ -35,11 +35,17 @@ class CallRuleEvaluator @Inject constructor(
     suspend fun evaluate(number: String?, simAccountId: String? = null): Decision {
         val settings = withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { settingsCache.await() }
             ?: settingsCache.current
+        // Blocking one specific number mirrors the old system-wide block:
+        // it applies on every SIM, so it is checked before the SIM gate.
+        val explicitBlock = !number.isNullOrBlank() &&
+            settings.blockedNumbers.any { sameCaller(it, number) }
         // Rules can be limited to one SIM. An unknown account still gets
         // evaluated: some devices report none, and skipping there would
         // silently turn blocking off altogether.
         val restrictedTo = settings.blockingSimAccountId
-        if (restrictedTo != null && simAccountId != null && simAccountId != restrictedTo) {
+        if (restrictedTo != null && simAccountId != null && simAccountId != restrictedTo &&
+            !explicitBlock
+        ) {
             return Decision(block = false, details = "block=false otherSim=$simAccountId")
         }
         val now = minutesOfDay(clock.nowMillis())
@@ -49,7 +55,7 @@ class CallRuleEvaluator @Inject constructor(
         val rulesCanBlock = if (number.isNullOrBlank()) {
             settings.blockHiddenNumbers || settings.blockAllCallers
         } else {
-            settings.blockAllCallers || settings.blockUnknownCallers ||
+            explicitBlock || settings.blockAllCallers || settings.blockUnknownCallers ||
                 settings.blockedPrefixes.isNotEmpty()
         }
         if (!rulesCanBlock) return Decision(block = false, details = "block=false noBlockingRuleEnabled")

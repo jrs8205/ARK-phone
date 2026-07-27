@@ -37,6 +37,8 @@ class BlockingContentTest {
         onRequestScreeningRole: () -> Unit = {},
         onBlockingSimChanged: (String?) -> Unit = {},
         onBlockedActionChanged: (BlockedCallAction) -> Unit = {},
+        onAddBlockedNumber: (String) -> Unit = {},
+        onRemoveBlockedNumber: (String) -> Unit = {},
     ) {
         composeRule.setContent {
             BlockingContent(
@@ -52,8 +54,34 @@ class BlockingContentTest {
                 onRemoveBlockedPrefix = onRemovePrefix,
                 onRequestScreeningRole = onRequestScreeningRole,
                 onBlockedCallActionChanged = onBlockedActionChanged,
+                onAddBlockedNumber = onAddBlockedNumber,
+                onRemoveBlockedNumber = onRemoveBlockedNumber,
             )
         }
+    }
+
+    @Test
+    fun addingABlockedNumberReportsIt() {
+        var added: String? = null
+        setContent(onAddBlockedNumber = { added = it })
+        composeRule.onNodeWithText("Number to block")
+            .performScrollTo()
+            .performTextInput("0445552841")
+        // Allowed numbers and prefixes have their own Add buttons above.
+        composeRule.onAllNodesWithText("Add")[2].performScrollTo().performClick()
+        assertEquals("0445552841", added)
+    }
+
+    @Test
+    fun removingAListedBlockedNumberReportsIt() {
+        var removed: String? = null
+        setContent(
+            settings = Settings(blockedNumbers = setOf("0445552841")),
+            onRemoveBlockedNumber = { removed = it },
+        )
+        composeRule.onNodeWithText("0445552841").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Remove").performScrollTo().performClick()
+        assertEquals("0445552841", removed)
     }
 
     @Test

@@ -161,6 +161,43 @@ class CallRuleEvaluatorTest {
     }
 
     @Test
+    fun anExplicitlyBlockedNumberBlocksWithoutOtherRules() = runTest {
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(
+                FakeSettingsRepository(Settings(blockedNumbers = setOf("+358445552841"))),
+                backgroundScope,
+            ),
+            FakeContactsRepository(),
+            FakeCallLogRepository(),
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertTrue(evaluator.evaluate("0445552841").block)
+    }
+
+    @Test
+    fun anExplicitBlockAppliesOnEverySim() = runTest {
+        // The SIM restriction scopes the general rules; blocking one specific
+        // number mirrors the old system-wide block and ignores it.
+        val evaluator = CallRuleEvaluator(
+            SettingsCache(
+                FakeSettingsRepository(
+                    Settings(
+                        blockedNumbers = setOf("0445552841"),
+                        blockingSimAccountId = "sub-1",
+                    ),
+                ),
+                backgroundScope,
+            ),
+            FakeContactsRepository(),
+            FakeCallLogRepository(),
+            clock,
+            FakePermissionChecker().apply { grant(Manifest.permission.READ_CONTACTS) },
+        )
+        assertTrue(evaluator.evaluate("0445552841", simAccountId = "sub-2").block)
+    }
+
+    @Test
     fun rulesLimitedToOneSimSkipCallsOnAnotherSim() = runTest {
         val contacts = FakeContactsRepository()
         val callLog = FakeCallLogRepository()
