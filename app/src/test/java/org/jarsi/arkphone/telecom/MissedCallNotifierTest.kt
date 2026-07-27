@@ -68,4 +68,17 @@ class MissedCallNotifierTest {
         assertEquals(MissedCallNotifier.ACTION_CALL_BACK, intent.action)
         assertEquals("0401234567", intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER))
     }
+
+    @Test
+    fun dismissingTheNotificationMarksTheCallLogSeen() = runTest {
+        // Without this the swiped-away calls stay unread in the system log
+        // and the platform re-broadcasts them as a fresh notification on the
+        // next boot.
+        notifier().onMissedCallsChanged(1, "0401234567")
+        val delete = postedNotification().deleteIntent
+        assertNotNull(delete)
+        val intent = shadowOf(delete).savedIntent
+        assertEquals(ComponentName(context, CallActionReceiver::class.java), intent.component)
+        assertEquals(MissedCallNotifier.ACTION_MISSED_DISMISSED, intent.action)
+    }
 }

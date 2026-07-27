@@ -22,6 +22,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 missedCallNotifier.onCallLogSeen()
                 intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(phoneCaller::placeCall)
             }
+            MissedCallNotifier.ACTION_MISSED_DISMISSED -> missedCallNotifier.onCallLogSeen()
         }
     }
 }

@@ -42,6 +42,7 @@ class MissedCallNotifier @Inject constructor(
         const val CHANNEL_MISSED = "missed_calls"
         const val NOTIFICATION_ID = 2
         const val ACTION_CALL_BACK = "org.jarsi.arkphone.action.CALL_BACK"
+        const val ACTION_MISSED_DISMISSED = "org.jarsi.arkphone.action.MISSED_DISMISSED"
         const val EXTRA_NUMBER = "org.jarsi.arkphone.extra.NUMBER"
     }
 
@@ -93,6 +94,9 @@ class MissedCallNotifier @Inject constructor(
             .setNumber(count)
             .setAutoCancel(true)
             .setContentIntent(openApp)
+            // Swiping the notification away is an acknowledgement too: mark
+            // the calls seen, or the platform re-posts them on the next boot.
+            .setDeleteIntent(dismissIntent())
         if (number != null) {
             builder.addAction(
                 0,
@@ -119,6 +123,15 @@ class MissedCallNotifier @Inject constructor(
             setShowBadge(true)
         }
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+    }
+
+    private fun dismissIntent(): PendingIntent {
+        val intent = Intent(context, CallActionReceiver::class.java)
+            .setAction(ACTION_MISSED_DISMISSED)
+        return PendingIntent.getBroadcast(
+            context, ACTION_MISSED_DISMISSED.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun callBackIntent(number: String): PendingIntent {
