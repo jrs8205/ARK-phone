@@ -4,6 +4,7 @@ import android.content.Intent
 import android.provider.Settings as SystemSettings
 import android.speech.tts.TextToSpeech
 import android.telecom.TelecomManager
+import android.telephony.SubscriptionManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -121,12 +122,33 @@ fun SettingsScreen(
         onOpenBlocking = onOpenBlocking,
         onOpenCallSettings = {
             runCatching {
-                context.startActivity(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
+                context.startActivity(
+                    callSettingsIntent(SubscriptionManager.getDefaultVoiceSubscriptionId()),
+                )
             }
         },
         onBack = onBack,
     )
 }
+
+/** The system call-settings screen reads this AOSP-internal extra to pick
+ *  the subscription it manages; AOSP Dialer passes the same constant. */
+internal const val CALL_SETTINGS_SUB_ID_EXTRA =
+    "com.android.phone.settings.SubscriptionInfoHelper.SubscriptionId"
+
+/**
+ * Without the subscription extra the screen falls back to legacy "phone 0",
+ * which on a single-eSIM device is the EMPTY slot — every network query then
+ * fails and the screen shows "Network or SIM card error".
+ */
+internal fun callSettingsIntent(defaultVoiceSubscriptionId: Int): Intent =
+    Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS).apply {
+        // SubscriptionManager.isValidSubscriptionId is API 29+; valid ids
+        // are non-negative, INVALID_SUBSCRIPTION_ID is -1.
+        if (defaultVoiceSubscriptionId >= 0) {
+            putExtra(CALL_SETTINGS_SUB_ID_EXTRA, defaultVoiceSubscriptionId)
+        }
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
