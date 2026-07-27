@@ -37,7 +37,9 @@ import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AndroidCallScreeningRole
+import org.jarsi.arkphone.telecom.AndroidProximityLock
 import org.jarsi.arkphone.telecom.AndroidRingSilencer
+import org.jarsi.arkphone.telecom.ProximityLock
 import org.jarsi.arkphone.telecom.AndroidSpeechAvailability
 import org.jarsi.arkphone.telecom.AndroidTelecomCallPlacer
 import org.jarsi.arkphone.telecom.SpeechAvailability
@@ -140,6 +142,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindRingSilencer(impl: AndroidRingSilencer): RingSilencer
+
+    @Binds
+    @Singleton
+    abstract fun bindProximityLock(impl: AndroidProximityLock): ProximityLock
 
     @Binds
     @Singleton

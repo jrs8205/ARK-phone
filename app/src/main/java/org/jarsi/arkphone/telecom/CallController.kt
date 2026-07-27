@@ -90,8 +90,8 @@ class CallController @Inject constructor() {
         audioController?.applyRoute(speaker = !_audio.value.speakerOn)
     }
 
-    fun onAudioStateChanged(muted: Boolean, speakerOn: Boolean) {
-        _audio.value = CallAudioUiState(muted = muted, speakerOn = speakerOn)
+    fun onAudioStateChanged(muted: Boolean, speakerOn: Boolean, earpiece: Boolean = false) {
+        _audio.value = CallAudioUiState(muted = muted, speakerOn = speakerOn, earpiece = earpiece)
     }
 
     private fun publish() {

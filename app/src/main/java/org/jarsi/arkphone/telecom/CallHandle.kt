@@ -30,6 +30,7 @@ data class CallInfo(
 data class CallAudioUiState(
     val muted: Boolean = false,
     val speakerOn: Boolean = false,
+    val earpiece: Boolean = false,
 )
 
 interface InCallAudioController {

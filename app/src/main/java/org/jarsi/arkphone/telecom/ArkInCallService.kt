@@ -24,6 +24,8 @@ class ArkInCallService : InCallService() {
 
     @Inject lateinit var callController: CallController
     @Inject lateinit var callNotifications: CallNotifications
+    // Created with the service so the proximity lock tracks every call.
+    @Inject lateinit var proximityController: ProximityController
     @Inject lateinit var callerAnnouncer: CallerAnnouncer
     @Inject lateinit var settingsCache: SettingsCache
     @Inject lateinit var ruleEvaluator: CallRuleEvaluator
@@ -78,6 +80,7 @@ class ArkInCallService : InCallService() {
         callController.onAudioStateChanged(
             muted = audioState.isMuted,
             speakerOn = audioState.route == CallAudioState.ROUTE_SPEAKER,
+            earpiece = audioState.route == CallAudioState.ROUTE_EARPIECE,
         )
     }
 
