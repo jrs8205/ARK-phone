@@ -24,6 +24,7 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallInfo
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.telecom.isOffHook
 import org.jarsi.arkphone.telecom.RejectMessageSender
 import org.jarsi.arkphone.telecom.RingSilencer
 import org.jarsi.arkphone.util.Clock
@@ -45,6 +46,8 @@ data class InCallUiState(
     val callerDisplayName: String? = null,
     /** SIM the call uses; null when the device has only one. */
     val simLabel: String? = null,
+    /** True once any call of this screen actually went off hook. */
+    val sawOffHook: Boolean = false,
 )
 
 @Stable
@@ -131,11 +134,16 @@ class InCallViewModel @Inject constructor(
     // the last known caller so the name doesn't flash to "unknown" at hangup.
     private var lastShownCall: CallInfo? = null
 
+    // Sticky: the closing screen must still know whether this was a real
+    // conversation (close the whole app) or just a ring that went unanswered.
+    private var offHookSeen = false
+
     val uiState: StateFlow<InCallUiState> = combine(
         callController.calls, callController.audio, keypadVisible, ticker, callerContextWithSim,
     ) { calls, audio, keypad, now, caller ->
         val live = primaryCall(calls)
         if (live != null) lastShownCall = live
+        if (calls.any { it.status.isOffHook }) offHookSeen = true
         val call = live ?: lastShownCall?.copy(status = CallStatus.DISCONNECTED)
         InCallUiState(
             call = call,
@@ -149,6 +157,7 @@ class InCallViewModel @Inject constructor(
             callerContactId = caller.contactId,
             callerDisplayName = caller.displayName,
             simLabel = caller.simLabel,
+            sawOffHook = offHookSeen,
         )
     }.stateIn(
         scope = viewModelScope,

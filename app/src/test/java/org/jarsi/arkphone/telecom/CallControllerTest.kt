@@ -1,6 +1,14 @@
 package org.jarsi.arkphone.telecom
 
 import android.telecom.Call
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -170,5 +178,72 @@ class CallControllerTest {
 
         scheduled[1].first.run()
         assertEquals(2, handle.dtmfStops)
+    }
+
+    // The end-of-calls signal that closes the whole app.
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun endSignalTest(
+        body: TestScope.(CallController, MutableList<Unit>) -> Unit,
+    ) = runTest {
+        val scope = CoroutineScope(coroutineContext + Job())
+        try {
+            val controller = CallController()
+            val events = mutableListOf<Unit>()
+            scope.launch { controller.allCallsEnded.collect { events.add(it) } }
+            advanceUntilIdle()
+            body(controller, events)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun signalsWhenAnAnsweredCallEnds() = endSignalTest { controller, events ->
+        val handle = FakeCallHandle(telecomState = Call.STATE_ACTIVE)
+        controller.onCallAdded(handle)
+        controller.onCallRemoved(handle.id)
+        advanceUntilIdle()
+        assertEquals(1, events.size)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun staysQuietWhenARingingCallEnds() = endSignalTest { controller, events ->
+        val handle = FakeCallHandle(telecomState = Call.STATE_RINGING)
+        controller.onCallAdded(handle)
+        controller.onCallRemoved(handle.id)
+        advanceUntilIdle()
+        assertEquals(0, events.size)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun signalsOnlyAfterTheLastCallEnds() = endSignalTest { controller, events ->
+        val first = FakeCallHandle(id = "a", telecomState = Call.STATE_ACTIVE)
+        val second = FakeCallHandle(id = "b", telecomState = Call.STATE_HOLDING)
+        controller.onCallAdded(first)
+        controller.onCallAdded(second)
+        controller.onCallRemoved(first.id)
+        advanceUntilIdle()
+        assertEquals(0, events.size)
+        controller.onCallRemoved(second.id)
+        advanceUntilIdle()
+        assertEquals(1, events.size)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun offHookMemoryResetsAfterTheSignal() = endSignalTest { controller, events ->
+        val answered = FakeCallHandle(id = "a", telecomState = Call.STATE_ACTIVE)
+        controller.onCallAdded(answered)
+        controller.onCallRemoved(answered.id)
+        advanceUntilIdle()
+        val missed = FakeCallHandle(id = "b", telecomState = Call.STATE_RINGING)
+        controller.onCallAdded(missed)
+        controller.onCallRemoved(missed.id)
+        advanceUntilIdle()
+        assertEquals(1, events.size)
     }
 }

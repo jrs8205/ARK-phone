@@ -28,12 +28,7 @@ interface ProximityLock {
 internal fun shouldHoldProximityLock(
     statuses: List<CallStatus>,
     earpieceRoute: Boolean,
-): Boolean {
-    if (!earpieceRoute) return false
-    return statuses.any {
-        it == CallStatus.DIALING || it == CallStatus.ACTIVE || it == CallStatus.HOLDING
-    }
-}
+): Boolean = earpieceRoute && statuses.any { it.isOffHook }
 
 /** Applies [shouldHoldProximityLock] to every call and audio-route change. */
 @Singleton

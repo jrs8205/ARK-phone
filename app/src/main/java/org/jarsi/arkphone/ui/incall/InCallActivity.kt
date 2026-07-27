@@ -51,7 +51,13 @@ class InCallActivity : ComponentActivity() {
                 val call = uiState.call
                 InCallFinishGuard(
                     hasCall = call != null && call.status != CallStatus.DISCONNECTED,
-                    onFinish = ::finish,
+                    // After a real conversation the whole app closes and leaves
+                    // recents (user request). A ring that was missed or declined
+                    // only closes this screen, so an unanswered call can never
+                    // pull the app out from under the user.
+                    onFinish = {
+                        if (uiState.sawOffHook) finishAndRemoveTask() else finish()
+                    },
                 )
                 CallScreen(
                     uiState = uiState,
