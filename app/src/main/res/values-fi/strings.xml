@@ -75,6 +75,11 @@
     <string name="blocking_prefix_remove">Poista</string>
     <string name="blocking_sim_title">Säännöt koskevat</string>
     <string name="blocking_sim_all">Kaikkia SIM-kortteja</string>
+    <string name="blocking_action_title">Mitä estetylle puhelulle tehdään</string>
+    <string name="blocking_action_reject_title">Hylkää heti</string>
+    <string name="blocking_action_reject_description">Soittajan puhelu katkeaa heti.</string>
+    <string name="blocking_action_voicemail_title">Päästä vastaajaan</string>
+    <string name="blocking_action_voicemail_description">Puhelin pysyy hiljaa eikä näytä mitään; soittaja kuulee normaalin soittoäänen ja voi jättää viestin vastaajaan.</string>
     <string name="blocking_sim_description">Esto on käytössä kaikkien SIM-korttien puheluissa.</string>
     <string name="blocking_footer">Estetyt puhelut eivät soi, ja ne näkyvät puheluhistoriassa estettyinä.</string>
     <string name="blocking_role_description">Jotta säännöt toimivat, ARK-phonen pitää olla laitteen soittajan tunnistus ja roskapuhelut -sovellus.</string>
@@ -182,4 +187,9 @@
         <item quantity="other">%d vastaamatonta puhelua</item>
     </plurals>
     <string name="notification_missed_call_back">Soita takaisin</string>
+    <string name="notification_channel_blocked">Estetyt puhelut</string>
+    <plurals name="notification_blocked_calls_title">
+        <item quantity="one">Estetty puhelu</item>
+        <item quantity="other">%d estettyä puhelua</item>
+    </plurals>
 </resources>

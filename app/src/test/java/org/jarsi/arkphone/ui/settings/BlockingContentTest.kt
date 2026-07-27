@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
 import org.junit.Assert.assertEquals
@@ -35,6 +36,7 @@ class BlockingContentTest {
         onRemovePrefix: (String) -> Unit = {},
         onRequestScreeningRole: () -> Unit = {},
         onBlockingSimChanged: (String?) -> Unit = {},
+        onBlockedActionChanged: (BlockedCallAction) -> Unit = {},
     ) {
         composeRule.setContent {
             BlockingContent(
@@ -49,8 +51,23 @@ class BlockingContentTest {
                 onAddBlockedPrefix = onAddPrefix,
                 onRemoveBlockedPrefix = onRemovePrefix,
                 onRequestScreeningRole = onRequestScreeningRole,
+                onBlockedCallActionChanged = onBlockedActionChanged,
             )
         }
+    }
+
+    @Test
+    fun rejectHandlingIsSelectedByDefault() {
+        setContent()
+        composeRule.onNodeWithText("Reject immediately").performScrollTo().assertIsSelected()
+    }
+
+    @Test
+    fun choosingVoicemailHandlingReportsIt() {
+        var chosen: BlockedCallAction? = null
+        setContent(onBlockedActionChanged = { chosen = it })
+        composeRule.onNodeWithText("Let it ring to voicemail").performScrollTo().performClick()
+        assertEquals(BlockedCallAction.VOICEMAIL, chosen)
     }
 
     @Test

@@ -2,6 +2,13 @@ package org.jarsi.arkphone.data.model
 
 enum class AnnounceMode { OFF, WITH_RINGTONE, VOICE_ONLY }
 
+/**
+ * What a rule block does to the call: an immediate reject (the caller is cut
+ * off) or a silent pass-through that rings out to the carrier voicemail while
+ * this phone shows and plays nothing.
+ */
+enum class BlockedCallAction { REJECT, VOICEMAIL }
+
 data class Settings(
     val announceMode: AnnounceMode = AnnounceMode.OFF,
     val announceIntervalSeconds: Int = DEFAULT_ANNOUNCE_INTERVAL_SECONDS,
@@ -21,6 +28,7 @@ data class Settings(
     val callSimAccountId: String? = null,
     /** Phone account the blocking rules are limited to; null means every SIM. */
     val blockingSimAccountId: String? = null,
+    val blockedCallAction: BlockedCallAction = BlockedCallAction.REJECT,
 ) {
     companion object {
         const val MIN_ANNOUNCE_INTERVAL_SECONDS = 4

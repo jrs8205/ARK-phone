@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.telecom.CallScreeningRole
@@ -94,6 +95,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onBlockAllCallersChanged(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setBlockAllCallers(enabled) }
+    }
+
+    fun onBlockedCallActionChanged(action: BlockedCallAction) {
+        viewModelScope.launch { settingsRepository.setBlockedCallAction(action) }
     }
 
     fun onBlockHiddenNumbersChanged(enabled: Boolean) {

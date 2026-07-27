@@ -31,9 +31,10 @@ internal fun callTypeFrom(systemType: Int): CallType = when (systemType) {
     else -> CallType.OTHER
 }
 
-/** The rejected row produced by an in-call rule block, or null while it has
- *  not been inserted yet. A hidden caller has no digits to compare, so it
- *  only ever matches rows that are themselves numberless. */
+/** The row produced by a rule block, or null while it has not been inserted
+ *  yet: rejected when the block hung up, missed when a voicemail-mode block
+ *  silently rang out. A hidden caller has no digits to compare, so it only
+ *  ever matches rows that are themselves numberless. */
 internal fun rejectedRowToReclassify(
     rows: List<CallLogEntry>,
     number: String,
@@ -41,7 +42,7 @@ internal fun rejectedRowToReclassify(
 ): Long? {
     val hiddenCaller = number.none { it.isDigit() }
     return rows.filter { row ->
-        row.type == CallType.REJECTED &&
+        (row.type == CallType.REJECTED || row.type == CallType.MISSED) &&
             row.timestampMillis >= notBeforeMillis &&
             if (hiddenCaller) row.number.none { it.isDigit() } else sameCaller(row.number, number)
     }.maxByOrNull { it.timestampMillis }?.id

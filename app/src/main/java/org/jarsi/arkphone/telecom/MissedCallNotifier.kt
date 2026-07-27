@@ -35,6 +35,7 @@ import javax.inject.Singleton
 class MissedCallNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
     private val contactsRepository: ContactsRepository,
+    private val blockedCallNotifier: BlockedCallNotifier,
     @ApplicationScope private val scope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
@@ -49,6 +50,14 @@ class MissedCallNotifier @Inject constructor(
     fun onMissedCallsChanged(count: Int, number: String?, onDone: () -> Unit = {}) {
         if (count <= 0) {
             cancelNotification()
+            onDone()
+            return
+        }
+        // A voicemail-mode block rings out as a platform "missed call". The
+        // user asked for silence, so a lone missed call that matches a fresh
+        // block is not surfaced. The check is limited to count == 1 because
+        // the platform only names the number then.
+        if (count == 1 && blockedCallNotifier.wasRecentlyBlocked(number)) {
             onDone()
             return
         }

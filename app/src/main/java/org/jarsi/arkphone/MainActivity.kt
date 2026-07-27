@@ -15,6 +15,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.jarsi.arkphone.telecom.BlockedCallNotifier
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.MissedCallNotifier
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var phoneCaller: PhoneCaller
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
+    @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
     @Inject lateinit var callController: CallController
 
     private companion object {
@@ -99,6 +101,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshSetupState()
         missedCallNotifier.onCallLogSeen()
+        blockedCallNotifier.onSeen()
     }
 
     override fun onNewIntent(intent: Intent) {

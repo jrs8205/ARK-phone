@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.ui.incall.InCallActivity
@@ -30,11 +31,16 @@ class ArkInCallService : InCallService() {
     @Inject lateinit var settingsCache: SettingsCache
     @Inject lateinit var ruleEvaluator: CallRuleEvaluator
     @Inject lateinit var rejectedCallReclassifier: RejectedCallReclassifier
+    @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     private val handlesByCall = mutableMapOf<Call, TelecomCallHandle>()
     private val callbacksByCall = mutableMapOf<Call, Call.Callback>()
     private val lastStatus = mutableMapOf<String, CallStatus>()
+
+    /** Calls a voicemail-mode block let ring out silently: the log row they
+     *  leave behind is rewritten to blocked once the call disappears. */
+    private val silentlyBlocked = mutableMapOf<String, Pair<String, Long>>()
 
     override fun onCreate() {
         super.onCreate()
@@ -72,6 +78,9 @@ class ArkInCallService : InCallService() {
             lastStatus.remove(handle.id)
             callerAnnouncer.onRingingStopped(handle.id)
             callController.onCallRemoved(handle.id)
+            silentlyBlocked.remove(handle.id)?.let { (number, notBefore) ->
+                appScope.launch { rejectedCallReclassifier.markBlocked(number, notBefore) }
+            }
         }
         if (calls.isEmpty()) callNotifications.clear()
     }
@@ -123,9 +132,17 @@ class ArkInCallService : InCallService() {
                 .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
             if (!stillRinging) return@launch
             if (decision.block) {
-                Log.i(TAG, "In-call rule block: ${decision.details}")
-                callController.reject(info.id)
-                rejectedCallReclassifier.markBlocked(info.number.orEmpty(), ringNotBeforeMillis)
+                val action = settingsCache.current.blockedCallAction
+                Log.i(TAG, "In-call rule block: action=$action ${decision.details}")
+                blockedCallNotifier.onCallBlocked(info.number)
+                if (action == BlockedCallAction.VOICEMAIL) {
+                    // Silent pass-through: nothing rings or shows here while
+                    // the caller hears normal ringing and lands in voicemail.
+                    silentlyBlocked[info.id] = info.number.orEmpty() to ringNotBeforeMillis
+                } else {
+                    callController.reject(info.id)
+                    rejectedCallReclassifier.markBlocked(info.number.orEmpty(), ringNotBeforeMillis)
+                }
                 return@launch
             }
             val settings = settingsCache.current

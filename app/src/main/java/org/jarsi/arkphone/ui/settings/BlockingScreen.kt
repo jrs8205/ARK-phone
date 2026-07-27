@@ -48,6 +48,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.ui.components.clickableListItem
@@ -88,6 +89,7 @@ fun BlockingScreen(
         onScheduleChanged = viewModel::onBlockingScheduleChanged,
         simAccounts = simAccounts,
         onBlockingSimAccountChanged = viewModel::onBlockingSimAccountChanged,
+        onBlockedCallActionChanged = viewModel::onBlockedCallActionChanged,
         onRequestScreeningRole = {
             viewModel.screeningRoleRequestIntent()?.let { intent ->
                 runCatching { roleLauncher.launch(intent) }
@@ -117,6 +119,7 @@ fun BlockingContent(
     onRequestScreeningRole: () -> Unit = {},
     simAccounts: List<SimAccount> = emptyList(),
     onBlockingSimAccountChanged: (String?) -> Unit = {},
+    onBlockedCallActionChanged: (BlockedCallAction) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -164,6 +167,25 @@ fun BlockingContent(
                     }
                 }
             }
+            Text(
+                text = stringResource(R.string.blocking_action_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            BlockingRadioRow(
+                title = stringResource(R.string.blocking_action_reject_title),
+                description = stringResource(R.string.blocking_action_reject_description),
+                selected = settings.blockedCallAction == BlockedCallAction.REJECT,
+                onSelect = { onBlockedCallActionChanged(BlockedCallAction.REJECT) },
+            )
+            BlockingRadioRow(
+                title = stringResource(R.string.blocking_action_voicemail_title),
+                description = stringResource(R.string.blocking_action_voicemail_description),
+                selected = settings.blockedCallAction == BlockedCallAction.VOICEMAIL,
+                onSelect = { onBlockedCallActionChanged(BlockedCallAction.VOICEMAIL) },
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             BlockingSwitchRow(
                 title = stringResource(R.string.blocking_all_title),
                 description = stringResource(R.string.blocking_all_description),
@@ -373,14 +395,14 @@ fun BlockingContent(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
-                BlockingSimRow(
+                BlockingRadioRow(
                     title = stringResource(R.string.blocking_sim_all),
                     description = stringResource(R.string.blocking_sim_description),
                     selected = settings.blockingSimAccountId == null,
                     onSelect = { onBlockingSimAccountChanged(null) },
                 )
                 simAccounts.forEach { account ->
-                    BlockingSimRow(
+                    BlockingRadioRow(
                         title = account.labelWithNumber,
                         description = null,
                         selected = settings.blockingSimAccountId == account.id,
@@ -399,7 +421,7 @@ fun BlockingContent(
 }
 
 @Composable
-private fun BlockingSimRow(
+private fun BlockingRadioRow(
     title: String,
     description: String?,
     selected: Boolean,

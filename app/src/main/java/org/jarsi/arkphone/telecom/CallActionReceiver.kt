@@ -12,6 +12,7 @@ class CallActionReceiver : BroadcastReceiver() {
     @Inject lateinit var callController: CallController
     @Inject lateinit var phoneCaller: PhoneCaller
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
+    @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -23,6 +24,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(phoneCaller::placeCall)
             }
             MissedCallNotifier.ACTION_MISSED_DISMISSED -> missedCallNotifier.onCallLogSeen()
+            BlockedCallNotifier.ACTION_BLOCKED_DISMISSED -> blockedCallNotifier.onSeen()
         }
     }
 }

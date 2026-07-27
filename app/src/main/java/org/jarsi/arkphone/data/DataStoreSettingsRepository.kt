@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import java.io.IOException
 import javax.inject.Inject
@@ -39,6 +40,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val SCHEDULE_END = intPreferencesKey("blocking_schedule_end_minutes")
         val CALL_SIM_ACCOUNT = stringPreferencesKey("call_sim_account_id")
         val BLOCKING_SIM_ACCOUNT = stringPreferencesKey("blocking_sim_account_id")
+        val BLOCKED_CALL_ACTION = stringPreferencesKey("blocked_call_action")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -82,11 +84,18 @@ class DataStoreSettingsRepository @Inject constructor(
                 callSimAccountId = preferences[Keys.CALL_SIM_ACCOUNT]?.takeIf { it.isNotBlank() },
                 blockingSimAccountId = preferences[Keys.BLOCKING_SIM_ACCOUNT]
                     ?.takeIf { it.isNotBlank() },
+                blockedCallAction = preferences[Keys.BLOCKED_CALL_ACTION]
+                    ?.let { stored -> BlockedCallAction.entries.firstOrNull { it.name == stored } }
+                    ?: BlockedCallAction.REJECT,
             )
         }
 
     override suspend fun setAnnounceMode(mode: AnnounceMode) {
         dataStore.edit { it[Keys.ANNOUNCE_MODE] = mode.name }
+    }
+
+    override suspend fun setBlockedCallAction(action: BlockedCallAction) {
+        dataStore.edit { it[Keys.BLOCKED_CALL_ACTION] = action.name }
     }
 
     override suspend fun setAnnounceIntervalSeconds(seconds: Int) {

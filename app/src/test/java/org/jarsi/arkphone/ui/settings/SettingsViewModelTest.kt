@@ -3,6 +3,7 @@ package org.jarsi.arkphone.ui.settings
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.telecom.CallScreeningRole
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.telecom.SpeechStatus
 import org.jarsi.arkphone.testing.FakeSettingsRepository
@@ -42,6 +43,14 @@ class SettingsViewModelTest {
         viewModel.onCallSimAccountChanged(null)
         advanceUntilIdle()
         assertEquals(null, repository.state.value.callSimAccountId)
+    }
+
+    @Test
+    fun theBlockedCallActionIsStored() = runTest {
+        val viewModel = viewModel()
+        viewModel.onBlockedCallActionChanged(BlockedCallAction.VOICEMAIL)
+        advanceUntilIdle()
+        assertEquals(BlockedCallAction.VOICEMAIL, repository.state.value.blockedCallAction)
     }
 
     @Test

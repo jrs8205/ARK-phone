@@ -7,6 +7,8 @@ import android.util.Log
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.jarsi.arkphone.data.SettingsCache
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
 
@@ -25,6 +27,10 @@ class ArkCallScreeningService : CallScreeningService() {
 
     @Inject lateinit var ruleEvaluator: CallRuleEvaluator
 
+    @Inject lateinit var settingsCache: SettingsCache
+
+    @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
+
     @Inject @ApplicationScope lateinit var scope: CoroutineScope
 
     override fun onScreenCall(callDetails: Call.Details) {
@@ -37,18 +43,26 @@ class ArkCallScreeningService : CallScreeningService() {
             return
         }
         scope.launch {
+            val number = callDetails.handle?.schemeSpecificPart
             val decision = ruleEvaluator.evaluate(
-                number = callDetails.handle?.schemeSpecificPart,
+                number = number,
                 simAccountId = callDetails.accountHandle?.id,
             )
-            Log.i(TAG, "Screening decision: ${decision.details}")
-            val response = if (decision.block) {
+            // The cache is warm after evaluate() awaited it.
+            val action = settingsCache.current.blockedCallAction
+            Log.i(TAG, "Screening decision: action=$action ${decision.details}")
+            val response = if (decision.block && action == BlockedCallAction.REJECT) {
+                blockedCallNotifier.onCallBlocked(number)
                 CallResponse.Builder()
                     .setDisallowCall(true)
                     .setRejectCall(true)
                     .setSkipNotification(true)
                     .build()
             } else {
+                // Voicemail mode lets a blocked call through on purpose: the
+                // in-call service silences it locally and it rings out to the
+                // carrier voicemail. It also posts the blocked notification,
+                // so this path must not double-count.
                 CallResponse.Builder().build()
             }
             respondToCall(callDetails, response)

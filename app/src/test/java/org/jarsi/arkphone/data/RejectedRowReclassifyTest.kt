@@ -42,14 +42,21 @@ class RejectedRowReclassifyTest {
     }
 
     @Test
-    fun ignoresNonRejectedTypes() {
+    fun ignoresAnsweredAndAlreadyBlockedTypes() {
         val rows = listOf(
-            row(1, type = CallType.MISSED),
             row(2, type = CallType.INCOMING),
             row(3, type = CallType.BLOCKED),
             row(4, type = CallType.OUTGOING),
         )
         assertNull(rejectedRowToReclassify(rows, "0401234567", 0))
+    }
+
+    @Test
+    fun picksAMissedRowFromASilencedVoicemailBlock() {
+        // In voicemail mode the blocked call rings out unanswered, so the
+        // row to rewrite is a missed one, not a rejected one.
+        val rows = listOf(row(1, type = CallType.MISSED, at = 12_000))
+        assertEquals(1L, rejectedRowToReclassify(rows, "0401234567", 9_000))
     }
 
     @Test

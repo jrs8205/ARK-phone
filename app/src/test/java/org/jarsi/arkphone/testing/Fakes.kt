@@ -12,6 +12,7 @@ import org.jarsi.arkphone.data.SimRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.ContactDetails
@@ -103,6 +104,9 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override val settings: Flow<Settings> = state
     override suspend fun setAnnounceMode(mode: AnnounceMode) {
         state.value = state.value.copy(announceMode = mode)
+    }
+    override suspend fun setBlockedCallAction(action: BlockedCallAction) {
+        state.value = state.value.copy(blockedCallAction = action)
     }
     override suspend fun setAnnounceIntervalSeconds(seconds: Int) {
         state.value = state.value.copy(announceIntervalSeconds = seconds)

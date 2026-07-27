@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -67,6 +68,19 @@ class DataStoreSettingsRepositoryTest {
         val repository = DataStoreSettingsRepository(createDataStore())
         repository.setAnnounceMode(AnnounceMode.VOICE_ONLY)
         assertEquals(AnnounceMode.VOICE_ONLY, repository.settings.first().announceMode)
+    }
+
+    @Test
+    fun blockedCallActionDefaultsToReject() = runTest {
+        val settings = DataStoreSettingsRepository(createDataStore()).settings.first()
+        assertEquals(BlockedCallAction.REJECT, settings.blockedCallAction)
+    }
+
+    @Test
+    fun blockedCallActionPersists() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setBlockedCallAction(BlockedCallAction.VOICEMAIL)
+        assertEquals(BlockedCallAction.VOICEMAIL, repository.settings.first().blockedCallAction)
     }
 
     // Each test performs a single DataStore write: on Windows a second

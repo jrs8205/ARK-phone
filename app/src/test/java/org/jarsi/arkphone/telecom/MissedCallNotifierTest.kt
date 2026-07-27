@@ -15,6 +15,7 @@ import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
@@ -26,11 +27,16 @@ class MissedCallNotifierTest {
 
     private val context = ApplicationProvider.getApplicationContext<Application>()
 
+    private var blockedNotifier: BlockedCallNotifier? = null
+
     private fun TestScope.notifier(
         contacts: FakeContactsRepository = FakeContactsRepository(),
     ): MissedCallNotifier {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        return MissedCallNotifier(context, contacts, CoroutineScope(dispatcher), dispatcher)
+        val scope = CoroutineScope(dispatcher)
+        val blocked = BlockedCallNotifier(context, contacts, { 100_000L }, scope)
+        blockedNotifier = blocked
+        return MissedCallNotifier(context, contacts, blocked, scope, dispatcher)
     }
 
     private fun postedNotification() = shadowOf(
@@ -67,6 +73,18 @@ class MissedCallNotifierTest {
         assertEquals(ComponentName(context, CallActionReceiver::class.java), intent.component)
         assertEquals(MissedCallNotifier.ACTION_CALL_BACK, intent.action)
         assertEquals("0401234567", intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER))
+    }
+
+    @Test
+    fun skipsTheNotificationWhenTheCallWasJustBlocked() = runTest {
+        // A voicemail-mode block rings out as a "missed" call; the user asked
+        // for silence, so the missed notification must not resurface it.
+        val notifier = notifier()
+        blockedNotifier!!.onCallBlocked("0401234567")
+        var done = false
+        notifier.onMissedCallsChanged(1, "0401234567") { done = true }
+        assertNull(postedNotification())
+        assertTrue(done)
     }
 
     @Test
