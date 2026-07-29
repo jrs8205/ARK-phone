@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.data
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
@@ -12,8 +13,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.Conversation
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.di.IoDispatcher
@@ -82,12 +83,86 @@ class SystemMessagesRepository @Inject constructor(
             null, null, null, null,
         )?.use { if (it.moveToFirst()) it.getString(0) else null }
 
+    override fun messages(threadId: Long): Flow<List<Message>> {
+        val resolver = context.contentResolver
+        fun query(): List<Message> {
+            if (!permissionChecker.has(Manifest.permission.READ_SMS)) return emptyList()
+            val messages = mutableListOf<Message>()
+            resolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(
+                    Telephony.Sms._ID,
+                    Telephony.Sms.THREAD_ID,
+                    Telephony.Sms.ADDRESS,
+                    Telephony.Sms.BODY,
+                    Telephony.Sms.DATE,
+                    Telephony.Sms.TYPE,
+                    Telephony.Sms.STATUS,
+                    Telephony.Sms.READ,
+                    Telephony.Sms.SUBSCRIPTION_ID,
+                ),
+                Telephony.Sms.THREAD_ID + " = ?",
+                arrayOf(threadId.toString()),
+                Telephony.Sms.DATE + " ASC",
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    messages += Message(
+                        id = cursor.getLong(0),
+                        threadId = cursor.getLong(1),
+                        isMms = false,
+                        address = cursor.getString(2).orEmpty(),
+                        body = cursor.getString(3),
+                        timestampMillis = cursor.getLong(4),
+                        incoming = cursor.getInt(5) == Telephony.Sms.MESSAGE_TYPE_INBOX,
+                        status = smsStatusFrom(cursor.getInt(5), cursor.getInt(6)),
+                        subscriptionId = cursor.getInt(8),
+                    )
+                }
+            }
+            return messages
+        }
+        var observer: ContentObserver? = null
+        return observedQueryFlow(
+            hasPermission = { permissionChecker.has(Manifest.permission.READ_SMS) },
+            registerObserver = { notifyChange ->
+                val registered = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) = notifyChange()
+                }
+                observer = registered
+                resolver.registerContentObserver(Telephony.MmsSms.CONTENT_URI, true, registered)
+            },
+            unregisterObserver = { observer?.let(resolver::unregisterContentObserver) },
+            refreshSignal = refreshSignal,
+            query = ::query,
+        ).flowOn(ioDispatcher)
+    }
+
+    override suspend fun markThreadRead(threadId: Long) {
+        withContext(ioDispatcher) {
+            runCatching {
+                val values = ContentValues().apply {
+                    put(Telephony.Sms.READ, 1)
+                    put(Telephony.Sms.SEEN, 1)
+                }
+                context.contentResolver.update(
+                    Telephony.Sms.CONTENT_URI,
+                    values,
+                    Telephony.Sms.THREAD_ID + " = ? AND " + Telephony.Sms.READ + " = 0",
+                    arrayOf(threadId.toString()),
+                )
+            }
+        }
+    }
+
+    override suspend fun deleteThread(threadId: Long): Boolean = withContext(ioDispatcher) {
+        runCatching {
+            context.contentResolver.delete(
+                "content://mms-sms/conversations/$threadId".toUri(),
+                null, null,
+            ) > 0
+        }.getOrDefault(false)
+    }
+
     // Replaced test-first in a later task.
-    override fun messages(threadId: Long): Flow<List<Message>> = flowOf(emptyList())
-
-    override suspend fun markThreadRead(threadId: Long) = Unit
-
-    override suspend fun deleteThread(threadId: Long): Boolean = false
-
     override suspend fun threadIdsMatchingBody(query: String): Set<Long> = emptySet()
 }
