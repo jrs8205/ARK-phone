@@ -94,7 +94,12 @@
     <string name="tab_home">Home</string>
     <string name="tab_keypad">Keypad</string>
     <string name="tab_recents">Recents</string>
+    <string name="tab_messages">Messages</string>
     <string name="tab_contacts">Contacts</string>
+    <string name="messages_search_placeholder">Search messages</string>
+    <string name="messages_permission_rationale">To show your messages, allow SMS access.</string>
+    <string name="messages_new">New message</string>
+    <string name="messages_empty">No messages</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>

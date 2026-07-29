@@ -1,5 +1,6 @@
 package org.jarsi.arkphone
 
+import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -52,6 +53,12 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { refreshSetupState() }
 
+    // The Messages tab asks for SMS access contextually; the tab's resume
+    // refresh picks the grant up, so no callback state is needed here.
+    private val smsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -91,6 +98,9 @@ class MainActivity : ComponentActivity() {
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
                         requestedNumber = requestedNumber,
                         onRequestedNumberConsumed = { dialRequest.value = null },
+                        onRequestSmsPermission = {
+                            smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                        },
                     )
                 }
             }

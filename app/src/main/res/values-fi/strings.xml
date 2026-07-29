@@ -16,7 +16,12 @@
     <string name="tab_home">Etusivu</string>
     <string name="tab_keypad">Näppäimistö</string>
     <string name="tab_recents">Viimeisimmät</string>
+    <string name="tab_messages">Viestit</string>
     <string name="tab_contacts">Yhteystiedot</string>
+    <string name="messages_search_placeholder">Hae viesteistä</string>
+    <string name="messages_permission_rationale">Salli tekstiviestien käyttö, jotta viestisi voidaan näyttää.</string>
+    <string name="messages_new">Uusi viesti</string>
+    <string name="messages_empty">Ei viestejä</string>
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>

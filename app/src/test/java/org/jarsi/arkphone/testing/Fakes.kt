@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.SettingsRepository
 import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.SimRepository
@@ -17,6 +18,8 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.ContactMatch
+import org.jarsi.arkphone.data.model.Conversation
+import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.data.model.SimCard
@@ -198,4 +201,28 @@ class FakeSpeedDialRepository : SpeedDialRepository {
 class FakePermissionChecker(private val granted: MutableSet<String> = mutableSetOf()) : PermissionChecker {
     fun grant(permission: String) = granted.add(permission)
     override fun has(permission: String): Boolean = permission in granted
+}
+
+class FakeMessagesRepository : MessagesRepository {
+    val conversationsState = MutableStateFlow<List<Conversation>>(emptyList())
+    val messagesByThread = mutableMapOf<Long, MutableStateFlow<List<Message>>>()
+    val markedRead = mutableListOf<Long>()
+    val deletedThreads = mutableListOf<Long>()
+    var bodyMatches = mutableMapOf<String, Set<Long>>()
+    var refreshCalls = 0
+    override fun conversations(): Flow<List<Conversation>> = conversationsState
+    override fun messages(threadId: Long): Flow<List<Message>> =
+        messagesByThread.getOrPut(threadId) { MutableStateFlow(emptyList()) }
+    override fun refresh() {
+        refreshCalls++
+    }
+    override suspend fun markThreadRead(threadId: Long) {
+        markedRead += threadId
+    }
+    override suspend fun deleteThread(threadId: Long): Boolean {
+        deletedThreads += threadId
+        return true
+    }
+    override suspend fun threadIdsMatchingBody(query: String): Set<Long> =
+        bodyMatches[query] ?: emptySet()
 }

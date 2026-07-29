@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Home
@@ -32,8 +33,9 @@ import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
 import org.jarsi.arkphone.ui.dialpad.DialpadScreen
 import org.jarsi.arkphone.ui.home.HomeScreen
+import org.jarsi.arkphone.ui.messages.MessagesScreen
 
-enum class MainTab { HOME, KEYPAD, CONTACTS }
+enum class MainTab { HOME, KEYPAD, MESSAGES, CONTACTS }
 
 @Composable
 fun MainScreen(
@@ -44,6 +46,9 @@ fun MainScreen(
     requestedNumber: String? = null,
     onRequestedNumberConsumed: () -> Unit = {},
     onVoicemail: () -> Unit = {},
+    onOpenThread: (Long) -> Unit = {},
+    onNewMessage: () -> Unit = {},
+    onRequestSmsPermission: () -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     LaunchedEffect(requestedNumber) {
@@ -66,6 +71,11 @@ fun MainScreen(
                     initialNumber = requestedNumber,
                     onInitialNumberConsumed = onRequestedNumberConsumed,
                     onVoicemail = onVoicemail,
+                )
+                MainTab.MESSAGES -> MessagesScreen(
+                    onOpenThread = onOpenThread,
+                    onNewMessage = onNewMessage,
+                    onRequestPermission = onRequestSmsPermission,
                 )
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
             }
@@ -92,6 +102,12 @@ fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
             onClick = { select(MainTab.KEYPAD) },
             icon = { Icon(Icons.Filled.Dialpad, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_keypad)) },
+        )
+        NavigationBarItem(
+            selected = selected == MainTab.MESSAGES,
+            onClick = { select(MainTab.MESSAGES) },
+            icon = { Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_messages)) },
         )
         NavigationBarItem(
             selected = selected == MainTab.CONTACTS,
