@@ -5,17 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +29,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.ui.components.ContactAvatar
-import org.jarsi.arkphone.ui.components.SearchField
+import org.jarsi.arkphone.ui.components.SearchRow
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsViewModel
 import org.jarsi.arkphone.ui.detail.CallDetailActivity
@@ -89,33 +84,13 @@ fun HomeContent(
     onQueryChange: (String) -> Unit = {},
     onFilterChange: (RecentsFilter) -> Unit = {},
 ) {
-    val haptics = rememberHaptics()
     Column(Modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-        ) {
-            SearchField(
-                value = recentsUiState.query,
-                onValueChange = onQueryChange,
-                placeholder = stringResource(R.string.recents_search_hint),
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = {
-                    haptics.click()
-                    onOpenSettings()
-                },
-                modifier = Modifier.padding(horizontal = 4.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Settings,
-                    contentDescription = stringResource(R.string.settings_title),
-                )
-            }
-        }
+        SearchRow(
+            query = recentsUiState.query,
+            onQueryChange = onQueryChange,
+            placeholder = stringResource(R.string.recents_search_hint),
+            onOpenSettings = onOpenSettings,
+        )
         if (recentsUiState.hasPermission) {
             RecentsFilterChips(
                 selected = recentsUiState.filter,

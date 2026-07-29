@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,10 +38,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.RowCard
-import org.jarsi.arkphone.ui.components.SearchField
+import org.jarsi.arkphone.ui.components.SearchRow
 import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
+import org.jarsi.arkphone.ui.settings.SettingsActivity
 
 @Composable
 fun MessagesScreen(
@@ -52,6 +52,7 @@ fun MessagesScreen(
 ) {
     val viewModel: MessagesViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LifecycleResumeEffect(Unit) {
         viewModel.refreshPermissionState()
         onPauseOrDispose { }
@@ -62,6 +63,7 @@ fun MessagesScreen(
         onOpenThread = onOpenThread,
         onNewMessage = onNewMessage,
         onRequestPermission = onRequestPermission,
+        onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
     )
 }
 
@@ -72,17 +74,16 @@ fun MessagesContent(
     onOpenThread: (Long) -> Unit,
     onNewMessage: () -> Unit,
     onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            SearchField(
-                value = uiState.query,
-                onValueChange = onQueryChange,
+            SearchRow(
+                query = uiState.query,
+                onQueryChange = onQueryChange,
                 placeholder = stringResource(R.string.messages_search_placeholder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                onOpenSettings = onOpenSettings,
             )
             when {
                 uiState.loading -> Box(
