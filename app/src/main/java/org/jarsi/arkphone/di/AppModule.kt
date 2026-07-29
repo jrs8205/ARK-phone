@@ -32,8 +32,10 @@ import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.SimRepository
 import org.jarsi.arkphone.data.TelecomSimAccountRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
+import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.SystemCallLogRepository
 import org.jarsi.arkphone.data.SystemContactsRepository
+import org.jarsi.arkphone.data.SystemMessagesRepository
 import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
@@ -88,6 +90,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMessagesRepository(impl: SystemMessagesRepository): MessagesRepository
 
     @Binds
     @Singleton
