@@ -4,8 +4,10 @@ import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.provider.CallLog
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -69,14 +71,32 @@ class MissedCallNotifier @Inject constructor(
         }
     }
 
-    /** Clears the notification and resets the system's missed-call counter. */
+    /** Clears the notification and marks the missed calls seen in the system
+     *  call log. Telecom skips its own call-log clearing when the default
+     *  dialer manages the notification, and re-broadcasts every row still
+     *  new=1 after a reboot — writing the flags here is this app's job. */
     // Lint only knows the MODIFY_PHONE_STATE route; the default dialer may call
     // cancelMissedCallsNotification without it, and runCatching guards the rest.
     @SuppressLint("MissingPermission")
-    fun onCallLogSeen() {
+    fun onCallLogSeen(onDone: () -> Unit = {}) {
         cancelNotification()
-        runCatching {
-            context.getSystemService(TelecomManager::class.java)?.cancelMissedCallsNotification()
+        scope.launch(ioDispatcher) {
+            runCatching {
+                context.contentResolver.update(
+                    CallLog.Calls.CONTENT_URI,
+                    ContentValues().apply {
+                        put(CallLog.Calls.NEW, 0)
+                        put(CallLog.Calls.IS_READ, 1)
+                    },
+                    CallLog.Calls.TYPE + " = ? AND (" +
+                        CallLog.Calls.NEW + " = 1 OR " + CallLog.Calls.IS_READ + " = 0)",
+                    arrayOf(CallLog.Calls.MISSED_TYPE.toString()),
+                )
+            }
+            runCatching {
+                context.getSystemService(TelecomManager::class.java)?.cancelMissedCallsNotification()
+            }
+            onDone()
         }
     }
 

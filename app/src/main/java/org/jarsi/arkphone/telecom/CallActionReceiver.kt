@@ -20,10 +20,16 @@ class CallActionReceiver : BroadcastReceiver() {
                 intent.getStringExtra(CallNotifications.EXTRA_CALL_ID)?.let(callController::reject)
             }
             MissedCallNotifier.ACTION_CALL_BACK -> {
-                missedCallNotifier.onCallLogSeen()
+                // goAsync keeps the process alive until the call-log write
+                // lands; otherwise the calls stay new=1 and boot re-posts them.
+                val pending = goAsync()
+                missedCallNotifier.onCallLogSeen { pending.finish() }
                 intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(phoneCaller::placeCall)
             }
-            MissedCallNotifier.ACTION_MISSED_DISMISSED -> missedCallNotifier.onCallLogSeen()
+            MissedCallNotifier.ACTION_MISSED_DISMISSED -> {
+                val pending = goAsync()
+                missedCallNotifier.onCallLogSeen { pending.finish() }
+            }
             BlockedCallNotifier.ACTION_BLOCKED_DISMISSED -> blockedCallNotifier.onSeen()
         }
     }

@@ -3,6 +3,7 @@ package org.jarsi.arkphone.telecom
 import android.app.Application
 import android.app.NotificationManager
 import android.content.ComponentName
+import android.provider.CallLog
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -85,6 +86,21 @@ class MissedCallNotifierTest {
         notifier.onMissedCallsChanged(1, "0401234567") { done = true }
         assertNull(postedNotification())
         assertTrue(done)
+    }
+
+    @Test
+    fun callLogSeenClearsTheNewFlagOfMissedCallsInTheSystemLog() = runTest {
+        // Telecom only clears the call log itself when the system owns the
+        // missed-call notification; a default dialer that manages the
+        // notification must write new=0/is_read=1 or every reboot
+        // re-broadcasts the already-dismissed calls.
+        notifier().onCallLogSeen()
+        val update = shadowOf(context.contentResolver).updateStatements
+            .single { it.uri == CallLog.Calls.CONTENT_URI }
+        assertEquals(0, update.contentValues.getAsInteger(CallLog.Calls.NEW))
+        assertEquals(1, update.contentValues.getAsInteger(CallLog.Calls.IS_READ))
+        assertTrue(update.where.contains(CallLog.Calls.TYPE))
+        assertEquals(CallLog.Calls.MISSED_TYPE.toString(), update.selectionArgs.single())
     }
 
     @Test
