@@ -79,13 +79,18 @@ class FakeTelephonyProvider : ContentProvider() {
                 cursor
             }
             uri == Telephony.Mms.CONTENT_URI -> {
-                val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
+                val byTransaction = selection?.contains("tr_id") == true
+                val threadIdArg = selectionArgs?.firstOrNull()
+                    ?.takeIf { !byTransaction }?.toLongOrNull()
                 val unreadOnly = selection?.contains("read = 0") == true
                 val columns = projection
                     ?: arrayOf("_id", "thread_id", "date", "msg_box", "read", "sub_id", "m_type", "ct_l")
                 val cursor = MatrixCursor(columns)
                 mmsRows
                     .filter { threadIdArg == null || it.getAsLong("thread_id") == threadIdArg }
+                    .filter {
+                        !byTransaction || it.getAsString("tr_id") == selectionArgs?.firstOrNull()
+                    }
                     .filter { !unreadOnly || it.getAsInteger("read") == 0 }
                     .sortedBy { it.getAsLong("date") }
                     .forEach { row -> cursor.addRow(columns.map { row.get(it) }.toTypedArray()) }

@@ -75,6 +75,16 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a re-sent notification for the same transaction is ignored`() = runTest {
+        // An unacknowledged m-notification-ind gets re-pushed by the
+        // carrier; the same transaction must not become a second copy.
+        downloader.onPush(pushPdu())
+        downloader.onPush(pushPdu())
+
+        assertEquals(1, provider.mmsRows.size)
+    }
+
+    @Test
     fun `a finished download stores the parts and notifies`() = runTest {
         downloader.onPush(pushPdu())
         val messageId = provider.mmsRows.single().getAsLong("_id")

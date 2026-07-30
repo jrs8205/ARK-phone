@@ -67,6 +67,9 @@ class MmsDownloader @Inject constructor(
         val sender = notification.from ?: return
         withContext(ioDispatcher) {
             runCatching {
+                // The carrier re-sends an unacknowledged notification; the
+                // same transaction must not become a second message copy.
+                if (transactionExists(notification.transactionId)) return@runCatching
                 val blocked = blockedNumbers.isBlocked(sender)
                 val values = ContentValues().apply {
                     put(Telephony.Mms.THREAD_ID, Telephony.Threads.getOrCreateThreadId(context, sender))
@@ -95,6 +98,15 @@ class MmsDownloader @Inject constructor(
             }
         }
     }
+
+    private fun transactionExists(transactionId: String): Boolean =
+        context.contentResolver.query(
+            Telephony.Mms.CONTENT_URI,
+            arrayOf(Telephony.Mms._ID),
+            Telephony.Mms.TRANSACTION_ID + " = ?",
+            arrayOf(transactionId),
+            null,
+        )?.use { it.count > 0 } ?: false
 
     suspend fun retryDownload(messageId: Long) {
         withContext(ioDispatcher) {
