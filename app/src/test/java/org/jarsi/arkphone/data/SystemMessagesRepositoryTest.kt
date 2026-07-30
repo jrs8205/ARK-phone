@@ -153,6 +153,26 @@ class SystemMessagesRepositoryTest {
     }
 
     @Test
+    fun `a retrieved inbox mms without any parts is flagged for retry`() = runTest {
+        // A store that failed after the m_type update leaves a retrieved row
+        // with no parts; with the content location intact the download can
+        // be retried instead of showing an empty bubble.
+        provider.mmsRows += mmsRow(id = 602, threadId = 3, dateSeconds = 5, mType = 132)
+        val message = repository.messages(3L).first().single()
+        assertTrue(message.pendingDownload)
+    }
+
+    @Test
+    fun `an outgoing mms without stored parts is not flagged for retry`() = runTest {
+        provider.mmsRows += mmsRow(
+            id = 603, threadId = 3, dateSeconds = 5, mType = 132,
+            msgBox = Telephony.Mms.MESSAGE_BOX_SENT,
+        )
+        val message = repository.messages(3L).first().single()
+        assertTrue(!message.pendingDownload)
+    }
+
+    @Test
     fun `mark read touches both message tables`() = runTest {
         repository.markThreadRead(3L)
         val uris = provider.updatedUris.map { it.first }

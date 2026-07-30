@@ -188,27 +188,42 @@ class SystemMessagesRepository @Inject constructor(
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 val messageId = cursor.getLong(0)
-                val (body, attachments) = mmsParts(messageId)
+                val content = mmsParts(messageId)
+                val incoming = cursor.getInt(3) == Telephony.Mms.MESSAGE_BOX_INBOX
+                // An inbox row whose part store failed after the retrieved
+                // flag was written has no parts; with its content location
+                // intact it is offered for re-download, not an empty bubble.
+                val retriable = incoming &&
+                    content.partCount == 0 &&
+                    !cursor.getString(7).isNullOrBlank()
                 messages += Message(
                     id = messageId,
                     threadId = cursor.getLong(1),
                     isMms = true,
                     address = mmsSender(messageId).orEmpty(),
-                    body = body,
+                    body = content.body,
                     timestampMillis = mmsTimestampMillis(cursor.getLong(2)),
-                    incoming = cursor.getInt(3) == Telephony.Mms.MESSAGE_BOX_INBOX,
+                    incoming = incoming,
                     status = MessageStatus.NONE,
                     subscriptionId = cursor.getInt(5),
-                    attachments = attachments,
-                    pendingDownload = cursor.getInt(6) == MMS_MESSAGE_TYPE_NOTIFICATION,
+                    attachments = content.attachments,
+                    pendingDownload = cursor.getInt(6) == MMS_MESSAGE_TYPE_NOTIFICATION ||
+                        retriable,
                 )
             }
         }
         return messages
     }
 
-    private fun mmsParts(messageId: Long): Pair<String?, List<MmsAttachment>> {
+    private data class MmsContent(
+        val body: String?,
+        val attachments: List<MmsAttachment>,
+        val partCount: Int,
+    )
+
+    private fun mmsParts(messageId: Long): MmsContent {
         var body: String? = null
+        var partCount = 0
         val attachments = mutableListOf<MmsAttachment>()
         context.contentResolver.query(
             "content://mms/$messageId/part".toUri(),
@@ -216,6 +231,7 @@ class SystemMessagesRepository @Inject constructor(
             null, null, null,
         )?.use { cursor ->
             while (cursor.moveToNext()) {
+                partCount++
                 val contentType = cursor.getString(1).orEmpty()
                 when {
                     contentType == "text/plain" ->
@@ -228,7 +244,7 @@ class SystemMessagesRepository @Inject constructor(
                 }
             }
         }
-        return body to attachments
+        return MmsContent(body, attachments, partCount)
     }
 
     private fun mmsSender(messageId: Long): String? =

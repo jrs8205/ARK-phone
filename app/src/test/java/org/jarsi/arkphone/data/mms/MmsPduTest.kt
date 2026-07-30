@@ -53,6 +53,73 @@ class MmsPduTest {
         assertNull(conf.from)
     }
 
+    /** A carrier-shaped m-retrieve-conf: multipart.related with start/type
+     *  parameters, a SMIL part, per-part content-type parameters and
+     *  Content-ID/Content-Location headers — none of which our own
+     *  composeSendReq produces. */
+    private fun carrierRetrieveConf(contentTypeLongForm: Boolean): ByteArray {
+        val startParam = bytes(0x8A) + textBytes("<smil>")
+        val typeParam = bytes(0x89) + textBytes("application/smil")
+        val contentTypeValue = bytes(0xB3) + startParam + typeParam
+        val contentTypeHeader = if (contentTypeLongForm) {
+            bytes(0x84, 0x1F, contentTypeValue.size) + contentTypeValue
+        } else {
+            bytes(0x84, contentTypeValue.size) + contentTypeValue
+        }
+
+        val smilContentType = textBytes("application/smil") + bytes(0x81, 0xEA)
+        val smilHeaders = bytes(smilContentType.size) + smilContentType +
+            bytes(0xC0, 0x22) + textBytes("<smil>")
+        val smilData = "<smil><body></body></smil>".toByteArray()
+
+        val imageContentType = bytes(0x9E, 0x85) + textBytes("IMG_001.jpg")
+        val imageHeaders = bytes(imageContentType.size) + imageContentType +
+            bytes(0x8E) + textBytes("IMG_001.jpg") +
+            bytes(0xC0, 0x22) + textBytes("<img>")
+        val imageData = bytes(0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4)
+
+        val textContentType = bytes(0x83, 0x81, 0xEA)
+        val textHeaders = bytes(textContentType.size) + textContentType +
+            bytes(0x8E) + textBytes("text_0.txt")
+        val textData = "Terve!".toByteArray()
+
+        return bytes(0x8C, 0x84) +
+            bytes(0x98) + textBytes("tr1") +
+            bytes(0x8D, 0x92) +
+            bytes(0x8B) + textBytes("12@mmsc") +
+            bytes(0x85, 0x04, 0x68, 0x89, 0x00, 0x00) +
+            bytes(0x89, 0x19, 0x80) + textBytes("+358445552841/TYPE=PLMN") +
+            bytes(0x96, 0x06, 0xEA) + textBytes("Kuva") +
+            bytes(0x8A, 0x80) +
+            bytes(0x8F, 0x81) +
+            bytes(0x86, 0x81) +
+            bytes(0x90, 0x81) +
+            contentTypeHeader +
+            bytes(0x03) +
+            bytes(smilHeaders.size, smilData.size) + smilHeaders + smilData +
+            bytes(imageHeaders.size, imageData.size) + imageHeaders + imageData +
+            bytes(textHeaders.size, textData.size) + textHeaders + textData
+    }
+
+    @Test
+    fun `a carrier shaped retrieve conf parses its parts`() {
+        val conf = parseRetrieveConf(carrierRetrieveConf(contentTypeLongForm = false))!!
+
+        assertEquals("+358445552841", conf.from)
+        assertEquals(
+            listOf("application/smil", "image/jpeg", "text/plain"),
+            conf.parts.map { it.mimeType },
+        )
+        assertArrayEquals(bytes(0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4), conf.parts[1].body)
+        assertArrayEquals("Terve!".toByteArray(), conf.parts[2].body)
+    }
+
+    @Test
+    fun `a retrieve conf with the long content type form parses too`() {
+        val conf = parseRetrieveConf(carrierRetrieveConf(contentTypeLongForm = true))!!
+        assertEquals(3, conf.parts.size)
+    }
+
     @Test
     fun `garbage is rejected`() {
         assertNull(parseNotificationInd(bytes(1, 2, 3)))

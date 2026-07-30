@@ -182,7 +182,13 @@ private fun WspReader.readEncodedString(): String {
 
 private fun WspReader.skipContentTypeValue() {
     when {
-        peek() <= 0x1F -> position += readValueLength()
+        peek() <= 0x1F -> {
+            // Two statements on purpose: "position += readValueLength()"
+            // loads position before the call advances it, losing the
+            // length-prefix bytes and landing the skip short.
+            val length = readValueLength()
+            position += length
+        }
         peek() >= 0x80 -> position++
         else -> readTextString()
     }

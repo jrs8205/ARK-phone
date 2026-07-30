@@ -135,4 +135,27 @@ class MmsDownloaderTest {
         assertTrue(provider.mmsPartRows.isEmpty())
         assertTrue(notifier.notified.isEmpty())
     }
+
+    @Test
+    fun `a download that parses to zero parts keeps the placeholder too`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        // m-retrieve-conf whose multipart body announces zero entries: a
+        // content-less message row would only render as an empty bubble.
+        val emptyConf = byteArrayOf(
+            0x8C.toByte(), 0x84.toByte(), // message type: retrieve-conf
+            0x84.toByte(), 0xA3.toByte(), // content type: multipart.mixed
+            0x00, // zero body entries
+        )
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(emptyConf)
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(130, provider.mmsRows.single().getAsInteger("m_type"))
+        assertTrue(provider.mmsPartRows.isEmpty())
+        assertTrue(notifier.notified.isEmpty())
+    }
 }

@@ -63,7 +63,11 @@ internal class WspReader(private val data: ByteArray) {
             }
             next == 0x1F -> {
                 position++
-                position += readUintvar()
+                // Two statements on purpose: "position += readUintvar()"
+                // loads position before the call advances it, losing the
+                // uintvar bytes and landing the skip short.
+                val length = readUintvar()
+                position += length
             }
             next >= 0x80 -> position++
             else -> readTextString()

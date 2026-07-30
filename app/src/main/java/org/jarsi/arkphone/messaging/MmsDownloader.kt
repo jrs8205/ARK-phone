@@ -108,9 +108,10 @@ class MmsDownloader @Inject constructor(
                     ?.readBytes()
                     ?.let(::parseRetrieveConf)
                 file.delete()
-                // Parse failure keeps the placeholder; the thread shows a
-                // tap-to-retry row instead of losing the message.
-                if (conf == null) return@runCatching
+                // A parse failure — or a parse yielding no parts — keeps the
+                // placeholder; the thread shows a tap-to-retry row instead of
+                // an empty bubble that has lost the message.
+                if (conf == null || conf.parts.isEmpty()) return@runCatching
                 storeRetrieved(messageId, conf)
                 messagesRepository.refresh()
                 notifyUnlessBlocked(messageId, conf)
