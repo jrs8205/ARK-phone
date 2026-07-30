@@ -280,6 +280,15 @@ class FakeMessagesRepository : MessagesRepository {
     override suspend fun markThreadRead(threadId: Long) {
         markedRead += threadId
     }
+    val recomputedThreads = mutableListOf<Long>()
+    override suspend fun recomputeThreadRead(threadId: Long) {
+        recomputedThreads += threadId
+    }
+    val deletedMessages = mutableListOf<Pair<Long, Boolean>>()
+    override suspend fun deleteMessage(messageId: Long, isMms: Boolean): Boolean {
+        deletedMessages += messageId to isMms
+        return true
+    }
     override suspend fun deleteThread(threadId: Long): Boolean {
         deletedThreads += threadId
         return true

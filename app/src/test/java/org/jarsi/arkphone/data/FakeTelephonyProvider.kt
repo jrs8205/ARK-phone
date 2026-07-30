@@ -45,7 +45,10 @@ class FakeTelephonyProvider : ContentProvider() {
                 cursor
             }
             path.startsWith("content://mms-sms/threadID") -> {
-                MatrixCursor(arrayOf("_id")).apply { addRow(arrayOf(42L)) }
+                // A multi-recipient (group) resolution answers a different
+                // thread so tests can observe re-threading.
+                val id = if (uri.getQueryParameters("recipient").size > 1) 77L else 42L
+                MatrixCursor(arrayOf("_id")).apply { addRow(arrayOf(id)) }
             }
             path.startsWith("content://mms-sms/canonical-address/") -> {
                 val id = uri.lastPathSegment!!.toLong()
@@ -63,51 +66,25 @@ class FakeTelephonyProvider : ContentProvider() {
             }
             uri == Telephony.Sms.CONTENT_URI -> {
                 val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
-                val cursor = MatrixCursor(
-                    arrayOf("_id", "thread_id", "address", "body", "date", "type", "status", "read", "sub_id"),
-                )
+                // The projection is honored like the real provider does.
+                val columns = projection
+                    ?: arrayOf("_id", "thread_id", "address", "body", "date", "type", "status", "read", "sub_id")
+                val cursor = MatrixCursor(columns)
                 smsRows
                     .filter { threadIdArg == null || it.getAsLong(Telephony.Sms.THREAD_ID) == threadIdArg }
                     .sortedBy { it.getAsLong(Telephony.Sms.DATE) }
-                    .forEach { row ->
-                        cursor.addRow(
-                            arrayOf(
-                                row.getAsLong(Telephony.Sms._ID),
-                                row.getAsLong(Telephony.Sms.THREAD_ID),
-                                row.getAsString(Telephony.Sms.ADDRESS),
-                                row.getAsString(Telephony.Sms.BODY),
-                                row.getAsLong(Telephony.Sms.DATE),
-                                row.getAsInteger(Telephony.Sms.TYPE),
-                                row.getAsInteger(Telephony.Sms.STATUS),
-                                row.getAsInteger(Telephony.Sms.READ),
-                                row.getAsInteger(Telephony.Sms.SUBSCRIPTION_ID),
-                            ),
-                        )
-                    }
+                    .forEach { row -> cursor.addRow(columns.map { row.get(it) }.toTypedArray()) }
                 cursor
             }
             uri == Telephony.Mms.CONTENT_URI -> {
                 val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
-                val cursor = MatrixCursor(
-                    arrayOf("_id", "thread_id", "date", "msg_box", "read", "sub_id", "m_type", "ct_l"),
-                )
+                val columns = projection
+                    ?: arrayOf("_id", "thread_id", "date", "msg_box", "read", "sub_id", "m_type", "ct_l")
+                val cursor = MatrixCursor(columns)
                 mmsRows
                     .filter { threadIdArg == null || it.getAsLong("thread_id") == threadIdArg }
                     .sortedBy { it.getAsLong("date") }
-                    .forEach { row ->
-                        cursor.addRow(
-                            arrayOf(
-                                row.getAsLong("_id"),
-                                row.getAsLong("thread_id"),
-                                row.getAsLong("date"),
-                                row.getAsInteger("msg_box"),
-                                row.getAsInteger("read"),
-                                row.getAsInteger("sub_id"),
-                                row.getAsInteger("m_type"),
-                                row.getAsString("ct_l"),
-                            ),
-                        )
-                    }
+                    .forEach { row -> cursor.addRow(columns.map { row.get(it) }.toTypedArray()) }
                 cursor
             }
             path.matches(Regex("content://mms/\\d+/part")) -> {

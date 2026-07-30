@@ -116,8 +116,12 @@ class MmsDownloader @Inject constructor(
                 // placeholder; the thread shows a tap-to-retry row instead of
                 // an empty bubble that has lost the message.
                 if (conf == null || conf.parts.isEmpty()) return@runCatching
-                storeRetrieved(messageId, conf)
+                val movedFromThread = storeRetrieved(messageId, conf)
                 messagesRepository.refresh()
+                // The push filed the message under the sender's 1:1 thread;
+                // moving it to the group thread leaves that thread's cached
+                // unread flag stale with nothing left to recompute it.
+                movedFromThread?.let { messagesRepository.recomputeThreadRead(it) }
                 notifyUnlessBlocked(messageId, conf)
             }
         }
@@ -158,17 +162,18 @@ class MmsDownloader @Inject constructor(
             SmsManager.getDefault()
         }
 
-    private fun storeRetrieved(messageId: Long, conf: RetrieveConf) {
+    /** Returns the thread the message was moved away from, if any. */
+    private fun storeRetrieved(messageId: Long, conf: RetrieveConf): Long? {
+        val originalThreadId = queryColumn(messageId, Telephony.Mms.THREAD_ID)?.toLongOrNull()
+        var newThreadId: Long? = null
         val update = ContentValues().apply {
             put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_RETRIEVED)
             if (conf.timestampSeconds > 0) put(Telephony.Mms.DATE, conf.timestampSeconds)
             groupRecipients(conf)?.let { group ->
                 // A group MMS belongs to the thread of the whole group, not
                 // to the 1:1 thread of its sender the push was filed under.
-                put(
-                    Telephony.Mms.THREAD_ID,
-                    Telephony.Threads.getOrCreateThreadId(context, group),
-                )
+                newThreadId = Telephony.Threads.getOrCreateThreadId(context, group)
+                put(Telephony.Mms.THREAD_ID, newThreadId)
             }
         }
         context.contentResolver.update(
@@ -179,6 +184,7 @@ class MmsDownloader @Inject constructor(
         )
         conf.to.forEach { recipient -> insertAddr(messageId, recipient, ADDRESS_TYPE_TO) }
         conf.parts.forEach { part -> insertPart(messageId, part) }
+        return originalThreadId?.takeIf { newThreadId != null && newThreadId != it }
     }
 
     /** The sender plus the To recipients that are not this phone's own

@@ -157,6 +157,10 @@ class MmsDownloaderTest {
         assertTrue("+358400000000" in addresses)
         assertTrue("+358411111111" in addresses)
         assertEquals(132, provider.mmsRows.single().getAsInteger("m_type"))
+        // The message moved from the sender's 1:1 thread to the group
+        // thread, and the abandoned thread's unread flag was recomputed.
+        assertEquals(77L, provider.mmsRows.single().getAsLong("thread_id"))
+        assertEquals(listOf(42L), repository.recomputedThreads)
     }
 
     @Test

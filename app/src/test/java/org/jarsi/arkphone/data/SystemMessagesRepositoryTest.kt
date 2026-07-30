@@ -194,6 +194,41 @@ class SystemMessagesRepositoryTest {
         assertTrue(Telephony.Mms.CONTENT_URI in uris)
     }
 
+    @Test
+    fun `mark read rewrites one row's read flag to fire the thread recompute`() = runTest {
+        // The threads table's unread flag is only recomputed by the
+        // provider's UPDATE-OF-read triggers; with every row already read
+        // (a message moved to another thread) the bulk update matches
+        // nothing and the flag would stay stale forever.
+        provider.smsRows += smsRow(
+            id = 5, threadId = 3, address = "+358441234567", body = "Moro",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        repository.markThreadRead(3L)
+        val (uri, values) = provider.updatedUris.single { it.first.toString() == "content://sms/5" }
+        assertEquals(1, values.getAsInteger(Telephony.Sms.READ))
+        assertTrue(uri.toString().endsWith("/5"))
+    }
+
+    @Test
+    fun `recompute falls back to an mms row when the thread has no sms`() = runTest {
+        provider.mmsRows += mmsRow(id = 600, threadId = 3, dateSeconds = 2, mType = 132, read = 1)
+        repository.recomputeThreadRead(3L)
+        val (_, values) = provider.updatedUris.single { it.first.toString() == "content://mms/600" }
+        assertEquals(1, values.getAsInteger("read"))
+    }
+
+    @Test
+    fun `delete message targets the table its kind names`() = runTest {
+        assertTrue(repository.deleteMessage(7L, isMms = false))
+        assertTrue(repository.deleteMessage(58L, isMms = true))
+        assertEquals(
+            listOf("content://sms/7", "content://mms/58"),
+            provider.deletedUris.map { it.toString() },
+        )
+    }
+
     private fun mmsRow(
         id: Long,
         threadId: Long,

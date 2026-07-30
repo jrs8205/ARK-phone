@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.data
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.database.ContentObserver
@@ -172,21 +173,82 @@ class SystemMessagesRepository @Inject constructor(
                     put(Telephony.Sms.READ, 1)
                     put(Telephony.Sms.SEEN, 1)
                 }
+                val unreadSelection = Telephony.Sms.THREAD_ID + " = ? AND (" +
+                    Telephony.Sms.READ + " = 0 OR " + Telephony.Sms.SEEN + " = 0)"
                 context.contentResolver.update(
                     Telephony.Sms.CONTENT_URI,
                     values,
-                    Telephony.Sms.THREAD_ID + " = ? AND " + Telephony.Sms.READ + " = 0",
+                    unreadSelection,
                     arrayOf(threadId.toString()),
                 )
                 context.contentResolver.update(
                     Telephony.Mms.CONTENT_URI,
                     values,
-                    Telephony.Mms.THREAD_ID + " = ? AND " + Telephony.Mms.READ + " = 0",
+                    unreadSelection,
                     arrayOf(threadId.toString()),
+                )
+                // Zero matched rows fire no provider trigger, so a stale
+                // threads-table flag would stay stale — always force the
+                // recompute too.
+                fireThreadReadRecompute(threadId)
+            }
+        }
+    }
+
+    override suspend fun recomputeThreadRead(threadId: Long) {
+        withContext(ioDispatcher) {
+            runCatching { fireThreadReadRecompute(threadId) }
+        }
+    }
+
+    /** The threads table's read flag is only recomputed by the provider's
+     *  UPDATE-OF-read triggers. Writing one message row's read value back
+     *  onto itself fires the trigger without changing any message. */
+    private fun fireThreadReadRecompute(threadId: Long) {
+        val selection = Telephony.Sms.THREAD_ID + " = ?"
+        val args = arrayOf(threadId.toString())
+        context.contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            arrayOf(Telephony.Sms._ID, Telephony.Sms.READ),
+            selection, args, null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                context.contentResolver.update(
+                    ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, cursor.getLong(0)),
+                    ContentValues().apply { put(Telephony.Sms.READ, cursor.getInt(1)) },
+                    null,
+                    null,
+                )
+                return
+            }
+        }
+        context.contentResolver.query(
+            Telephony.Mms.CONTENT_URI,
+            arrayOf(Telephony.Mms._ID, Telephony.Mms.READ),
+            selection, args, null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                context.contentResolver.update(
+                    ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, cursor.getLong(0)),
+                    ContentValues().apply { put(Telephony.Mms.READ, cursor.getInt(1)) },
+                    null,
+                    null,
                 )
             }
         }
     }
+
+    override suspend fun deleteMessage(messageId: Long, isMms: Boolean): Boolean =
+        withContext(ioDispatcher) {
+            runCatching {
+                val table = if (isMms) Telephony.Mms.CONTENT_URI else Telephony.Sms.CONTENT_URI
+                context.contentResolver.delete(
+                    ContentUris.withAppendedId(table, messageId),
+                    null,
+                    null,
+                ) > 0
+            }.getOrDefault(false)
+        }
 
     private fun mmsMessages(threadId: Long): List<Message> {
         val messages = mutableListOf<Message>()

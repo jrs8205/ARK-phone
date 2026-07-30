@@ -24,6 +24,16 @@ interface MessagesRepository {
     /** Marks every unread message of the thread read. Needs the SMS role. */
     suspend fun markThreadRead(threadId: Long)
 
+    /**
+     * Recomputes the thread's cached unread flag. The provider only refreshes
+     * it when a message row's read column is written, so a message that moved
+     * to another thread leaves the flag stale forever.
+     */
+    suspend fun recomputeThreadRead(threadId: Long)
+
+    /** Deletes one message. Returns false when the delete failed. */
+    suspend fun deleteMessage(messageId: Long, isMms: Boolean): Boolean
+
     /** Deletes the whole thread. Returns false when the delete failed. */
     suspend fun deleteThread(threadId: Long): Boolean
 
