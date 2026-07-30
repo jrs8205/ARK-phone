@@ -17,9 +17,14 @@ class FakeTelephonyProvider : ContentProvider() {
     val conversationRows = mutableListOf<Array<Any?>>()
     val canonicalAddresses = mutableMapOf<Long, String>()
     val smsRows = mutableListOf<ContentValues>()
+    val mmsRows = mutableListOf<ContentValues>()
+    val mmsPartRows = mutableListOf<Pair<Long, ContentValues>>()
+    val mmsAddrRows = mutableListOf<Pair<Long, ContentValues>>()
     val deletedUris = mutableListOf<Uri>()
     val updatedUris = mutableListOf<Pair<Uri, ContentValues>>()
     private var nextSmsId = 100L
+    private var nextMmsId = 500L
+    private var nextPartId = 900L
 
     override fun onCreate(): Boolean = true
 
@@ -81,6 +86,25 @@ class FakeTelephonyProvider : ContentProvider() {
                     }
                 cursor
             }
+            path.matches(Regex("content://mms/\\d+/addr")) -> {
+                val messageId = uri.pathSegments[0].toLong()
+                val cursor = MatrixCursor(arrayOf("address", "type"))
+                mmsAddrRows
+                    .filter { it.first == messageId }
+                    .forEach { (_, row) ->
+                        cursor.addRow(arrayOf(row.getAsString("address"), row.getAsInteger("type")))
+                    }
+                cursor
+            }
+            path.matches(Regex("content://mms/\\d+")) -> {
+                val messageId = uri.lastPathSegment!!.toLong()
+                val columns = projection ?: arrayOf("_id")
+                MatrixCursor(columns).apply {
+                    mmsRows.firstOrNull { it.getAsLong("_id") == messageId }?.let { row ->
+                        addRow(columns.map { row.get(it) }.toTypedArray())
+                    }
+                }
+            }
             else -> MatrixCursor(projection ?: emptyArray())
         }
     }
@@ -91,7 +115,27 @@ class FakeTelephonyProvider : ContentProvider() {
             smsRows += ContentValues(values).apply { put(Telephony.Sms._ID, id) }
             return ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id)
         }
-        return null
+        if (values == null) return null
+        val path = uri.toString()
+        return when {
+            uri == Telephony.Mms.CONTENT_URI -> {
+                val id = nextMmsId++
+                mmsRows += ContentValues(values).apply { put("_id", id) }
+                ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, id)
+            }
+            path.matches(Regex("content://mms/\\d+/part")) -> {
+                val messageId = uri.pathSegments[0].toLong()
+                val partId = nextPartId++
+                mmsPartRows += messageId to ContentValues(values).apply { put("_id", partId) }
+                Uri.parse("content://mms/part/$partId")
+            }
+            path.matches(Regex("content://mms/\\d+/addr")) -> {
+                val messageId = uri.pathSegments[0].toLong()
+                mmsAddrRows += messageId to ContentValues(values)
+                Uri.parse("$path/${mmsAddrRows.size}")
+            }
+            else -> null
+        }
     }
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
@@ -106,6 +150,11 @@ class FakeTelephonyProvider : ContentProvider() {
         selectionArgs: Array<String>?,
     ): Int {
         updatedUris += uri to (values ?: ContentValues())
+        val path = uri.toString()
+        if (values != null && path.matches(Regex("content://mms/\\d+"))) {
+            val messageId = uri.lastPathSegment!!.toLong()
+            mmsRows.firstOrNull { it.getAsLong("_id") == messageId }?.putAll(values)
+        }
         return 1
     }
 

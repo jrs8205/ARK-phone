@@ -1,0 +1,251 @@
+package org.jarsi.arkphone.messaging
+
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.ContentUris
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Telephony
+import android.telephony.SmsManager
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
+import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.BlockedNumbersRepository
+import org.jarsi.arkphone.data.ContactsRepository
+import org.jarsi.arkphone.data.MessagesRepository
+import org.jarsi.arkphone.data.mms.MmsPart
+import org.jarsi.arkphone.data.mms.RetrieveConf
+import org.jarsi.arkphone.data.mms.parseNotificationInd
+import org.jarsi.arkphone.data.mms.parseRetrieveConf
+import org.jarsi.arkphone.di.ApplicationScope
+import org.jarsi.arkphone.di.IoDispatcher
+import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Turns a WAP push into a pending MMS row, downloads the real message from
+ *  the carrier and replaces the placeholder with its parts. */
+@Singleton
+class MmsDownloader @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val blockedNumbers: BlockedNumbersRepository,
+    private val contactsRepository: ContactsRepository,
+    private val messageNotifier: MessageNotifier,
+    private val messagesRepository: MessagesRepository,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) {
+
+    companion object {
+        const val ACTION_MMS_DOWNLOADED = "org.jarsi.arkphone.action.MMS_DOWNLOADED"
+        const val EXTRA_MESSAGE_ID = "org.jarsi.arkphone.extra.MMS_MESSAGE_ID"
+
+        /** m-notification-ind: the not-yet-downloaded placeholder. */
+        const val MESSAGE_TYPE_NOTIFICATION = 130
+
+        /** m-retrieve-conf: the fully downloaded message. */
+        const val MESSAGE_TYPE_RETRIEVED = 132
+
+        private const val ADDRESS_TYPE_FROM = 137
+        private const val CHARSET_UTF8 = 106
+        private const val TEXT_PLAIN = "text/plain"
+    }
+
+    suspend fun onPush(pdu: ByteArray) {
+        val notification = parseNotificationInd(pdu) ?: return
+        val sender = notification.from ?: return
+        withContext(ioDispatcher) {
+            runCatching {
+                val blocked = blockedNumbers.isBlocked(sender)
+                val values = ContentValues().apply {
+                    put(Telephony.Mms.THREAD_ID, Telephony.Threads.getOrCreateThreadId(context, sender))
+                    put(Telephony.Mms.DATE, System.currentTimeMillis() / 1000)
+                    put(Telephony.Mms.READ, if (blocked) 1 else 0)
+                    put(Telephony.Mms.SEEN, if (blocked) 1 else 0)
+                    put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_INBOX)
+                    put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_NOTIFICATION)
+                    put(Telephony.Mms.CONTENT_LOCATION, notification.contentLocation)
+                    put(Telephony.Mms.TRANSACTION_ID, notification.transactionId)
+                }
+                val rowUri = context.contentResolver.insert(Telephony.Mms.CONTENT_URI, values)
+                    ?: return@runCatching
+                val messageId = ContentUris.parseId(rowUri)
+                context.contentResolver.insert(
+                    "content://mms/$messageId/addr".toUri(),
+                    ContentValues().apply {
+                        put(Telephony.Mms.Addr.ADDRESS, sender)
+                        put(Telephony.Mms.Addr.TYPE, ADDRESS_TYPE_FROM)
+                        put(Telephony.Mms.Addr.MSG_ID, messageId)
+                        put(Telephony.Mms.Addr.CHARSET, CHARSET_UTF8)
+                    },
+                )
+                messagesRepository.refresh()
+                startDownload(messageId, notification.contentLocation)
+            }
+        }
+    }
+
+    suspend fun retryDownload(messageId: Long) {
+        withContext(ioDispatcher) {
+            val contentLocation = queryColumn(messageId, Telephony.Mms.CONTENT_LOCATION)
+                ?: return@withContext
+            runCatching { startDownload(messageId, contentLocation) }
+        }
+    }
+
+    suspend fun onDownloaded(messageId: Long) {
+        withContext(ioDispatcher) {
+            runCatching {
+                val file = downloadFileFor(messageId)
+                val conf = file.takeIf { it.exists() }
+                    ?.readBytes()
+                    ?.let(::parseRetrieveConf)
+                file.delete()
+                // Parse failure keeps the placeholder; the thread shows a
+                // tap-to-retry row instead of losing the message.
+                if (conf == null) return@runCatching
+                storeRetrieved(messageId, conf)
+                messagesRepository.refresh()
+                notifyUnlessBlocked(messageId, conf)
+            }
+        }
+    }
+
+    internal fun downloadFileFor(messageId: Long): File =
+        File(File(context.cacheDir, "mms"), "mms-$messageId.pdu")
+
+    private fun startDownload(messageId: Long, contentLocation: String) {
+        val file = downloadFileFor(messageId).apply { parentFile?.mkdirs() }
+        val fileUri = FileProvider.getUriForFile(context, MmsFileProvider.AUTHORITY, file)
+        // The platform mms service writes into our cache through this grant.
+        listOf("com.android.phone", "com.android.mms.service").forEach { pkg ->
+            runCatching {
+                context.grantUriPermission(
+                    pkg,
+                    fileUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+        }
+        val downloaded = PendingIntent.getBroadcast(
+            context,
+            messageId.toInt(),
+            Intent(context, MmsDownloadReceiver::class.java)
+                .setAction(ACTION_MMS_DOWNLOADED)
+                .putExtra(EXTRA_MESSAGE_ID, messageId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        smsManager().downloadMultimediaMessage(context, contentLocation, fileUri, null, downloaded)
+    }
+
+    private fun smsManager(): SmsManager =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(SmsManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            SmsManager.getDefault()
+        }
+
+    private fun storeRetrieved(messageId: Long, conf: RetrieveConf) {
+        val update = ContentValues().apply {
+            put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_RETRIEVED)
+            if (conf.timestampSeconds > 0) put(Telephony.Mms.DATE, conf.timestampSeconds)
+        }
+        context.contentResolver.update(
+            ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, messageId),
+            update,
+            null,
+            null,
+        )
+        conf.parts.forEach { part -> insertPart(messageId, part) }
+    }
+
+    private fun insertPart(messageId: Long, part: MmsPart) {
+        val values = ContentValues().apply {
+            put(Telephony.Mms.Part.MSG_ID, messageId)
+            put(Telephony.Mms.Part.CONTENT_TYPE, part.mimeType)
+            if (part.mimeType == TEXT_PLAIN) {
+                put(Telephony.Mms.Part.TEXT, String(part.body, Charsets.UTF_8))
+                put(Telephony.Mms.Part.CHARSET, CHARSET_UTF8)
+            }
+        }
+        val partUri = context.contentResolver.insert(
+            "content://mms/$messageId/part".toUri(),
+            values,
+        ) ?: return
+        if (part.mimeType != TEXT_PLAIN) {
+            runCatching {
+                context.contentResolver.openOutputStream(partUri)?.use { it.write(part.body) }
+            }
+        }
+    }
+
+    private suspend fun notifyUnlessBlocked(messageId: Long, conf: RetrieveConf) {
+        val sender = conf.from ?: querySender(messageId) ?: return
+        if (blockedNumbers.isBlocked(sender)) return
+        val threadId = queryColumn(messageId, Telephony.Mms.THREAD_ID)?.toLongOrNull() ?: return
+        val body = conf.parts.firstOrNull { it.mimeType == TEXT_PLAIN }
+            ?.let { String(it.body, Charsets.UTF_8) }
+            ?: context.getString(R.string.mms_picture_message)
+        val displayName = contactsRepository.lookupContact(sender)?.displayName
+        val timestampMillis = conf.timestampSeconds
+            .takeIf { it > 0 }
+            ?.times(1000)
+            ?: System.currentTimeMillis()
+        messageNotifier.notifyMessage(threadId, sender, displayName, body, timestampMillis)
+    }
+
+    private fun querySender(messageId: Long): String? =
+        context.contentResolver.query(
+            "content://mms/$messageId/addr".toUri(),
+            arrayOf(Telephony.Mms.Addr.ADDRESS, Telephony.Mms.Addr.TYPE),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                if (cursor.getInt(1) == ADDRESS_TYPE_FROM) return cursor.getString(0)
+            }
+            null
+        }
+
+    private fun queryColumn(messageId: Long, column: String): String? =
+        context.contentResolver.query(
+            ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, messageId),
+            arrayOf(column),
+            null,
+            null,
+            null,
+        )?.use { if (it.moveToFirst()) it.getString(0) else null }
+}
+
+/** Fired by the platform once [SmsManager.downloadMultimediaMessage] wrote
+ *  the retrieve-conf into our cache file. */
+@AndroidEntryPoint
+class MmsDownloadReceiver : BroadcastReceiver() {
+
+    @Inject lateinit var downloader: MmsDownloader
+
+    @Inject @ApplicationScope lateinit var scope: CoroutineScope
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != MmsDownloader.ACTION_MMS_DOWNLOADED) return
+        val messageId = intent.getLongExtra(MmsDownloader.EXTRA_MESSAGE_ID, -1L)
+        if (messageId < 0) return
+        val pendingResult = goAsync()
+        scope.launch {
+            try {
+                downloader.onDownloaded(messageId)
+            } finally {
+                pendingResult?.finish()
+            }
+        }
+    }
+}

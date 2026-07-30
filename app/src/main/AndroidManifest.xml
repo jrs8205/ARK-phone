@@ -155,6 +155,30 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".messaging.WapPushReceiver"
+            android:permission="android.permission.BROADCAST_WAP_PUSH"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+                <data android:mimeType="application/vnd.wap.mms-message" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".messaging.MmsDownloadReceiver"
+            android:exported="false" />
+
+        <provider
+            android:name=".messaging.MmsFileProvider"
+            android:authorities="org.jarsi.arkphone.mms"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/mms_file_paths" />
+        </provider>
+
         <!-- Declaring this receiver makes the system hand missed-call
              notifications to the default dialer instead of posting its own.
              The action is a protected broadcast only the system can send. -->

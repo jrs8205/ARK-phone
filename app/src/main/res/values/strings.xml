@@ -118,6 +118,7 @@
     <string name="message_mark_read">Mark as read</string>
     <string name="new_message_recipient_hint">Name or number</string>
     <string name="new_message_send_to_number">Send to %1$s</string>
+    <string name="mms_picture_message">Picture message</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>

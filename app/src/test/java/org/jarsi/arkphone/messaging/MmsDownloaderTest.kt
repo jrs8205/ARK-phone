@@ -1,0 +1,138 @@
+package org.jarsi.arkphone.messaging
+
+import android.app.Application
+import android.provider.Telephony
+import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.FakeTelephonyProvider
+import org.jarsi.arkphone.data.mms.MmsPart
+import org.jarsi.arkphone.data.mms.composeSendReq
+import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
+import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeMessageNotifier
+import org.jarsi.arkphone.testing.FakeMessagesRepository
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.android.controller.ContentProviderController
+import org.robolectric.shadows.ShadowContentResolver
+
+@RunWith(RobolectricTestRunner::class)
+class MmsDownloaderTest {
+
+    private lateinit var provider: FakeTelephonyProvider
+    private lateinit var downloader: MmsDownloader
+    private val blockedNumbers = FakeBlockedNumbersRepository()
+    private val contacts = FakeContactsRepository()
+    private val notifier = FakeMessageNotifier()
+    private val repository = FakeMessagesRepository()
+
+    /** The push fixture: an m-notification-ind from +358441234567. */
+    private fun pushPdu(): ByteArray {
+        fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
+        fun textBytes(text: String) = text.toByteArray(Charsets.UTF_8) + 0
+        return bytes(0x8C, 0x82) +
+            bytes(0x98) + textBytes("T1") +
+            bytes(0x89, 0x19, 0x80) + textBytes("+358441234567/TYPE=PLMN") +
+            bytes(0x83) + textBytes("http://mmsc/x")
+    }
+
+    @Before
+    fun setUp() {
+        provider = ContentProviderController.of(FakeTelephonyProvider())
+            .create("mms-sms").get()
+        ShadowContentResolver.registerProviderInternal("sms", provider)
+        ShadowContentResolver.registerProviderInternal("mms", provider)
+        downloader = MmsDownloader(
+            context = ApplicationProvider.getApplicationContext<Application>(),
+            blockedNumbers = blockedNumbers,
+            contactsRepository = contacts,
+            messageNotifier = notifier,
+            messagesRepository = repository,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+    }
+
+    @Test
+    fun `a push inserts the pending placeholder with its content location`() = runTest {
+        downloader.onPush(pushPdu())
+
+        val row = provider.mmsRows.single()
+        assertEquals(130, row.getAsInteger("m_type"))
+        assertEquals(42L, row.getAsLong("thread_id"))
+        assertEquals(0, row.getAsInteger("read"))
+        assertEquals("http://mmsc/x", row.getAsString("ct_l"))
+        val (messageId, addr) = provider.mmsAddrRows.single()
+        assertEquals(row.getAsLong("_id"), messageId)
+        assertEquals("+358441234567", addr.getAsString("address"))
+        assertEquals(137, addr.getAsInteger("type"))
+        assertTrue(repository.refreshCalls > 0)
+        assertTrue(notifier.notified.isEmpty())
+    }
+
+    @Test
+    fun `a finished download stores the parts and notifies`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        val conf = composeSendReq(
+            "+358441234567",
+            "+358400000000",
+            listOf(MmsPart("text/plain", "Kuvan saate".toByteArray(), null)),
+        )
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(conf)
+        }
+
+        downloader.onDownloaded(messageId)
+
+        val row = provider.mmsRows.single()
+        assertEquals(132, row.getAsInteger("m_type"))
+        val (partMessageId, part) = provider.mmsPartRows.single()
+        assertEquals(messageId, partMessageId)
+        assertEquals("text/plain", part.getAsString("ct"))
+        assertEquals("Kuvan saate", part.getAsString("text"))
+        with(notifier.notified.single()) {
+            assertEquals(42L, threadId)
+            assertEquals("Kuvan saate", body)
+        }
+    }
+
+    @Test
+    fun `a blocked sender is stored read and never notified`() = runTest {
+        blockedNumbers.blocked += "+358441234567"
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        assertEquals(1, provider.mmsRows.single().getAsInteger("read"))
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    "+358400000000",
+                    listOf(MmsPart("text/plain", "Roskaa".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertTrue(notifier.notified.isEmpty())
+    }
+
+    @Test
+    fun `a failed download keeps the pending placeholder for retry`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(130, provider.mmsRows.single().getAsInteger("m_type"))
+        assertTrue(provider.mmsPartRows.isEmpty())
+        assertTrue(notifier.notified.isEmpty())
+    }
+}
