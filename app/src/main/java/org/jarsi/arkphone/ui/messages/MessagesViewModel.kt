@@ -4,10 +4,13 @@ import android.Manifest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.MessagesRepository
@@ -72,12 +75,17 @@ class MessagesViewModel @Inject constructor(
     private val permissionState = MutableStateFlow(hasSmsPermission())
     private val query = MutableStateFlow("")
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val bodyMatchedThreadIds: Flow<Set<Long>> =
+        query.mapLatest { repository.threadIdsMatchingBody(it) }
+
     val uiState: StateFlow<MessagesUiState> = combine(
         repository.conversations(),
         contactsRepository.contacts(),
         query,
         permissionState,
-    ) { conversations, contacts, query, hasPermission ->
+        bodyMatchedThreadIds,
+    ) { conversations, contacts, query, hasPermission, bodyMatches ->
         val items = conversations.map { conversation ->
             ConversationItem(
                 conversation = conversation,
@@ -88,7 +96,9 @@ class MessagesViewModel @Inject constructor(
         }
         MessagesUiState(
             loading = false,
-            conversations = items.filter { matchesConversationQuery(it, query) },
+            conversations = items.filter {
+                matchesConversationQuery(it, query) || it.conversation.threadId in bodyMatches
+            },
             query = query,
             hasReadSmsPermission = hasPermission,
         )

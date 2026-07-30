@@ -93,6 +93,26 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun queryMatchingOnlyMessageBodySurfacesThatConversation() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        repository.bodyMatches["kokous"] = setOf(4L)
+        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onQueryChange("kokous")
+            var state = awaitItem()
+            while (state.conversations.map { it.conversation.threadId } != listOf(4L)) {
+                state = awaitItem()
+            }
+        }
+    }
+
+    @Test
     fun missingPermissionIsExposed() = runTest {
         val viewModel = MessagesViewModel(repository, contacts, permissions)
         viewModel.uiState.test {

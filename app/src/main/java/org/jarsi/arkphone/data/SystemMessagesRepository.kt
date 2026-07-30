@@ -163,6 +163,35 @@ class SystemMessagesRepository @Inject constructor(
         }.getOrDefault(false)
     }
 
-    // Replaced test-first in a later task.
-    override suspend fun threadIdsMatchingBody(query: String): Set<Long> = emptySet()
+    override suspend fun threadIdsMatchingBody(query: String): Set<Long> = withContext(ioDispatcher) {
+        if (query.isBlank() || !permissionChecker.has(Manifest.permission.READ_SMS)) {
+            return@withContext emptySet()
+        }
+        val threadIds = mutableSetOf<Long>()
+        runCatching {
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(Telephony.Sms.THREAD_ID),
+                Telephony.Sms.BODY + " LIKE ? ESCAPE '\\'",
+                arrayOf("%" + escapeLikeQuery(query) + "%"),
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    threadIds += cursor.getLong(0)
+                }
+            }
+        }
+        threadIds
+    }
 }
+
+/** Makes raw user input literal inside a LIKE pattern with ESCAPE '\'. */
+internal fun escapeLikeQuery(raw: String): String =
+    buildString(raw.length) {
+        raw.forEach { c ->
+            when (c) {
+                '\\', '%', '_' -> append('\\').append(c)
+                else -> append(c)
+            }
+        }
+    }

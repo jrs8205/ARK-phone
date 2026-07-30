@@ -45,6 +45,14 @@ class FakeTelephonyProvider : ContentProvider() {
                     canonicalAddresses[id]?.let { addRow(arrayOf(it)) }
                 }
             }
+            uri == Telephony.Sms.CONTENT_URI && selection?.startsWith(Telephony.Sms.BODY) == true -> {
+                val regex = likePatternToRegex(selectionArgs!!.first())
+                val cursor = MatrixCursor(arrayOf("thread_id"))
+                smsRows
+                    .filter { regex.matches(it.getAsString(Telephony.Sms.BODY).orEmpty()) }
+                    .forEach { cursor.addRow(arrayOf(it.getAsLong(Telephony.Sms.THREAD_ID))) }
+                cursor
+            }
             uri == Telephony.Sms.CONTENT_URI -> {
                 val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
                 val cursor = MatrixCursor(
@@ -99,4 +107,24 @@ class FakeTelephonyProvider : ContentProvider() {
     }
 
     override fun getType(uri: Uri): String? = null
+
+    /** SQLite LIKE with ESCAPE '\', as a case-insensitive regex. */
+    private fun likePatternToRegex(pattern: String): Regex {
+        val regex = StringBuilder()
+        var i = 0
+        while (i < pattern.length) {
+            val c = pattern[i]
+            when {
+                c == '\\' && i + 1 < pattern.length -> {
+                    regex.append(Regex.escape(pattern[i + 1].toString()))
+                    i++
+                }
+                c == '%' -> regex.append(".*")
+                c == '_' -> regex.append('.')
+                else -> regex.append(Regex.escape(c.toString()))
+            }
+            i++
+        }
+        return Regex(regex.toString(), setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    }
 }

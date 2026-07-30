@@ -106,8 +106,55 @@ class SystemMessagesRepositoryTest {
 
     @Test
     fun `delete thread targets the conversations uri`() = runTest {
+        assertTrue(provider.deletedUris.isEmpty())
         assertTrue(repository.deleteThread(3L))
         assertTrue(provider.deletedUris.single().toString().endsWith("/conversations/3"))
+    }
+
+    @Test
+    fun `body search returns only threads whose messages match`() = runTest {
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Moro vaan",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        provider.smsRows += smsRow(
+            id = 2, threadId = 8, address = "+358400000000", body = "Terve",
+            date = 2000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        assertEquals(setOf(3L), repository.threadIdsMatchingBody("mor"))
+    }
+
+    @Test
+    fun `body search treats like wildcards as literals`() = runTest {
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Korko on 100%",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        provider.smsRows += smsRow(
+            id = 2, threadId = 8, address = "+358400000000", body = "Maksu 105 euroa",
+            date = 2000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        assertEquals(setOf(3L), repository.threadIdsMatchingBody("0%"))
+    }
+
+    @Test
+    fun `body search without permission is empty`() = runTest {
+        hasReadSms = false
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Moro",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        assertTrue(repository.threadIdsMatchingBody("mor").isEmpty())
+    }
+
+    @Test
+    fun `escape like query escapes the escape char and both wildcards`() {
+        assertEquals("""a\%b\_c\\d""", escapeLikeQuery("""a%b_c\d"""))
     }
 
     private fun smsRow(
