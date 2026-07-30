@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.conversation
 
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,9 +51,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -169,6 +172,19 @@ fun ConversationContent(
                         )
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (uiState.address != null) {
+                            val clipboard = LocalClipboardManager.current
+                            val context = LocalContext.current
+                            val copiedText = stringResource(R.string.number_copied)
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.conversation_copy_number)) },
+                                onClick = {
+                                    menuOpen = false
+                                    clipboard.setText(AnnotatedString(uiState.address))
+                                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                                },
+                            )
+                        }
                         if (uiState.address != null && uiState.canBlock) {
                             DropdownMenuItem(
                                 text = {

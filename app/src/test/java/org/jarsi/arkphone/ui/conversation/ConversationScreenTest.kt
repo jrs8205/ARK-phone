@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -121,6 +122,20 @@ class ConversationScreenTest {
     fun sendIsDisabledWhileTheFieldIsBlank() {
         setContent(listOf(message(1, 1_000)))
         composeRule.onNodeWithTag("composer_send").assertIsNotEnabled()
+    }
+
+    @Test
+    fun menuOffersCopyNumberForSingleConversations() {
+        setContent(listOf(message(1, 1_000)))
+        composeRule.onNodeWithContentDescription("More options").performClick()
+        composeRule.onNodeWithText("Copy number").assertIsDisplayed()
+    }
+
+    @Test
+    fun copyNumberIsAbsentWithoutAnAddress() {
+        setContent(listOf(message(1, 1_000)), address = null, isGroup = true)
+        composeRule.onNodeWithContentDescription("More options").performClick()
+        composeRule.onNodeWithText("Copy number").assertDoesNotExist()
     }
 
     @Test

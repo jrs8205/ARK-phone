@@ -24,6 +24,7 @@
     <string name="messages_empty">Ei viestejä</string>
     <string name="conversation_call">Soita</string>
     <string name="conversation_menu">Lisää valintoja</string>
+    <string name="conversation_copy_number">Kopioi numero</string>
     <string name="conversation_delete">Poista keskustelu</string>
     <string name="conversation_delete_confirm_title">Poistetaanko keskustelu?</string>
     <string name="conversation_delete_confirm_text">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</string>
@@ -39,6 +40,8 @@
     <string name="message_mark_read">Merkitse luetuksi</string>
     <string name="new_message_recipient_hint">Nimi tai numero</string>
     <string name="new_message_send_to_number">Lähetä numeroon %1$s</string>
+    <string name="new_message_start">Aloita keskustelu</string>
+    <string name="new_message_remove_recipient">Poista vastaanottaja</string>
     <string name="mms_picture_message">Kuvaviesti</string>
     <string name="mms_download_failed_retry">Lataus epäonnistui — yritä uudelleen napauttamalla</string>
     <string name="message_attach">Liitä kuva</string>

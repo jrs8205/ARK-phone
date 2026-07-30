@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.Contact
@@ -123,6 +124,13 @@ class MessagesViewModel @Inject constructor(
 
     fun onQueryChange(value: String) {
         query.value = value
+    }
+
+    fun onDeleteConversation(threadId: Long) {
+        viewModelScope.launch {
+            repository.deleteThread(threadId)
+            repository.refresh()
+        }
     }
 
     fun refreshPermissionState() {

@@ -1,7 +1,6 @@
 package org.jarsi.arkphone.ui.messages
 
 import android.text.format.DateUtils
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -28,13 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -71,6 +72,7 @@ fun MessagesScreen(
         onRequestPermission = onRequestPermission,
         onRequestSmsRole = onRequestSmsRole,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
+        onDeleteConversation = viewModel::onDeleteConversation,
     )
 }
 
@@ -83,8 +85,10 @@ fun MessagesContent(
     onRequestPermission: () -> Unit,
     onRequestSmsRole: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onDeleteConversation: (Long) -> Unit = {},
 ) {
     val haptics = rememberHaptics()
+    var confirmDelete by remember { mutableStateOf<ConversationItem?>(null) }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             SearchRow(
@@ -131,7 +135,11 @@ fun MessagesContent(
                 }
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(uiState.conversations, key = { it.conversation.threadId }) { item ->
-                        ConversationRow(item, onOpenThread)
+                        ConversationRow(
+                            item = item,
+                            onOpenThread = onOpenThread,
+                            onLongPress = { confirmDelete = item },
+                        )
                     }
                 }
             }
@@ -147,6 +155,26 @@ fun MessagesContent(
         ) {
             Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.messages_new))
         }
+    }
+    confirmDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text(stringResource(R.string.conversation_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.conversation_delete_confirm_text)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDelete = null
+                        onDeleteConversation(item.conversation.threadId)
+                    },
+                ) { Text(stringResource(R.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -185,23 +213,18 @@ private fun SmsRoleBanner(onRequestSmsRole: () -> Unit) {
 }
 
 @Composable
-private fun ConversationRow(item: ConversationItem, onOpenThread: (Long) -> Unit) {
+private fun ConversationRow(
+    item: ConversationItem,
+    onOpenThread: (Long) -> Unit,
+    onLongPress: () -> Unit,
+) {
     val conversation = item.conversation
-    val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
-    val copiedText = stringResource(R.string.number_copied)
-    val singleAddress = conversation.addresses.singleOrNull()
     RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
         ListItem(
             colors = transparentListItemColors(),
             modifier = Modifier.clickableListItem(
                 onClick = { onOpenThread(conversation.threadId) },
-                onLongClick = {
-                    if (singleAddress != null) {
-                        clipboard.setText(AnnotatedString(singleAddress))
-                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-                    }
-                },
+                onLongClick = onLongPress,
             ),
             leadingContent = {
                 ContactAvatar(

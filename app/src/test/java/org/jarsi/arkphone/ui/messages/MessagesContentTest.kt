@@ -3,9 +3,11 @@ package org.jarsi.arkphone.ui.messages
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Conversation
 import org.junit.Assert.assertEquals
@@ -77,6 +79,29 @@ class MessagesContentTest {
             )
         }
         composeRule.onNodeWithTag("unread", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun longPressOffersDeleteAndConfirmingDeletes() {
+        var deleted: Long? = null
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item()),
+                    hasReadSmsPermission = true,
+                ),
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+                onDeleteConversation = { deleted = it },
+            )
+        }
+        composeRule.onNodeWithText("Matti").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Delete conversation?").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete").performClick()
+        assertEquals(3L, deleted)
     }
 
     @Test

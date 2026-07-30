@@ -102,6 +102,7 @@
     <string name="messages_empty">No messages</string>
     <string name="conversation_call">Call</string>
     <string name="conversation_menu">More options</string>
+    <string name="conversation_copy_number">Copy number</string>
     <string name="conversation_delete">Delete conversation</string>
     <string name="conversation_delete_confirm_title">Delete conversation?</string>
     <string name="conversation_delete_confirm_text">All messages in this conversation will be removed from your phone.</string>
@@ -117,6 +118,8 @@
     <string name="message_mark_read">Mark as read</string>
     <string name="new_message_recipient_hint">Name or number</string>
     <string name="new_message_send_to_number">Send to %1$s</string>
+    <string name="new_message_start">Start conversation</string>
+    <string name="new_message_remove_recipient">Remove recipient</string>
     <string name="mms_picture_message">Picture message</string>
     <string name="mms_download_failed_retry">Download failed — tap to retry</string>
     <string name="message_attach">Attach picture</string>
