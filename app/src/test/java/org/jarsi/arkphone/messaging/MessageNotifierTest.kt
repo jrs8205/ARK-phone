@@ -47,6 +47,14 @@ class MessageNotifierTest {
     }
 
     @Test
+    fun `the notification carries reply and mark read actions`() {
+        notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
+        val notification =
+            shadowManager.getNotification(AndroidMessageNotifier.notificationIdFor(3L))
+        assertEquals(2, notification.actions.size)
+    }
+
+    @Test
     fun `cancelling a thread removes only its notification`() {
         notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
         notifier.notifyMessage(4L, "+358400000000", null, "Terve", 2_000L)

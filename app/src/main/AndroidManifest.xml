@@ -110,6 +110,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".messaging.MessageActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".messaging.SmsDeliverReceiver"
             android:permission="android.permission.BROADCAST_SMS"
             android:exported="true">

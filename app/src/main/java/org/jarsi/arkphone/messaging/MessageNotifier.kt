@@ -8,6 +8,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.app.RemoteInput
 import androidx.core.app.TaskStackBuilder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.MainActivity
@@ -62,6 +63,8 @@ class AndroidMessageNotifier @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(openThreadIntent(threadId))
+            .addAction(replyAction(threadId, address))
+            .addAction(markReadAction(threadId, address))
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             @Suppress("MissingPermission")
             NotificationManagerCompat.from(context)
@@ -83,6 +86,49 @@ class AndroidMessageNotifier @Inject constructor(
         }
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
+
+    private fun replyAction(threadId: Long, address: String): NotificationCompat.Action {
+        val remoteInput = RemoteInput.Builder(MessageActionReceiver.KEY_REPLY_TEXT)
+            .setLabel(context.getString(R.string.message_reply))
+            .build()
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            "reply-$threadId".hashCode(),
+            actionIntent(MessageActionReceiver.ACTION_MESSAGE_REPLY, threadId, address),
+            // Mutability is what lets the system attach the typed reply.
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+        return NotificationCompat.Action.Builder(
+            0,
+            context.getString(R.string.message_reply),
+            pendingIntent,
+        )
+            .addRemoteInput(remoteInput)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+            .build()
+    }
+
+    private fun markReadAction(threadId: Long, address: String): NotificationCompat.Action {
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            "mark-read-$threadId".hashCode(),
+            actionIntent(MessageActionReceiver.ACTION_MESSAGE_MARK_READ, threadId, address),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Action.Builder(
+            0,
+            context.getString(R.string.message_mark_read),
+            pendingIntent,
+        )
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+            .build()
+    }
+
+    private fun actionIntent(action: String, threadId: Long, address: String): Intent =
+        Intent(context, MessageActionReceiver::class.java)
+            .setAction(action)
+            .putExtra(MessageActionReceiver.EXTRA_THREAD_ID, threadId)
+            .putExtra(MessageActionReceiver.EXTRA_ADDRESS, address)
 
     /** Back from the opened thread lands on the app's main screen. */
     private fun openThreadIntent(threadId: Long): PendingIntent =

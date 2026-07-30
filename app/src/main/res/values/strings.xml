@@ -114,6 +114,8 @@
     <string name="message_sim_chip_description">Sending SIM</string>
     <string name="notification_channel_messages">Messages</string>
     <string name="message_notification_self">Me</string>
+    <string name="message_reply">Reply</string>
+    <string name="message_mark_read">Mark as read</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>
