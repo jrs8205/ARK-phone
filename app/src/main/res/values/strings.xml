@@ -111,7 +111,6 @@
     <string name="message_status_failed_retry">Failed — tap to retry</string>
     <string name="message_compose_hint">Text message</string>
     <string name="message_send">Send</string>
-    <string name="message_sim_chip_description">Sending SIM</string>
     <string name="notification_channel_messages">Messages</string>
     <string name="message_notification_self">Me</string>
     <string name="message_reply">Reply</string>

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,8 +53,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,7 +85,6 @@ fun ConversationScreen(
         onDeleteConversation = { viewModel.onDeleteConversation(onBack) },
         onSendText = viewModel::onSendText,
         onRetry = viewModel::onRetry,
-        onCycleSim = viewModel::onCycleSim,
         onRetryDownload = onRetryDownload,
         onPickImage = {
             imagePicker.launch(
@@ -110,7 +106,6 @@ fun ConversationContent(
     onDeleteConversation: () -> Unit,
     onSendText: (String) -> Unit = {},
     onRetry: (Message) -> Unit = {},
-    onCycleSim: () -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onPickImage: () -> Unit = {},
     onRemoveAttachment: () -> Unit = {},
@@ -207,9 +202,7 @@ fun ConversationContent(
         bottomBar = {
             ComposerRow(
                 enabled = uiState.address != null && uiState.canSend,
-                simLabel = if (uiState.sims.size >= 2) uiState.selectedSimLabel else null,
                 attachedImageUri = uiState.attachedImageUri,
-                onCycleSim = onCycleSim,
                 onSendText = onSendText,
                 onPickImage = onPickImage,
                 onRemoveAttachment = onRemoveAttachment,
@@ -281,9 +274,7 @@ fun ConversationContent(
 @Composable
 private fun ComposerRow(
     enabled: Boolean,
-    simLabel: String?,
     attachedImageUri: String?,
-    onCycleSim: () -> Unit,
     onSendText: (String) -> Unit,
     onPickImage: () -> Unit,
     onRemoveAttachment: () -> Unit,
@@ -341,17 +332,6 @@ private fun ComposerRow(
                     .weight(1f)
                     .testTag("composer_input"),
             )
-            if (simLabel != null) {
-                val simDescription = stringResource(R.string.message_sim_chip_description)
-                AssistChip(
-                    onClick = onCycleSim,
-                    label = { Text(simLabel, maxLines = 1) },
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .semantics { contentDescription = simDescription }
-                        .testTag("sim_chip"),
-                )
-            }
             IconButton(
                 onClick = {
                     onSendText(text)

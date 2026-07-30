@@ -232,38 +232,28 @@ class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
     }
 }
 
-class FakeMessagingSims(
-    var simList: List<org.jarsi.arkphone.messaging.MessagingSim> = emptyList(),
-    var defaultId: Int = -1,
-) : org.jarsi.arkphone.messaging.MessagingSims {
-    override fun sims(): List<org.jarsi.arkphone.messaging.MessagingSim> = simList
-    override fun defaultSubscriptionId(): Int = defaultId
-}
-
 class FakeMmsSender : org.jarsi.arkphone.messaging.MmsSender {
     data class Sent(
         val address: String,
         val text: String?,
         val imageUri: android.net.Uri,
-        val subscriptionId: Int,
     )
     val sent = mutableListOf<Sent>()
     override suspend fun send(
         address: String,
         text: String?,
         imageUri: android.net.Uri,
-        subscriptionId: Int,
     ): android.net.Uri? {
-        sent += Sent(address, text, imageUri, subscriptionId)
+        sent += Sent(address, text, imageUri)
         return null
     }
 }
 
 class FakeSmsSender : org.jarsi.arkphone.messaging.SmsSender {
-    val sent = mutableListOf<Triple<String, String, Int>>()
+    val sent = mutableListOf<Pair<String, String>>()
     val discarded = mutableListOf<Long>()
-    override suspend fun send(address: String, body: String, subscriptionId: Int): android.net.Uri? {
-        sent += Triple(address, body, subscriptionId)
+    override suspend fun send(address: String, body: String): android.net.Uri? {
+        sent += address to body
         return null
     }
     override suspend fun discardFailed(messageId: Long) {

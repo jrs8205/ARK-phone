@@ -25,10 +25,10 @@ import java.io.File
 class AndroidMmsSenderTest {
 
     private class RecordingTransport : MmsTransport {
-        data class SentPdu(val file: File, val rowUri: Uri, val subscriptionId: Int)
+        data class SentPdu(val file: File, val rowUri: Uri)
         val sent = mutableListOf<SentPdu>()
-        override fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int) {
-            sent += SentPdu(pduFile, rowUri, subscriptionId)
+        override fun sendPdu(pduFile: File, rowUri: Uri) {
+            sent += SentPdu(pduFile, rowUri)
         }
     }
 
@@ -59,7 +59,7 @@ class AndroidMmsSenderTest {
             image.outputStream().use { compress(Bitmap.CompressFormat.JPEG, 90, it) }
         }
 
-        val rowUri = sender.send("+358400000000", "Saate", Uri.fromFile(image), 1)
+        val rowUri = sender.send("+358400000000", "Saate", Uri.fromFile(image))
 
         assertNotNull(rowUri)
         val row = provider.mmsRows.single()
@@ -76,7 +76,6 @@ class AndroidMmsSenderTest {
         assertEquals(151, addr.getAsInteger("type"))
         with(transport.sent.single()) {
             assertEquals(rowUri, this.rowUri)
-            assertEquals(1, subscriptionId)
             assertTrue(file.exists() && file.length() > 0)
         }
     }
@@ -86,7 +85,7 @@ class AndroidMmsSenderTest {
         val broken = File(context.cacheDir, "broken.jpg")
         broken.writeBytes("garbage".toByteArray())
 
-        val rowUri = sender.send("+358400000000", null, Uri.fromFile(broken), 1)
+        val rowUri = sender.send("+358400000000", null, Uri.fromFile(broken))
 
         assertEquals(null, rowUri)
         assertTrue(provider.mmsRows.isEmpty())

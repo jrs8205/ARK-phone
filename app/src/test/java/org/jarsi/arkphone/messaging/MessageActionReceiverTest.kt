@@ -6,7 +6,6 @@ import androidx.core.app.RemoteInput
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.testing.FakeMessageNotifier
 import org.jarsi.arkphone.testing.FakeMessagesRepository
-import org.jarsi.arkphone.testing.FakeMessagingSims
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -19,18 +18,16 @@ class MessageActionReceiverTest {
 
     private val fakeSender = FakeSmsSender()
     private val fakeRepository = FakeMessagesRepository()
-    private val fakeSims = FakeMessagingSims(defaultId = 7)
     private val fakeNotifier = FakeMessageNotifier()
 
     private val handler = MessageActionHandler(
         smsSender = fakeSender,
         messagesRepository = fakeRepository,
-        messagingSims = fakeSims,
         messageNotifier = fakeNotifier,
     )
 
     @Test
-    fun `reply sends the text on the default sim and marks the thread read`() = runTest {
+    fun `reply sends the text and marks the thread read`() = runTest {
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
@@ -38,7 +35,7 @@ class MessageActionReceiverTest {
             replyText = " Takaisin ",
         )
 
-        assertEquals(Triple("+358441234567", "Takaisin", 7), fakeSender.sent.single())
+        assertEquals("+358441234567" to "Takaisin", fakeSender.sent.single())
         assertEquals(listOf(3L), fakeRepository.markedRead)
         assertEquals(listOf(3L), fakeNotifier.cancelledThreads)
     }

@@ -22,8 +22,6 @@ import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
-import org.jarsi.arkphone.messaging.MessagingSim
-import org.jarsi.arkphone.messaging.MessagingSims
 import org.jarsi.arkphone.messaging.MmsSender
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.messaging.SmsSender
@@ -67,17 +65,12 @@ data class ConversationUiState(
     val isGroup: Boolean = false,
     val blocked: Boolean = false,
     val canBlock: Boolean = false,
-    val sims: List<MessagingSim> = emptyList(),
-    val selectedSubscriptionId: Int = -1,
     /** The picked image waiting in the composer, as a content URI string. */
     val attachedImageUri: String? = null,
     /** False while ARK-phone is not the default SMS app. */
     val canSend: Boolean = true,
 ) {
     val rows: List<ConversationRow> get() = dateSeparators(messages)
-
-    val selectedSimLabel: String?
-        get() = sims.firstOrNull { it.subscriptionId == selectedSubscriptionId }?.label
 }
 
 @HiltViewModel
@@ -87,7 +80,6 @@ class ConversationViewModel @Inject constructor(
     private val blockedNumbersRepository: BlockedNumbersRepository,
     private val smsSender: SmsSender,
     private val mmsSender: MmsSender,
-    private val messagingSims: MessagingSims,
     private val smsRole: SmsRole,
 ) : ViewModel() {
 
@@ -95,18 +87,12 @@ class ConversationViewModel @Inject constructor(
     private val contact = MutableStateFlow<ContactMatch?>(null)
     private val blocked = MutableStateFlow(false)
     private val canBlock = MutableStateFlow(false)
-    private val sims = MutableStateFlow<List<MessagingSim>>(emptyList())
     private val attachedImage = MutableStateFlow<Uri?>(null)
     private val canSend = MutableStateFlow(smsRole.isHeld())
-
-    /** Per-open-conversation choice; never persisted. */
-    private val selectedSubscription = MutableStateFlow(-1)
 
     private data class SendPanel(
         val blocked: Boolean,
         val canBlock: Boolean,
-        val sims: List<MessagingSim>,
-        val selectedSubscriptionId: Int,
         val attachedImage: Uri?,
         val canSend: Boolean,
     )
@@ -115,9 +101,9 @@ class ConversationViewModel @Inject constructor(
         isBlocked to blockingAvailable
     }
 
-    private val sendPanel = combine(blockingState, sims, selectedSubscription, attachedImage, canSend) {
-            (isBlocked, blockingAvailable), simList, selected, attachment, sendAllowed ->
-        SendPanel(isBlocked, blockingAvailable, simList, selected, attachment, sendAllowed)
+    private val sendPanel = combine(blockingState, attachedImage, canSend) {
+            (isBlocked, blockingAvailable), attachment, sendAllowed ->
+        SendPanel(isBlocked, blockingAvailable, attachment, sendAllowed)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -154,8 +140,6 @@ class ConversationViewModel @Inject constructor(
             isGroup = addresses.size > 1,
             blocked = panel.blocked,
             canBlock = panel.canBlock,
-            sims = panel.sims,
-            selectedSubscriptionId = panel.selectedSubscriptionId,
             attachedImageUri = panel.attachedImage?.toString(),
             canSend = panel.canSend,
         )
@@ -168,20 +152,11 @@ class ConversationViewModel @Inject constructor(
     fun open(threadId: Long) {
         if (this.threadId.value == threadId) return
         this.threadId.value = threadId
-        sims.value = messagingSims.sims()
-        selectedSubscription.value = messagingSims.defaultSubscriptionId()
         canSend.value = smsRole.isHeld()
         viewModelScope.launch {
             messagesRepository.markThreadRead(threadId)
             canBlock.value = blockedNumbersRepository.canBlock()
         }
-    }
-
-    fun onCycleSim() {
-        val simList = sims.value
-        if (simList.size < 2) return
-        val index = simList.indexOfFirst { it.subscriptionId == selectedSubscription.value }
-        selectedSubscription.value = simList[(index + 1) % simList.size].subscriptionId
     }
 
     fun onToggleBlocked() {
@@ -208,14 +183,9 @@ class ConversationViewModel @Inject constructor(
         viewModelScope.launch {
             if (attachment != null) {
                 attachedImage.value = null
-                mmsSender.send(
-                    address,
-                    trimmed.takeIf { it.isNotEmpty() },
-                    attachment,
-                    selectedSubscription.value,
-                )
+                mmsSender.send(address, trimmed.takeIf { it.isNotEmpty() }, attachment)
             } else {
-                smsSender.send(address, trimmed, selectedSubscription.value)
+                smsSender.send(address, trimmed)
             }
             messagesRepository.refresh()
         }
@@ -227,7 +197,7 @@ class ConversationViewModel @Inject constructor(
         val body = message.body ?: return
         viewModelScope.launch {
             smsSender.discardFailed(message.id)
-            smsSender.send(message.address, body, message.subscriptionId)
+            smsSender.send(message.address, body)
             messagesRepository.refresh()
         }
     }

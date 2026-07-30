@@ -17,8 +17,6 @@ class HeadlessSmsSendService : Service() {
 
     @Inject lateinit var smsSender: SmsSender
 
-    @Inject lateinit var messagingSims: MessagingSims
-
     @Inject @ApplicationScope lateinit var scope: CoroutineScope
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -31,7 +29,7 @@ class HeadlessSmsSendService : Service() {
             !text.isNullOrBlank()
         ) {
             scope.launch {
-                smsSender.send(recipient, text, messagingSims.defaultSubscriptionId())
+                smsSender.send(recipient, text)
                 stopSelf(startId)
             }
         } else {

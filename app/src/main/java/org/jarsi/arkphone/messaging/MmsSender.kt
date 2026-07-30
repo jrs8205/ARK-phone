@@ -23,15 +23,16 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Sends one image (+ optional text) to one recipient. */
+/** Sends one image (+ optional text) to one recipient with the device's
+ *  default messaging SIM. */
 fun interface MmsSender {
     /** Returns the provider row URI, or null when the send could not start. */
-    suspend fun send(address: String, text: String?, imageUri: Uri, subscriptionId: Int): Uri?
+    suspend fun send(address: String, text: String?, imageUri: Uri): Uri?
 }
 
 /** Hands one composed PDU file to the platform MMS service. */
 fun interface MmsTransport {
-    fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int)
+    fun sendPdu(pduFile: File, rowUri: Uri)
 }
 
 @Singleton
@@ -39,7 +40,7 @@ class PlatformMmsTransport @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : MmsTransport {
 
-    override fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int) {
+    override fun sendPdu(pduFile: File, rowUri: Uri) {
         val fileUri = FileProvider.getUriForFile(context, MmsFileProvider.AUTHORITY, pduFile)
         // The platform mms service reads the PDU through this grant.
         listOf("com.android.phone", "com.android.mms.service").forEach { pkg ->
@@ -59,20 +60,7 @@ class PlatformMmsTransport @Inject constructor(
                 PendingIntent.FLAG_IMMUTABLE or
                 PendingIntent.FLAG_ONE_SHOT,
         )
-        smsManagerFor(subscriptionId).sendMultimediaMessage(context, fileUri, null, null, sent)
-    }
-
-    private fun smsManagerFor(subscriptionId: Int): SmsManager {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(SmsManager::class.java)
-            return if (subscriptionId >= 0) manager.createForSubscriptionId(subscriptionId) else manager
-        }
-        @Suppress("DEPRECATION")
-        return if (subscriptionId >= 0) {
-            SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
-        } else {
-            SmsManager.getDefault()
-        }
+        context.defaultSmsManager().sendMultimediaMessage(context, fileUri, null, null, sent)
     }
 }
 
@@ -99,10 +87,9 @@ class AndroidMmsSender @Inject constructor(
         address: String,
         text: String?,
         imageUri: Uri,
-        subscriptionId: Int,
     ): Uri? = withContext(ioDispatcher) {
         runCatching {
-            val budget = maxMessageBytes(subscriptionId) * 9 / 10
+            val budget = maxMessageBytes() * 9 / 10
             val imageBytes = imageShrinker.shrink(imageUri, budget) ?: return@runCatching null
             val parts = buildList {
                 add(MmsPart("image/jpeg", imageBytes, "image.jpg"))
@@ -116,7 +103,7 @@ class AndroidMmsSender @Inject constructor(
             val file = File(File(context.cacheDir, "mms"), "mms-send-$messageId.pdu")
                 .apply { parentFile?.mkdirs() }
             file.writeBytes(pdu)
-            runCatching { transport.sendPdu(file, rowUri, subscriptionId) }
+            runCatching { transport.sendPdu(file, rowUri) }
                 .onFailure {
                     // The row stays visible as failed instead of a stuck outbox.
                     context.contentResolver.update(
@@ -178,9 +165,9 @@ class AndroidMmsSender @Inject constructor(
     // READ_PHONE_STATE is granted with the core call permissions; runCatching
     // covers the refusal case with the carrier default.
     @SuppressLint("MissingPermission")
-    private fun maxMessageBytes(subscriptionId: Int): Int = runCatching {
+    private fun maxMessageBytes(): Int = runCatching {
         context.getSystemService(CarrierConfigManager::class.java)
-            ?.getConfigForSubId(subscriptionId)
+            ?.getConfigForSubId(defaultMessagingSubscriptionId())
             ?.getInt(CarrierConfigManager.KEY_MMS_MAX_MESSAGE_SIZE_INT)
             ?.takeIf { it > 0 }
     }.getOrNull() ?: DEFAULT_MAX_MESSAGE_BYTES

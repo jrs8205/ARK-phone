@@ -22,7 +22,7 @@ class AndroidSmsSender @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : SmsSender {
 
-    override suspend fun send(address: String, body: String, subscriptionId: Int): Uri? =
+    override suspend fun send(address: String, body: String): Uri? =
         withContext(ioDispatcher) {
             runCatching {
                 val values = ContentValues().apply {
@@ -31,7 +31,9 @@ class AndroidSmsSender @Inject constructor(
                     put(Telephony.Sms.DATE, System.currentTimeMillis())
                     put(Telephony.Sms.READ, 1)
                     put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
-                    put(Telephony.Sms.SUBSCRIPTION_ID, subscriptionId)
+                    defaultMessagingSubscriptionId()
+                        .takeIf { it >= 0 }
+                        ?.let { put(Telephony.Sms.SUBSCRIPTION_ID, it) }
                     put(
                         Telephony.Sms.THREAD_ID,
                         Telephony.Threads.getOrCreateThreadId(context, address),
@@ -39,7 +41,7 @@ class AndroidSmsSender @Inject constructor(
                 }
                 val rowUri = context.contentResolver.insert(Telephony.Sms.CONTENT_URI, values)
                     ?: return@runCatching null
-                val smsManager = smsManagerFor(subscriptionId)
+                val smsManager = context.defaultSmsManager()
                 val parts = smsManager.divideMessage(body)
                 // Only the last part reports back, so the whole message makes
                 // exactly one sending → sent → delivered transition.
@@ -70,19 +72,6 @@ class AndroidSmsSender @Inject constructor(
                     null,
                 )
             }
-        }
-    }
-
-    private fun smsManagerFor(subscriptionId: Int): SmsManager {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(SmsManager::class.java)
-            return if (subscriptionId >= 0) manager.createForSubscriptionId(subscriptionId) else manager
-        }
-        @Suppress("DEPRECATION")
-        return if (subscriptionId >= 0) {
-            SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
-        } else {
-            SmsManager.getDefault()
         }
     }
 

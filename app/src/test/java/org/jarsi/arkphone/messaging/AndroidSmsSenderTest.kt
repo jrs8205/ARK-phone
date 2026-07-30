@@ -16,6 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ContentProviderController
 import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowSubscriptionManager
 
 @RunWith(RobolectricTestRunner::class)
 class AndroidSmsSenderTest {
@@ -29,6 +30,7 @@ class AndroidSmsSenderTest {
             .create("mms-sms").get()
         ShadowContentResolver.registerProviderInternal("sms", provider)
         ShadowContentResolver.registerProviderInternal("mms", provider)
+        ShadowSubscriptionManager.setDefaultSmsSubscriptionId(1)
         sender = AndroidSmsSender(
             context = ApplicationProvider.getApplicationContext<Application>(),
             ioDispatcher = Dispatchers.Unconfined,
@@ -36,8 +38,8 @@ class AndroidSmsSenderTest {
     }
 
     @Test
-    fun `send inserts an outbox row and hands the parts to the sms manager`() = runTest {
-        val rowUri = sender.send("+358441234567", "Moro", subscriptionId = 1)
+    fun `send inserts an outbox row and hands the parts to the default sms manager`() = runTest {
+        val rowUri = sender.send("+358441234567", "Moro")
 
         assertNotNull(rowUri)
         val row = provider.smsRows.single()
@@ -51,7 +53,7 @@ class AndroidSmsSenderTest {
         assertEquals(1, row.getAsInteger(Telephony.Sms.SUBSCRIPTION_ID))
         assertEquals(42L, row.getAsLong(Telephony.Sms.THREAD_ID))
 
-        val params = shadowOf(smsManagerForSub(1)).lastSentMultipartTextMessageParams
+        val params = shadowOf(defaultSmsManager()).lastSentMultipartTextMessageParams
         assertNotNull(params)
         assertEquals("+358441234567", params.destinationAddress)
         assertEquals(listOf("Moro"), params.parts)
@@ -65,8 +67,9 @@ class AndroidSmsSenderTest {
         assertEquals("content://sms/7", provider.deletedUris.single().toString())
     }
 
-    private fun smsManagerForSub(subscriptionId: Int): SmsManager =
+    /** The manager for subscription 1, the shadowed default messaging SIM. */
+    private fun defaultSmsManager(): SmsManager =
         ApplicationProvider.getApplicationContext<Application>()
             .getSystemService(SmsManager::class.java)
-            .createForSubscriptionId(subscriptionId)
+            .createForSubscriptionId(1)
 }

@@ -15,7 +15,6 @@ import javax.inject.Inject
 class MessageActionHandler @Inject constructor(
     private val smsSender: SmsSender,
     private val messagesRepository: MessagesRepository,
-    private val messagingSims: MessagingSims,
     private val messageNotifier: MessageNotifier,
 ) {
 
@@ -30,7 +29,7 @@ class MessageActionHandler @Inject constructor(
             !address.isNullOrBlank() &&
             !replyText.isNullOrBlank()
         ) {
-            smsSender.send(address, replyText.trim(), messagingSims.defaultSubscriptionId())
+            smsSender.send(address, replyText.trim())
         }
         messagesRepository.markThreadRead(threadId)
         messageNotifier.cancelThread(threadId)

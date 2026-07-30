@@ -11,7 +11,6 @@ import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
-import org.jarsi.arkphone.testing.FakeMessagingSims
 import org.jarsi.arkphone.testing.FakeMmsSender
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.jarsi.arkphone.testing.MainDispatcherRule
@@ -35,7 +34,6 @@ class ConversationViewModelMmsTest {
     private val blockedNumbers = FakeBlockedNumbersRepository()
     private val smsSender = FakeSmsSender()
     private val mmsSender = FakeMmsSender()
-    private val messagingSims = FakeMessagingSims()
 
     private fun viewModel() = ConversationViewModel(
         repository,
@@ -43,7 +41,6 @@ class ConversationViewModelMmsTest {
         blockedNumbers,
         smsSender,
         mmsSender,
-        messagingSims,
         org.jarsi.arkphone.testing.FakeSmsRole(held = true),
     )
 
