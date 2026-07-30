@@ -23,11 +23,12 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Sends one image (+ optional text) to one recipient with the device's
- *  default messaging SIM. */
+/** Sends one MMS — an image, a text, or both — to one or more recipients
+ *  with the device's default messaging SIM. A multi-recipient send is a
+ *  group MMS: every receiver sees the whole group. */
 fun interface MmsSender {
     /** Returns the provider row URI, or null when the send could not start. */
-    suspend fun send(address: String, text: String?, imageUri: Uri): Uri?
+    suspend fun send(addresses: List<String>, text: String?, imageUri: Uri?): Uri?
 }
 
 /** Hands one composed PDU file to the platform MMS service. */
@@ -84,21 +85,25 @@ class AndroidMmsSender @Inject constructor(
     }
 
     override suspend fun send(
-        address: String,
+        addresses: List<String>,
         text: String?,
-        imageUri: Uri,
+        imageUri: Uri?,
     ): Uri? = withContext(ioDispatcher) {
         runCatching {
-            val budget = maxMessageBytes() * 9 / 10
-            val imageBytes = imageShrinker.shrink(imageUri, budget) ?: return@runCatching null
+            if (addresses.isEmpty()) return@runCatching null
+            val imageBytes = imageUri?.let { uri ->
+                val budget = maxMessageBytes() * 9 / 10
+                imageShrinker.shrink(uri, budget) ?: return@runCatching null
+            }
             val parts = buildList {
-                add(MmsPart("image/jpeg", imageBytes, "image.jpg"))
+                imageBytes?.let { add(MmsPart("image/jpeg", it, "image.jpg")) }
                 text?.takeIf { it.isNotBlank() }?.let {
                     add(MmsPart("text/plain", it.toByteArray(Charsets.UTF_8), null))
                 }
             }
-            val pdu = composeSendReq(from = null, to = address, parts = parts)
-            val rowUri = storeOutboxRow(address, text, parts) ?: return@runCatching null
+            if (parts.isEmpty()) return@runCatching null
+            val pdu = composeSendReq(from = null, to = addresses, parts = parts)
+            val rowUri = storeOutboxRow(addresses, parts) ?: return@runCatching null
             val messageId = ContentUris.parseId(rowUri)
             val file = File(File(context.cacheDir, "mms"), "mms-send-$messageId.pdu")
                 .apply { parentFile?.mkdirs() }
@@ -119,9 +124,12 @@ class AndroidMmsSender @Inject constructor(
         }.getOrNull()
     }
 
-    private fun storeOutboxRow(address: String, text: String?, parts: List<MmsPart>): Uri? {
+    private fun storeOutboxRow(addresses: List<String>, parts: List<MmsPart>): Uri? {
         val values = ContentValues().apply {
-            put(Telephony.Mms.THREAD_ID, Telephony.Threads.getOrCreateThreadId(context, address))
+            put(
+                Telephony.Mms.THREAD_ID,
+                Telephony.Threads.getOrCreateThreadId(context, addresses.toSet()),
+            )
             put(Telephony.Mms.DATE, System.currentTimeMillis() / 1000)
             put(Telephony.Mms.READ, 1)
             put(Telephony.Mms.SEEN, 1)
@@ -131,15 +139,17 @@ class AndroidMmsSender @Inject constructor(
         val rowUri = context.contentResolver.insert(Telephony.Mms.CONTENT_URI, values)
             ?: return null
         val messageId = ContentUris.parseId(rowUri)
-        context.contentResolver.insert(
-            "content://mms/$messageId/addr".toUri(),
-            ContentValues().apply {
-                put(Telephony.Mms.Addr.ADDRESS, address)
-                put(Telephony.Mms.Addr.TYPE, ADDRESS_TYPE_TO)
-                put(Telephony.Mms.Addr.MSG_ID, messageId)
-                put(Telephony.Mms.Addr.CHARSET, CHARSET_UTF8)
-            },
-        )
+        addresses.forEach { address ->
+            context.contentResolver.insert(
+                "content://mms/$messageId/addr".toUri(),
+                ContentValues().apply {
+                    put(Telephony.Mms.Addr.ADDRESS, address)
+                    put(Telephony.Mms.Addr.TYPE, ADDRESS_TYPE_TO)
+                    put(Telephony.Mms.Addr.MSG_ID, messageId)
+                    put(Telephony.Mms.Addr.CHARSET, CHARSET_UTF8)
+                },
+            )
+        }
         parts.forEach { part ->
             val partValues = ContentValues().apply {
                 put(Telephony.Mms.Part.MSG_ID, messageId)

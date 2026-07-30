@@ -119,7 +119,7 @@ internal fun parseRetrieveConf(pdu: ByteArray): RetrieveConf? = runCatching {
     )
 }.getOrNull()
 
-internal fun composeSendReq(from: String?, to: String, parts: List<MmsPart>): ByteArray {
+internal fun composeSendReq(from: String?, to: List<String>, parts: List<MmsPart>): ByteArray {
     val out = ByteArrayOutputStream()
     out.write(HEADER_MESSAGE_TYPE)
     out.write(MESSAGE_TYPE_SEND_REQ)
@@ -140,8 +140,10 @@ internal fun composeSendReq(from: String?, to: String, parts: List<MmsPart>): By
         out.write(encoded)
         out.write(0)
     }
-    out.write(HEADER_TO)
-    out.writeTextString(to.asPlmn())
+    to.forEach { recipient ->
+        out.write(HEADER_TO)
+        out.writeTextString(recipient.asPlmn())
+    }
     out.write(HEADER_CONTENT_TYPE)
     out.write(CONTENT_TYPE_MULTIPART_MIXED)
     out.writeUintvar(parts.size)

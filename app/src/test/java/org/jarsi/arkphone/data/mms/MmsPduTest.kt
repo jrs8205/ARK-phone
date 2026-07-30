@@ -36,7 +36,7 @@ class MmsPduTest {
             MmsPart("image/jpeg", bytes(1, 2, 3, 4), null),
         )
 
-        val pdu = composeSendReq("+358441234567", "+358400000000", parts)
+        val pdu = composeSendReq("+358441234567", listOf("+358400000000"), parts)
         val conf = parseRetrieveConf(pdu)!!
 
         assertEquals("+358441234567", conf.from)
@@ -48,9 +48,24 @@ class MmsPduTest {
 
     @Test
     fun `a send req without sender uses the insert address token`() {
-        val pdu = composeSendReq(null, "+358400000000", listOf(MmsPart("text/plain", "x".toByteArray(), null)))
+        val pdu = composeSendReq(
+            null,
+            listOf("+358400000000"),
+            listOf(MmsPart("text/plain", "x".toByteArray(), null)),
+        )
         val conf = parseRetrieveConf(pdu)!!
         assertNull(conf.from)
+    }
+
+    @Test
+    fun `a group send req carries every recipient`() {
+        val pdu = composeSendReq(
+            null,
+            listOf("+358400000000", "+358411111111"),
+            listOf(MmsPart("text/plain", "Moro kaikille".toByteArray(), null)),
+        )
+        val conf = parseRetrieveConf(pdu)!!
+        assertEquals(listOf("+358400000000", "+358411111111"), conf.to)
     }
 
     /** A carrier-shaped m-retrieve-conf: multipart.related with start/type

@@ -49,6 +49,7 @@ class ConversationScreenTest {
     private fun setContent(
         messages: List<Message>,
         address: String? = "+358441234567",
+        isGroup: Boolean = false,
         onSendText: (String) -> Unit = {},
         onRetryDownload: (Long) -> Unit = {},
         attachedImageUri: String? = null,
@@ -61,6 +62,7 @@ class ConversationScreenTest {
                     messages = messages,
                     title = "Matti",
                     address = address,
+                    isGroup = isGroup,
                     attachedImageUri = attachedImageUri,
                 ),
                 onBack = {},
@@ -122,9 +124,15 @@ class ConversationScreenTest {
     }
 
     @Test
-    fun composerIsDisabledForGroupThreads() {
+    fun composerIsDisabledWhenTheOtherPartyIsUnknown() {
         setContent(listOf(message(1, 1_000)), address = null)
         composeRule.onNodeWithTag("composer_input").assertIsNotEnabled()
+    }
+
+    @Test
+    fun composerIsEnabledForGroupThreads() {
+        setContent(listOf(message(1, 1_000)), address = null, isGroup = true)
+        composeRule.onNodeWithTag("composer_input").assertIsEnabled()
     }
 
     @Test

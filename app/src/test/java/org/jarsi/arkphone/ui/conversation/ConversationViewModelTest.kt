@@ -192,6 +192,55 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun threadRecipientsBeatTheMessageRowsAsTheAddressSource() = runTest {
+        // A thread whose only rows are sent MMS has blank message addresses;
+        // the threads table still knows who the conversation is with.
+        repository.recipientsByThread[3L] = listOf("+358441234567")
+        seedThread(3L, listOf(message(1, 1000, address = "")))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.address == null) {
+                state = awaitItem()
+            }
+            assertEquals("+358441234567", state.address)
+            assertTrue(!state.isGroup)
+        }
+    }
+
+    @Test
+    fun aGroupThreadIsFlaggedAndTextGoesAsGroupMms() = runTest {
+        repository.recipientsByThread[3L] = listOf("+358441234567", "+358400000000")
+        seedThread(3L, listOf(message(1, 1000)))
+        val mmsSender = FakeMmsSender()
+        val viewModel = ConversationViewModel(
+            repository,
+            contacts,
+            blockedNumbers,
+            smsSender,
+            mmsSender,
+            smsRole,
+        )
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (!state.isGroup) {
+                state = awaitItem()
+            }
+            viewModel.onSendText(" Moro kaikille ")
+            advanceUntilIdle()
+            with(mmsSender.sent.single()) {
+                assertEquals(listOf("+358441234567", "+358400000000"), addresses)
+                assertEquals("Moro kaikille", text)
+                assertEquals(null, imageUri)
+            }
+            assertTrue(smsSender.sent.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun sendingIsBlockedWithoutTheSmsRole() = runTest {
         smsRole.held = false
         seedThread(3L, listOf(message(1, 1000)))

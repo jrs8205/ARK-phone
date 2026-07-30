@@ -145,6 +145,27 @@ class SystemMessagesRepository @Inject constructor(
         ).flowOn(ioDispatcher)
     }
 
+    override suspend fun recipients(threadId: Long): List<String> = withContext(ioDispatcher) {
+        if (!permissionChecker.has(Manifest.permission.READ_SMS)) return@withContext emptyList()
+        var recipientIds = emptyList<Long>()
+        runCatching {
+            context.contentResolver.query(
+                conversationsUri,
+                arrayOf("_id", "date", "message_count", "recipient_ids", "snippet", "read"),
+                null, null, null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (cursor.getLong(0) == threadId) {
+                        recipientIds = cursor.getString(3).orEmpty()
+                            .split(' ').mapNotNull { it.toLongOrNull() }
+                        break
+                    }
+                }
+            }
+        }
+        recipientIds.mapNotNull(::canonicalAddress)
+    }
+
     override suspend fun markThreadRead(threadId: Long) {
         withContext(ioDispatcher) {
             runCatching {

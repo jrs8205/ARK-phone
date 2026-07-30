@@ -201,7 +201,7 @@ fun ConversationContent(
         },
         bottomBar = {
             ComposerRow(
-                enabled = uiState.address != null && uiState.canSend,
+                enabled = (uiState.address != null || uiState.isGroup) && uiState.canSend,
                 attachedImageUri = uiState.attachedImageUri,
                 onSendText = onSendText,
                 onPickImage = onPickImage,

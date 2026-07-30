@@ -89,6 +89,7 @@ class ConversationViewModel @Inject constructor(
     private val canBlock = MutableStateFlow(false)
     private val attachedImage = MutableStateFlow<Uri?>(null)
     private val canSend = MutableStateFlow(smsRole.isHeld())
+    private val recipients = MutableStateFlow<List<String>>(emptyList())
 
     private data class SendPanel(
         val blocked: Boolean,
@@ -128,8 +129,14 @@ class ConversationViewModel @Inject constructor(
         contactsRepository.contacts(),
         contact,
         sendPanel,
-    ) { messages, contacts, match, panel ->
-        val addresses = messages.map { it.address }.filter { it.isNotBlank() }.distinct()
+        recipients,
+    ) { messages, contacts, match, panel, threadRecipients ->
+        // The threads table is the authority on who the conversation is
+        // with; message rows only stand in while it has not loaded — sent
+        // MMS rows carry no address at all.
+        val addresses = threadRecipients.ifEmpty {
+            messages.map { it.address }.filter { it.isNotBlank() }.distinct()
+        }
         ConversationUiState(
             loading = false,
             messages = messages,
@@ -154,6 +161,7 @@ class ConversationViewModel @Inject constructor(
         this.threadId.value = threadId
         canSend.value = smsRole.isHeld()
         viewModelScope.launch {
+            recipients.value = messagesRepository.recipients(threadId)
             messagesRepository.markThreadRead(threadId)
             canBlock.value = blockedNumbersRepository.canBlock()
         }
@@ -176,16 +184,26 @@ class ConversationViewModel @Inject constructor(
 
     fun onSendText(body: String) {
         if (!canSend.value) return
-        val address = uiState.value.address ?: return
+        val state = uiState.value
         val trimmed = body.trim()
         val attachment = attachedImage.value
         if (trimmed.isEmpty() && attachment == null) return
+        val groupRecipients = recipients.value.takeIf { it.size > 1 }
+        val address = state.address
+        if (groupRecipients == null && address == null) return
         viewModelScope.launch {
-            if (attachment != null) {
-                attachedImage.value = null
-                mmsSender.send(address, trimmed.takeIf { it.isNotEmpty() }, attachment)
-            } else {
-                smsSender.send(address, trimmed)
+            when {
+                // A group reply is a group MMS even when it is only text:
+                // that is what keeps everyone's copy in the same thread.
+                groupRecipients != null -> {
+                    attachedImage.value = null
+                    mmsSender.send(groupRecipients, trimmed.takeIf { it.isNotEmpty() }, attachment)
+                }
+                attachment != null -> {
+                    attachedImage.value = null
+                    mmsSender.send(listOf(address!!), trimmed.takeIf { it.isNotEmpty() }, attachment)
+                }
+                else -> smsSender.send(address!!, trimmed)
             }
             messagesRepository.refresh()
         }

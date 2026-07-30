@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Telephony
+import android.telephony.PhoneNumberUtils
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import dagger.hilt.android.AndroidEntryPoint
@@ -54,6 +56,7 @@ class MmsDownloader @Inject constructor(
         const val MESSAGE_TYPE_RETRIEVED = 132
 
         private const val ADDRESS_TYPE_FROM = 137
+        private const val ADDRESS_TYPE_TO = 151
         private const val CHARSET_UTF8 = 106
         private const val TEXT_PLAIN = "text/plain"
     }
@@ -158,6 +161,14 @@ class MmsDownloader @Inject constructor(
         val update = ContentValues().apply {
             put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_RETRIEVED)
             if (conf.timestampSeconds > 0) put(Telephony.Mms.DATE, conf.timestampSeconds)
+            groupRecipients(conf)?.let { group ->
+                // A group MMS belongs to the thread of the whole group, not
+                // to the 1:1 thread of its sender the push was filed under.
+                put(
+                    Telephony.Mms.THREAD_ID,
+                    Telephony.Threads.getOrCreateThreadId(context, group),
+                )
+            }
         }
         context.contentResolver.update(
             ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, messageId),
@@ -165,7 +176,49 @@ class MmsDownloader @Inject constructor(
             null,
             null,
         )
+        conf.to.forEach { recipient -> insertAddr(messageId, recipient, ADDRESS_TYPE_TO) }
         conf.parts.forEach { part -> insertPart(messageId, part) }
+    }
+
+    /** The sender plus the To recipients that are not this phone's own
+     *  numbers; null when that resolves to a plain 1:1 conversation.
+     *  When the SIM does not expose its own number a lone To entry is this
+     *  phone itself, so only two or more other recipients count as a group. */
+    private fun groupRecipients(conf: RetrieveConf): Set<String>? {
+        val sender = conf.from ?: return null
+        val own = ownNumbers()
+        val others = conf.to
+            .filter { it.isNotBlank() }
+            .filterNot { PhoneNumberUtils.compare(it, sender) }
+            .filterNot { candidate -> own.any { PhoneNumberUtils.compare(candidate, it) } }
+        val isGroup = if (own.isEmpty()) others.size >= 2 else others.isNotEmpty()
+        if (!isGroup) return null
+        return (others + sender).toSet()
+    }
+
+    private fun ownNumbers(): Set<String> = runCatching {
+        context.getSystemService(SubscriptionManager::class.java)
+            ?.activeSubscriptionInfoList
+            .orEmpty()
+            .mapNotNull { info ->
+                @Suppress("DEPRECATION")
+                info.number?.takeIf { it.isNotBlank() }
+            }
+            .toSet()
+    }.getOrDefault(emptySet())
+
+    private fun insertAddr(messageId: Long, address: String, type: Int) {
+        runCatching {
+            context.contentResolver.insert(
+                "content://mms/$messageId/addr".toUri(),
+                ContentValues().apply {
+                    put(Telephony.Mms.Addr.ADDRESS, address)
+                    put(Telephony.Mms.Addr.TYPE, type)
+                    put(Telephony.Mms.Addr.MSG_ID, messageId)
+                    put(Telephony.Mms.Addr.CHARSET, CHARSET_UTF8)
+                },
+            )
+        }
     }
 
     private fun insertPart(messageId: Long, part: MmsPart) {

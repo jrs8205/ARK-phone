@@ -78,7 +78,7 @@ class ConversationViewModelMmsTest {
             viewModel.onSendText(" Saate ")
             advanceUntilIdle()
             with(mmsSender.sent.single()) {
-                assertEquals("+358441234567", address)
+                assertEquals(listOf("+358441234567"), addresses)
                 assertEquals("Saate", text)
                 assertEquals(Uri.parse("content://media/1"), imageUri)
             }

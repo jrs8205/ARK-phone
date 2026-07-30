@@ -234,17 +234,17 @@ class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
 
 class FakeMmsSender : org.jarsi.arkphone.messaging.MmsSender {
     data class Sent(
-        val address: String,
+        val addresses: List<String>,
         val text: String?,
-        val imageUri: android.net.Uri,
+        val imageUri: android.net.Uri?,
     )
     val sent = mutableListOf<Sent>()
     override suspend fun send(
-        address: String,
+        addresses: List<String>,
         text: String?,
-        imageUri: android.net.Uri,
+        imageUri: android.net.Uri?,
     ): android.net.Uri? {
-        sent += Sent(address, text, imageUri)
+        sent += Sent(addresses, text, imageUri)
         return null
     }
 }
@@ -274,6 +274,9 @@ class FakeMessagesRepository : MessagesRepository {
     override fun refresh() {
         refreshCalls++
     }
+    var recipientsByThread = mutableMapOf<Long, List<String>>()
+    override suspend fun recipients(threadId: Long): List<String> =
+        recipientsByThread[threadId].orEmpty()
     override suspend fun markThreadRead(threadId: Long) {
         markedRead += threadId
     }

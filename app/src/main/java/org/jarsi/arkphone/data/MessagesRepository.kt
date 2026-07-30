@@ -11,6 +11,10 @@ interface MessagesRepository {
     /** Messages of one thread, oldest first. */
     fun messages(threadId: Long): Flow<List<Message>>
 
+    /** The thread's recipients as stored in the threads table; the messages
+     *  of the thread cannot stand in — sent MMS rows carry no address. */
+    suspend fun recipients(threadId: Long): List<String>
+
     /**
      * Re-checks permission, starts provider observation if it just became
      * possible, and re-queries. Call after a runtime permission change.

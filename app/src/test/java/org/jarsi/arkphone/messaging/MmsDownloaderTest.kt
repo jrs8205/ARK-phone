@@ -80,7 +80,7 @@ class MmsDownloaderTest {
         val messageId = provider.mmsRows.single().getAsLong("_id")
         val conf = composeSendReq(
             "+358441234567",
-            "+358400000000",
+            listOf("+358400000000"),
             listOf(MmsPart("text/plain", "Kuvan saate".toByteArray(), null)),
         )
         downloader.downloadFileFor(messageId).apply {
@@ -113,7 +113,7 @@ class MmsDownloaderTest {
             writeBytes(
                 composeSendReq(
                     "+358441234567",
-                    "+358400000000",
+                    listOf("+358400000000"),
                     listOf(MmsPart("text/plain", "Roskaa".toByteArray(), null)),
                 ),
             )
@@ -134,6 +134,29 @@ class MmsDownloaderTest {
         assertEquals(130, provider.mmsRows.single().getAsInteger("m_type"))
         assertTrue(provider.mmsPartRows.isEmpty())
         assertTrue(notifier.notified.isEmpty())
+    }
+
+    @Test
+    fun `a group retrieve conf stores every other recipient as an addr row`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("+358400000000", "+358411111111"),
+                    listOf(MmsPart("text/plain", "Ryhmälle".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        val addresses = provider.mmsAddrRows.map { it.second.getAsString("address") }
+        assertTrue("+358400000000" in addresses)
+        assertTrue("+358411111111" in addresses)
+        assertEquals(132, provider.mmsRows.single().getAsInteger("m_type"))
     }
 
     @Test

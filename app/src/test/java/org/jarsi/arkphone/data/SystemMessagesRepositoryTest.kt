@@ -173,6 +173,19 @@ class SystemMessagesRepositoryTest {
     }
 
     @Test
+    fun `recipients come from the threads table canonical addresses`() = runTest {
+        provider.conversationRows += arrayOf<Any?>(3L, 1000L, 2, "11 12", "Moro", 1)
+        provider.canonicalAddresses[11L] = "+358441234567"
+        provider.canonicalAddresses[12L] = "+358400000000"
+
+        assertEquals(
+            listOf("+358441234567", "+358400000000"),
+            repository.recipients(3L),
+        )
+        assertEquals(emptyList<String>(), repository.recipients(99L))
+    }
+
+    @Test
     fun `mark read touches both message tables`() = runTest {
         repository.markThreadRead(3L)
         val uris = provider.updatedUris.map { it.first }
