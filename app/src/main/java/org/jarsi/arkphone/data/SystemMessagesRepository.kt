@@ -47,6 +47,7 @@ class SystemMessagesRepository @Inject constructor(
         val resolver = context.contentResolver
         fun query(): List<Conversation> {
             if (!permissionChecker.has(Manifest.permission.READ_SMS)) return emptyList()
+            val unreadThreads = unreadThreadIds()
             val conversations = mutableListOf<Conversation>()
             resolver.query(
                 conversationsUri,
@@ -61,7 +62,7 @@ class SystemMessagesRepository @Inject constructor(
                         addresses = recipientIds.mapNotNull(::canonicalAddress),
                         snippet = cursor.getString(4)?.takeIf { it.isNotBlank() },
                         timestampMillis = cursor.getLong(1),
-                        unread = cursor.getInt(5) == 0,
+                        unread = cursor.getLong(0) in unreadThreads,
                     )
                 }
             }
@@ -81,6 +82,27 @@ class SystemMessagesRepository @Inject constructor(
             refreshSignal = refreshSignal,
             query = ::query,
         ).flowOn(ioDispatcher)
+    }
+
+    /** Unread comes from the message rows themselves: the threads table's
+     *  cached read flag goes stale when a message moves between threads,
+     *  and its upkeep varies by device. */
+    private fun unreadThreadIds(): Set<Long> {
+        val ids = mutableSetOf<Long>()
+        listOf(Telephony.Sms.CONTENT_URI, Telephony.Mms.CONTENT_URI).forEach { table ->
+            runCatching {
+                context.contentResolver.query(
+                    table,
+                    arrayOf(Telephony.Sms.THREAD_ID),
+                    Telephony.Sms.READ + " = 0",
+                    null,
+                    null,
+                )?.use { cursor ->
+                    while (cursor.moveToNext()) ids += cursor.getLong(0)
+                }
+            }
+        }
+        return ids
     }
 
     private fun canonicalAddress(recipientId: Long): String? =

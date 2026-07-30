@@ -66,23 +66,27 @@ class FakeTelephonyProvider : ContentProvider() {
             }
             uri == Telephony.Sms.CONTENT_URI -> {
                 val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
+                val unreadOnly = selection?.contains("read = 0") == true
                 // The projection is honored like the real provider does.
                 val columns = projection
                     ?: arrayOf("_id", "thread_id", "address", "body", "date", "type", "status", "read", "sub_id")
                 val cursor = MatrixCursor(columns)
                 smsRows
                     .filter { threadIdArg == null || it.getAsLong(Telephony.Sms.THREAD_ID) == threadIdArg }
+                    .filter { !unreadOnly || it.getAsInteger(Telephony.Sms.READ) == 0 }
                     .sortedBy { it.getAsLong(Telephony.Sms.DATE) }
                     .forEach { row -> cursor.addRow(columns.map { row.get(it) }.toTypedArray()) }
                 cursor
             }
             uri == Telephony.Mms.CONTENT_URI -> {
                 val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
+                val unreadOnly = selection?.contains("read = 0") == true
                 val columns = projection
                     ?: arrayOf("_id", "thread_id", "date", "msg_box", "read", "sub_id", "m_type", "ct_l")
                 val cursor = MatrixCursor(columns)
                 mmsRows
                     .filter { threadIdArg == null || it.getAsLong("thread_id") == threadIdArg }
+                    .filter { !unreadOnly || it.getAsInteger("read") == 0 }
                     .sortedBy { it.getAsLong("date") }
                     .forEach { row -> cursor.addRow(columns.map { row.get(it) }.toTypedArray()) }
                 cursor

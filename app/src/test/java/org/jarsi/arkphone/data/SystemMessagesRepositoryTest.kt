@@ -45,6 +45,11 @@ class SystemMessagesRepositoryTest {
     fun `conversations resolve recipient addresses and unread state`() = runTest {
         provider.canonicalAddresses[7L] = "+358441234567"
         provider.conversationRows += arrayOf<Any?>(3L, 1_722_000_000_000L, 5, "7", "Hei!", 0)
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Hei!",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1, read = 0,
+        )
         val conversations = repository.conversations().first()
         assertEquals(1, conversations.size)
         with(conversations.single()) {
@@ -53,6 +58,20 @@ class SystemMessagesRepositoryTest {
             assertEquals("Hei!", snippet)
             assertTrue(unread)
         }
+    }
+
+    @Test
+    fun `a stale threads-table flag cannot keep a read thread unread`() = runTest {
+        // The cached flag stays 0 when a message moves to another thread;
+        // unread must come from the actual message rows.
+        provider.canonicalAddresses[7L] = "+358441234567"
+        provider.conversationRows += arrayOf<Any?>(3L, 1_000L, 5, "7", "Hei!", 0)
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Hei!",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1, read = 1,
+        )
+        assertTrue(!repository.conversations().first().single().unread)
     }
 
     @Test
@@ -313,6 +332,7 @@ class SystemMessagesRepositoryTest {
         type: Int,
         status: Int,
         subId: Int,
+        read: Int = 1,
     ): android.content.ContentValues = android.content.ContentValues().apply {
         put(Telephony.Sms._ID, id)
         put(Telephony.Sms.THREAD_ID, threadId)
@@ -321,7 +341,7 @@ class SystemMessagesRepositoryTest {
         put(Telephony.Sms.DATE, date)
         put(Telephony.Sms.TYPE, type)
         put(Telephony.Sms.STATUS, status)
-        put(Telephony.Sms.READ, 1)
+        put(Telephony.Sms.READ, read)
         put(Telephony.Sms.SUBSCRIPTION_ID, subId)
     }
 }
