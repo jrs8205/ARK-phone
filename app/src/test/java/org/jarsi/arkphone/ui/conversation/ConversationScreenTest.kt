@@ -203,13 +203,17 @@ class ConversationScreenTest {
     }
 
     @Test
-    fun deliveredStatusShowsUnderTheNewestOutgoingMessage() {
+    fun everyOutgoingMessageKeepsItsStatusVisible() {
+        // The provider keeps TYPE/STATUS per row, so the label must not be
+        // limited to the newest message: delivery evidence stays readable
+        // for old messages too.
         setContent(
             listOf(
                 message(1, 1_000, incoming = false, status = MessageStatus.SENT),
                 message(2, 2_000, incoming = false, status = MessageStatus.DELIVERED),
             ),
         )
+        composeRule.onNodeWithText("Sent").assertIsDisplayed()
         composeRule.onNodeWithText("Delivered").assertIsDisplayed()
     }
 }

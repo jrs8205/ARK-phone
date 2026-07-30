@@ -216,7 +216,6 @@ fun ConversationContent(
             )
         },
     ) { padding ->
-        val lastOutgoingId = uiState.messages.lastOrNull { !it.incoming }?.id
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -237,7 +236,6 @@ fun ConversationContent(
                     is ConversationRow.DaySeparator -> DaySeparatorRow(row.epochMillis)
                     is ConversationRow.MessageRow -> MessageBubble(
                         message = row.message,
-                        showStatus = row.message.id == lastOutgoingId,
                         onRetry = onRetry,
                         onRetryDownload = onRetryDownload,
                         onOpenImage = { viewerImageUri = it },
@@ -395,7 +393,6 @@ private fun DaySeparatorRow(epochMillis: Long) {
 @Composable
 private fun MessageBubble(
     message: Message,
-    showStatus: Boolean,
     onRetry: (Message) -> Unit,
     onRetryDownload: (Long) -> Unit = {},
     onOpenImage: (String) -> Unit = {},
@@ -458,7 +455,7 @@ private fun MessageBubble(
             }
             val statusText = when {
                 failed -> stringResource(R.string.message_status_failed_retry)
-                !incoming && showStatus -> when (message.status) {
+                !incoming -> when (message.status) {
                     MessageStatus.SENDING -> stringResource(R.string.message_status_sending)
                     MessageStatus.SENT -> stringResource(R.string.message_status_sent)
                     MessageStatus.DELIVERED -> stringResource(R.string.message_status_delivered)
