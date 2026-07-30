@@ -5,7 +5,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -88,6 +90,7 @@ fun ConversationScreen(
         onDeleteConversation = { viewModel.onDeleteConversation(onBack) },
         onSendText = viewModel::onSendText,
         onRetry = viewModel::onRetry,
+        onDeleteMessage = viewModel::onDeleteMessage,
         onRetryDownload = onRetryDownload,
         onPickImage = {
             imagePicker.launch(
@@ -109,12 +112,14 @@ fun ConversationContent(
     onDeleteConversation: () -> Unit,
     onSendText: (String) -> Unit = {},
     onRetry: (Message) -> Unit = {},
+    onDeleteMessage: (Message) -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onPickImage: () -> Unit = {},
     onRemoveAttachment: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var deleteCandidate by remember { mutableStateOf<Message?>(null) }
     var viewerImageUri by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val rows = uiState.rows
@@ -246,6 +251,7 @@ fun ConversationContent(
                     is ConversationRow.MessageRow -> MessageBubble(
                         message = row.message,
                         onRetry = onRetry,
+                        onLongPress = { deleteCandidate = it },
                         onRetryDownload = onRetryDownload,
                         onOpenImage = { viewerImageUri = it },
                     )
@@ -264,6 +270,26 @@ fun ConversationContent(
                     .testTag("mms_image_viewer"),
             )
         }
+    }
+    deleteCandidate?.let { candidate ->
+        AlertDialog(
+            onDismissRequest = { deleteCandidate = null },
+            title = { Text(stringResource(R.string.message_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.message_delete_confirm_text)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deleteCandidate = null
+                        onDeleteMessage(candidate)
+                    },
+                ) { Text(stringResource(R.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteCandidate = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
     if (confirmDelete) {
         AlertDialog(
@@ -386,10 +412,12 @@ private fun DaySeparatorRow(epochMillis: Long) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     message: Message,
     onRetry: (Message) -> Unit,
+    onLongPress: (Message) -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onOpenImage: (String) -> Unit = {},
 ) {
@@ -414,13 +442,20 @@ private fun MessageBubble(
                 },
                 modifier = Modifier
                     .testTag(if (incoming) "bubble_in" else "bubble_out")
-                    .let { base ->
-                        when {
-                            message.pendingDownload -> base.clickable { onRetryDownload(message.id) }
-                            failed -> base.clickable { onRetry(message) }
-                            else -> base
-                        }
-                    },
+                    .combinedClickable(
+                        onClick = when {
+                            message.pendingDownload -> {
+                                { onRetryDownload(message.id) }
+                            }
+                            failed -> {
+                                { onRetry(message) }
+                            }
+                            else -> {
+                                {}
+                            }
+                        },
+                        onLongClick = { onLongPress(message) },
+                    ),
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     message.attachments.forEach { attachment ->

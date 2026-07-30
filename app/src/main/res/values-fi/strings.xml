@@ -28,6 +28,8 @@
     <string name="conversation_delete">Poista keskustelu</string>
     <string name="conversation_delete_confirm_title">Poistetaanko keskustelu?</string>
     <string name="conversation_delete_confirm_text">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</string>
+    <string name="message_delete_confirm_title">Poistetaanko viesti?</string>
+    <string name="message_delete_confirm_text">Viesti poistetaan puhelimesta.</string>
     <string name="message_status_sending">Lähetetään…</string>
     <string name="message_status_sent">Lähetetty</string>
     <string name="message_status_delivered">Toimitettu</string>

@@ -222,6 +222,13 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
+    fun onDeleteMessage(message: Message) {
+        viewModelScope.launch {
+            messagesRepository.deleteMessage(message.id, message.isMms)
+            messagesRepository.refresh()
+        }
+    }
+
     fun onDeleteConversation(onDeleted: () -> Unit) {
         val target = threadId.value ?: return
         viewModelScope.launch {

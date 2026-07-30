@@ -275,6 +275,18 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun deleteMessageForwardsTheRowAndItsKind() = runTest {
+        val target = message(4, 1500).copy(isMms = true)
+        seedThread(3L, listOf(target))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.onDeleteMessage(target)
+        advanceUntilIdle()
+        assertEquals(listOf(4L to true), repository.deletedMessages)
+        assertTrue(repository.refreshCalls > 0)
+    }
+
+    @Test
     fun deleteConversationForwardsAndSignals() = runTest {
         val viewModel = viewModel()
         viewModel.open(3L)

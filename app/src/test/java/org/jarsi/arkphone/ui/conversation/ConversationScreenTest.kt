@@ -6,12 +6,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
@@ -52,6 +54,7 @@ class ConversationScreenTest {
         address: String? = "+358441234567",
         isGroup: Boolean = false,
         onSendText: (String) -> Unit = {},
+        onDeleteMessage: (Message) -> Unit = {},
         onRetryDownload: (Long) -> Unit = {},
         attachedImageUri: String? = null,
         onRemoveAttachment: () -> Unit = {},
@@ -72,6 +75,7 @@ class ConversationScreenTest {
                 onToggleBlocked = {},
                 onDeleteConversation = {},
                 onSendText = onSendText,
+                onDeleteMessage = onDeleteMessage,
                 onRetryDownload = onRetryDownload,
                 onRemoveAttachment = onRemoveAttachment,
             )
@@ -122,6 +126,17 @@ class ConversationScreenTest {
     fun sendIsDisabledWhileTheFieldIsBlank() {
         setContent(listOf(message(1, 1_000)))
         composeRule.onNodeWithTag("composer_send").assertIsNotEnabled()
+    }
+
+    @Test
+    fun longPressOnABubbleOffersDeleteAndConfirmingDeletes() {
+        var deleted: Message? = null
+        setContent(listOf(message(1, 1_000)), onDeleteMessage = { deleted = it })
+        composeRule.onNodeWithTag("bubble_in", useUnmergedTree = true)
+            .performTouchInput { longClick() }
+        composeRule.onNodeWithText("Delete message?").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete").performClick()
+        assertEquals(1L, deleted?.id)
     }
 
     @Test
