@@ -1,5 +1,7 @@
 package org.jarsi.arkphone.ui.messages
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -8,9 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
@@ -29,12 +36,11 @@ import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.SearchField
 import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.transparentListItemColors
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun NewMessageScreen(
     onBack: () -> Unit,
-    onPick: (String) -> Unit,
+    onStart: (List<String>) -> Unit,
 ) {
     val viewModel: NewMessageViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -42,17 +48,19 @@ fun NewMessageScreen(
         uiState = uiState,
         onQueryChange = viewModel::onQueryChange,
         onBack = onBack,
-        onPick = onPick,
+        onToggleRecipient = viewModel::onToggleRecipient,
+        onStart = onStart,
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun NewMessageContent(
     uiState: NewMessageUiState,
     onQueryChange: (String) -> Unit,
     onBack: () -> Unit,
-    onPick: (String) -> Unit,
+    onToggleRecipient: (String?, String) -> Unit,
+    onStart: (List<String>) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -68,12 +76,51 @@ fun NewMessageContent(
                 title = { Text(stringResource(R.string.messages_new)) },
             )
         },
+        floatingActionButton = {
+            if (uiState.selected.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = { onStart(uiState.selected.map { it.number }) },
+                    modifier = Modifier.testTag("start_conversation"),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = stringResource(R.string.new_message_start),
+                    )
+                }
+            }
+        },
     ) { padding ->
         LazyColumn(
             Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            if (uiState.selected.isNotEmpty()) {
+                item(key = "selected-recipients") {
+                    FlowRow(Modifier.padding(horizontal = 16.dp)) {
+                        uiState.selected.forEach { recipient ->
+                            InputChip(
+                                selected = true,
+                                onClick = {
+                                    onToggleRecipient(recipient.name, recipient.number)
+                                },
+                                label = { Text(recipient.name ?: recipient.number) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = stringResource(
+                                            R.string.new_message_remove_recipient,
+                                        ),
+                                    )
+                                },
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .testTag("recipient_chip"),
+                            )
+                        }
+                    }
+                }
+            }
             item {
                 SearchField(
                     value = uiState.query,
@@ -91,7 +138,7 @@ fun NewMessageContent(
                         ListItem(
                             colors = transparentListItemColors(),
                             modifier = Modifier
-                                .clickableListItem(onClick = { onPick(number) })
+                                .clickableListItem(onClick = { onToggleRecipient(null, number) })
                                 .testTag("typed_number_row"),
                             leadingContent = {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
@@ -104,22 +151,41 @@ fun NewMessageContent(
                 }
             }
             items(uiState.contacts, key = { it.id }) { contact ->
-                ContactRow(contact, onPick)
+                ContactRow(
+                    contact = contact,
+                    selected = contact.phoneNumber?.let(uiState::isSelected) == true,
+                    onToggleRecipient = onToggleRecipient,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ContactRow(contact: Contact, onPick: (String) -> Unit) {
+private fun ContactRow(
+    contact: Contact,
+    selected: Boolean,
+    onToggleRecipient: (String?, String) -> Unit,
+) {
     val number = contact.phoneNumber ?: return
     RowCard(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
         ListItem(
             colors = transparentListItemColors(),
-            modifier = Modifier.clickableListItem(onClick = { onPick(number) }),
+            modifier = Modifier.clickableListItem(
+                onClick = { onToggleRecipient(contact.displayName, number) },
+            ),
             leadingContent = { ContactAvatar(contact) },
             headlineContent = { Text(contact.displayName) },
             supportingContent = { Text(number) },
+            trailingContent = {
+                if (selected) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.testTag("recipient_selected"),
+                    )
+                }
+            },
         )
     }
 }

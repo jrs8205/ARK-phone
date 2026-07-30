@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.messaging
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ContentUris
@@ -196,6 +197,9 @@ class MmsDownloader @Inject constructor(
         return (others + sender).toSet()
     }
 
+    // READ_PHONE_STATE is granted with the core call permissions; runCatching
+    // answers a refusal with the empty set.
+    @SuppressLint("MissingPermission")
     private fun ownNumbers(): Set<String> = runCatching {
         context.getSystemService(SubscriptionManager::class.java)
             ?.activeSubscriptionInfoList

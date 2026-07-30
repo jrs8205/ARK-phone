@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
 
 /** The typed query as a dialable number, or null when it reads as a name. */
@@ -22,13 +23,21 @@ internal fun queryAsNumber(query: String): String? {
     return candidate.takeIf { validChars && plusOnlyLeads && enoughDigits }
 }
 
+/** One picked recipient of the conversation being started. */
+data class SelectedRecipient(val name: String?, val number: String)
+
 data class NewMessageUiState(
     val loading: Boolean = true,
     val query: String = "",
     val contacts: List<Contact> = emptyList(),
     /** Non-null when the query itself can be messaged as a number. */
     val typedNumber: String? = null,
-)
+    /** The recipients picked so far; two or more start a group. */
+    val selected: List<SelectedRecipient> = emptyList(),
+) {
+    fun isSelected(number: String): Boolean =
+        selected.any { sameCaller(it.number, number) }
+}
 
 @HiltViewModel
 class NewMessageViewModel @Inject constructor(
@@ -36,11 +45,13 @@ class NewMessageViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val query = MutableStateFlow("")
+    private val selected = MutableStateFlow<List<SelectedRecipient>>(emptyList())
 
     val uiState: StateFlow<NewMessageUiState> = combine(
         contactsRepository.contacts(),
         query,
-    ) { contacts, query ->
+        selected,
+    ) { contacts, query, selected ->
         val visible = if (query.isBlank()) {
             contacts
         } else {
@@ -54,6 +65,7 @@ class NewMessageViewModel @Inject constructor(
             query = query,
             contacts = visible.filter { it.phoneNumber != null },
             typedNumber = queryAsNumber(query),
+            selected = selected,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -63,5 +75,18 @@ class NewMessageViewModel @Inject constructor(
 
     fun onQueryChange(value: String) {
         query.value = value
+    }
+
+    /** Adds the recipient, or removes it when already picked. Adding clears
+     *  the query so the full contact list returns for the next pick. */
+    fun onToggleRecipient(name: String?, number: String) {
+        val current = selected.value
+        val existing = current.filter { sameCaller(it.number, number) }
+        if (existing.isNotEmpty()) {
+            selected.value = current - existing.toSet()
+        } else {
+            selected.value = current + SelectedRecipient(name, number)
+            query.value = ""
+        }
     }
 }

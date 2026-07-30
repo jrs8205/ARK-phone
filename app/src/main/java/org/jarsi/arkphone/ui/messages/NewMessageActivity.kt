@@ -40,8 +40,8 @@ class NewMessageActivity : ComponentActivity() {
             ArkPhoneTheme {
                 NewMessageScreen(
                     onBack = ::finish,
-                    onPick = { number ->
-                        messagingNavigator.openConversation(this, number)
+                    onStart = { numbers ->
+                        messagingNavigator.openConversation(this, numbers)
                         finish()
                     },
                 )

@@ -21,11 +21,22 @@ class MessagingNavigator @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
 
-    fun openConversation(context: Context, number: String) {
-        if (number.isBlank()) return
+    fun openConversation(context: Context, number: String) =
+        openConversation(context, listOf(number))
+
+    /** Several recipients resolve to the shared group thread. */
+    fun openConversation(context: Context, numbers: List<String>) {
+        val recipients = numbers.filter { it.isNotBlank() }
+        if (recipients.isEmpty()) return
         scope.launch {
             val threadId = withContext(ioDispatcher) {
-                runCatching { Telephony.Threads.getOrCreateThreadId(appContext, number) }.getOrNull()
+                runCatching {
+                    if (recipients.size == 1) {
+                        Telephony.Threads.getOrCreateThreadId(appContext, recipients.single())
+                    } else {
+                        Telephony.Threads.getOrCreateThreadId(appContext, recipients.toSet())
+                    }
+                }.getOrNull()
             } ?: return@launch
             runCatching {
                 context.startActivity(ConversationActivity.intent(context, threadId))

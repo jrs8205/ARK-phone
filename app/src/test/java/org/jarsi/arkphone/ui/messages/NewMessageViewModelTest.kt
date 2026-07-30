@@ -7,6 +7,7 @@ import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -66,6 +67,48 @@ class NewMessageViewModelTest {
             viewModel.onQueryChange("0445551234")
             val state = awaitItem()
             assertEquals("0445551234", state.typedNumber)
+        }
+    }
+
+    @Test
+    fun togglingARecipientSelectsItAndClearsTheQuery() = runTest {
+        contacts.allContacts.value = listOf(contact(1, "Matti", "+358441234567"))
+        val viewModel = NewMessageViewModel(contacts)
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onQueryChange("mat")
+            awaitItem()
+            viewModel.onToggleRecipient("Matti", "+358441234567")
+            var state = awaitItem()
+            while (state.selected.isEmpty() || state.query.isNotEmpty()) {
+                state = awaitItem()
+            }
+            assertEquals(listOf(SelectedRecipient("Matti", "+358441234567")), state.selected)
+            // National and international forms are the same person.
+            assertTrue(state.isSelected("0441234567"))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun togglingASelectedRecipientRemovesIt() = runTest {
+        val viewModel = NewMessageViewModel(contacts)
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleRecipient("Matti", "+358441234567")
+            var state = awaitItem()
+            while (state.selected.isEmpty()) {
+                state = awaitItem()
+            }
+            viewModel.onToggleRecipient(null, "0441234567")
+            state = awaitItem()
+            while (state.selected.isNotEmpty()) {
+                state = awaitItem()
+            }
+            assertTrue(state.selected.isEmpty())
+            cancelAndIgnoreRemainingEvents()
         }
     }
 }
