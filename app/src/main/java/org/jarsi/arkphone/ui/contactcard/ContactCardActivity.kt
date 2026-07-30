@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
+import org.jarsi.arkphone.messaging.MessagingNavigator
 import org.jarsi.arkphone.telecom.PhoneCaller
 import org.jarsi.arkphone.ui.detail.CallDetailActivity
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
@@ -29,6 +30,8 @@ class ContactCardActivity : ComponentActivity() {
     }
 
     @Inject lateinit var phoneCaller: PhoneCaller
+
+    @Inject lateinit var messagingNavigator: MessagingNavigator
 
     private val viewModel: ContactCardViewModel by viewModels()
 
@@ -55,7 +58,7 @@ class ContactCardActivity : ComponentActivity() {
                     viewModel = viewModel,
                     onBack = ::finish,
                     onCall = { phoneCaller.placeCall(it) },
-                    onMessage = { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", it, null))) },
+                    onMessage = { messagingNavigator.openConversation(this, it) },
                     onEmail = { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", it, null))) },
                     onOpenAddress = {
                         open(Intent(Intent.ACTION_VIEW, ("geo:0,0?q=" + Uri.encode(it)).toUri()))

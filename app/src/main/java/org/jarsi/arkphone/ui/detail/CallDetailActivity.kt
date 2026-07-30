@@ -14,6 +14,7 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.MainActivity
+import org.jarsi.arkphone.messaging.MessagingNavigator
 import org.jarsi.arkphone.telecom.PhoneCaller
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
@@ -37,6 +38,8 @@ class CallDetailActivity : ComponentActivity() {
     @Inject lateinit var phoneCaller: PhoneCaller
 
     @Inject lateinit var whatsAppCallLauncher: WhatsAppCallLauncher
+
+    @Inject lateinit var messagingNavigator: MessagingNavigator
 
     private val viewModel: CallDetailViewModel by viewModels()
 
@@ -75,9 +78,7 @@ class CallDetailActivity : ComponentActivity() {
     }
 
     private fun openMessagingApp(number: String) {
-        runCatching {
-            startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
-        }
+        messagingNavigator.openConversation(this, number)
     }
 
     private fun openKeypadPrefilled(number: String) {
