@@ -101,6 +101,20 @@ class ConversationScreenTest {
     }
 
     @Test
+    fun aFailedMmsShowsPlainFailureWithoutARetryPromise() {
+        // The retry path only exists for SMS; the label must not promise a
+        // tap that does nothing.
+        setContent(
+            listOf(
+                message(2, 2_000, incoming = false, status = MessageStatus.FAILED)
+                    .copy(isMms = true),
+            ),
+        )
+        composeRule.onNodeWithText("Failed").assertIsDisplayed()
+        composeRule.onNodeWithText("Failed — tap to retry").assertDoesNotExist()
+    }
+
+    @Test
     fun eachDayGetsItsSeparator() {
         val dayOne = 1_000_000_000_000L
         setContent(

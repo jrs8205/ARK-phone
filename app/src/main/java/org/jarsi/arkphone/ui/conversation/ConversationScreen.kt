@@ -447,7 +447,8 @@ private fun MessageBubble(
                             message.pendingDownload -> {
                                 { onRetryDownload(message.id) }
                             }
-                            failed -> {
+                            // The retry path only exists for SMS rows.
+                            failed && !message.isMms -> {
                                 { onRetry(message) }
                             }
                             else -> {
@@ -485,7 +486,13 @@ private fun MessageBubble(
                 }
             }
             val statusText = when {
-                failed -> stringResource(R.string.message_status_failed_retry)
+                failed -> stringResource(
+                    if (message.isMms) {
+                        R.string.message_status_failed
+                    } else {
+                        R.string.message_status_failed_retry
+                    },
+                )
                 !incoming -> when (message.status) {
                     MessageStatus.SENDING -> stringResource(R.string.message_status_sending)
                     MessageStatus.SENT -> stringResource(R.string.message_status_sent)
