@@ -203,6 +203,11 @@ class FakePermissionChecker(private val granted: MutableSet<String> = mutableSet
     override fun has(permission: String): Boolean = permission in granted
 }
 
+class FakeSmsRole(var held: Boolean = false) : org.jarsi.arkphone.messaging.SmsRole {
+    override fun isHeld(): Boolean = held
+    override fun requestIntent(): android.content.Intent? = null
+}
+
 class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
     data class Notified(
         val threadId: Long,

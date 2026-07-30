@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,7 +22,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,6 +53,7 @@ fun MessagesScreen(
     onOpenThread: (Long) -> Unit,
     onNewMessage: () -> Unit,
     onRequestPermission: () -> Unit,
+    onRequestSmsRole: () -> Unit = {},
 ) {
     val viewModel: MessagesViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -63,6 +68,7 @@ fun MessagesScreen(
         onOpenThread = onOpenThread,
         onNewMessage = onNewMessage,
         onRequestPermission = onRequestPermission,
+        onRequestSmsRole = onRequestSmsRole,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
     )
 }
@@ -74,6 +80,7 @@ fun MessagesContent(
     onOpenThread: (Long) -> Unit,
     onNewMessage: () -> Unit,
     onRequestPermission: () -> Unit,
+    onRequestSmsRole: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
@@ -85,6 +92,9 @@ fun MessagesContent(
                 placeholder = stringResource(R.string.messages_search_placeholder),
                 onOpenSettings = onOpenSettings,
             )
+            if (!uiState.loading && !uiState.isDefaultSmsApp) {
+                SmsRoleBanner(onRequestSmsRole)
+            }
             when {
                 uiState.loading -> Box(
                     Modifier.fillMaxSize(),
@@ -135,6 +145,32 @@ fun MessagesContent(
                 .padding(24.dp),
         ) {
             Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.messages_new))
+        }
+    }
+}
+
+@Composable
+private fun SmsRoleBanner(onRequestSmsRole: () -> Unit) {
+    val haptics = rememberHaptics()
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.messages_banner_not_default),
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = {
+                    haptics.click()
+                    onRequestSmsRole()
+                },
+            ) {
+                Text(stringResource(R.string.messages_banner_set_default))
+            }
         }
     }
 }

@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -49,6 +51,8 @@ fun MainScreen(
     onOpenThread: (Long) -> Unit = {},
     onNewMessage: () -> Unit = {},
     onRequestSmsPermission: () -> Unit = {},
+    onRequestSmsRole: () -> Unit = {},
+    unreadMessages: Int = 0,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     LaunchedEffect(requestedNumber) {
@@ -58,7 +62,13 @@ fun MainScreen(
         selectedTab = MainTab.HOME
     }
     Scaffold(
-        bottomBar = { ArkBottomBar(selected = selectedTab, onSelect = { selectedTab = it }) },
+        bottomBar = {
+            ArkBottomBar(
+                selected = selectedTab,
+                onSelect = { selectedTab = it },
+                unreadMessages = unreadMessages,
+            )
+        },
     ) { padding ->
         Column(Modifier.padding(padding)) {
             if (showDefaultDialerBanner) {
@@ -76,6 +86,7 @@ fun MainScreen(
                     onOpenThread = onOpenThread,
                     onNewMessage = onNewMessage,
                     onRequestPermission = onRequestSmsPermission,
+                    onRequestSmsRole = onRequestSmsRole,
                 )
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
             }
@@ -84,7 +95,11 @@ fun MainScreen(
 }
 
 @Composable
-fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
+fun ArkBottomBar(
+    selected: MainTab,
+    onSelect: (MainTab) -> Unit,
+    unreadMessages: Int = 0,
+) {
     val haptics = rememberHaptics()
     val select: (MainTab) -> Unit = { tab ->
         haptics.click()
@@ -106,7 +121,15 @@ fun ArkBottomBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
         NavigationBarItem(
             selected = selected == MainTab.MESSAGES,
             onClick = { select(MainTab.MESSAGES) },
-            icon = { Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null) },
+            icon = {
+                if (unreadMessages > 0) {
+                    BadgedBox(badge = { Badge { Text(unreadMessages.toString()) } }) {
+                        Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null)
+                    }
+                } else {
+                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null)
+                }
+            },
             label = { Text(stringResource(R.string.tab_messages)) },
         )
         NavigationBarItem(

@@ -14,6 +14,7 @@ import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakeMessagingSims
 import org.jarsi.arkphone.testing.FakeMmsSender
+import org.jarsi.arkphone.testing.FakeSmsRole
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
@@ -32,6 +33,7 @@ class ConversationViewModelTest {
     private val blockedNumbers = FakeBlockedNumbersRepository()
     private val smsSender = FakeSmsSender()
     private val messagingSims = FakeMessagingSims()
+    private val smsRole = FakeSmsRole(held = true)
 
     private fun message(
         id: Long,
@@ -60,6 +62,7 @@ class ConversationViewModelTest {
         smsSender,
         FakeMmsSender(),
         messagingSims,
+        smsRole,
     )
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
@@ -227,6 +230,25 @@ class ConversationViewModelTest {
             viewModel.onSendText("Moro")
             advanceUntilIdle()
             assertEquals(Triple("+358441234567", "Moro", 2), smsSender.sent.single())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun sendingIsBlockedWithoutTheSmsRole() = runTest {
+        smsRole.held = false
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.address == null) {
+                state = awaitItem()
+            }
+            assertTrue(!state.canSend)
+            viewModel.onSendText("Moro")
+            advanceUntilIdle()
+            assertTrue(smsSender.sent.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

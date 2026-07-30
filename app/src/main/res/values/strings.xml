@@ -122,6 +122,8 @@
     <string name="mms_download_failed_retry">Download failed — tap to retry</string>
     <string name="message_attach">Attach picture</string>
     <string name="message_remove_attachment">Remove attachment</string>
+    <string name="messages_banner_not_default">ARK-phone is not your SMS app</string>
+    <string name="messages_banner_set_default">Set as default</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>

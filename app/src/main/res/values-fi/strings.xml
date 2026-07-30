@@ -44,6 +44,8 @@
     <string name="mms_download_failed_retry">Lataus epäonnistui — yritä uudelleen napauttamalla</string>
     <string name="message_attach">Liitä kuva</string>
     <string name="message_remove_attachment">Poista liite</string>
+    <string name="messages_banner_not_default">ARK-phone ei ole viestisovelluksesi</string>
+    <string name="messages_banner_set_default">Aseta oletukseksi</string>
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>

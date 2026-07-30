@@ -206,7 +206,7 @@ fun ConversationContent(
         },
         bottomBar = {
             ComposerRow(
-                enabled = uiState.address != null,
+                enabled = uiState.address != null && uiState.canSend,
                 simLabel = if (uiState.sims.size >= 2) uiState.selectedSimLabel else null,
                 attachedImageUri = uiState.attachedImageUri,
                 onCycleSim = onCycleSim,

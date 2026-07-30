@@ -11,11 +11,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.jarsi.arkphone.data.MessagesRepository
+import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.telecom.BlockedCallNotifier
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.DefaultDialerManager
@@ -36,6 +41,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
     @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
     @Inject lateinit var callController: CallController
+    @Inject lateinit var smsRole: SmsRole
+    @Inject lateinit var messagesRepository: MessagesRepository
 
     private companion object {
         // A touch longer than the call screen's ended-grace, so the visible
@@ -46,6 +53,12 @@ class MainActivity : ComponentActivity() {
     private val dialRequest = mutableStateOf<String?>(null)
     private val isDefault = mutableStateOf(false)
     private val hasPermissions = mutableStateOf(false)
+    private val unreadMessages = mutableStateOf(0)
+
+    // The Messages tab refreshes its own role state on resume.
+    private val smsRoleLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { }
 
     private val roleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -73,6 +86,13 @@ class MainActivity : ComponentActivity() {
             callController.allCallsEnded.collectLatest {
                 delay(APP_CLOSE_GRACE_MILLIS)
                 if (callController.calls.value.isEmpty()) finishAndRemoveTask()
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                messagesRepository.conversations()
+                    .map { conversations -> conversations.count { it.unread } }
+                    .collect { unreadMessages.value = it }
             }
         }
         setContent {
@@ -109,6 +129,10 @@ class MainActivity : ComponentActivity() {
                         onNewMessage = {
                             startActivity(NewMessageActivity.intent(this))
                         },
+                        onRequestSmsRole = {
+                            smsRole.requestIntent()?.let(smsRoleLauncher::launch)
+                        },
+                        unreadMessages = unreadMessages.value,
                     )
                 }
             }

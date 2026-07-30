@@ -16,6 +16,7 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.Conversation
+import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
@@ -33,6 +34,7 @@ data class MessagesUiState(
     val conversations: List<ConversationItem> = emptyList(),
     val query: String = "",
     val hasReadSmsPermission: Boolean = true,
+    val isDefaultSmsApp: Boolean = true,
 )
 
 /** Contact names for every participant, the raw address when unknown. */
@@ -70,10 +72,16 @@ class MessagesViewModel @Inject constructor(
     private val repository: MessagesRepository,
     contactsRepository: ContactsRepository,
     private val permissionChecker: PermissionChecker,
+    private val smsRole: SmsRole,
 ) : ViewModel() {
 
     private val permissionState = MutableStateFlow(hasSmsPermission())
+    private val roleState = MutableStateFlow(smsRole.isHeld())
     private val query = MutableStateFlow("")
+
+    private val access = combine(permissionState, roleState) { hasPermission, roleHeld ->
+        hasPermission to roleHeld
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val bodyMatchedThreadIds: Flow<Set<Long>> =
@@ -83,9 +91,9 @@ class MessagesViewModel @Inject constructor(
         repository.conversations(),
         contactsRepository.contacts(),
         query,
-        permissionState,
+        access,
         bodyMatchedThreadIds,
-    ) { conversations, contacts, query, hasPermission, bodyMatches ->
+    ) { conversations, contacts, query, (hasPermission, roleHeld), bodyMatches ->
         val items = conversations.map { conversation ->
             ConversationItem(
                 conversation = conversation,
@@ -101,11 +109,16 @@ class MessagesViewModel @Inject constructor(
             },
             query = query,
             hasReadSmsPermission = hasPermission,
+            isDefaultSmsApp = roleHeld,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = MessagesUiState(loading = true, hasReadSmsPermission = hasSmsPermission()),
+        initialValue = MessagesUiState(
+            loading = true,
+            hasReadSmsPermission = hasSmsPermission(),
+            isDefaultSmsApp = smsRole.isHeld(),
+        ),
     )
 
     fun onQueryChange(value: String) {
@@ -114,6 +127,7 @@ class MessagesViewModel @Inject constructor(
 
     fun refreshPermissionState() {
         permissionState.value = hasSmsPermission()
+        roleState.value = smsRole.isHeld()
         repository.refresh()
     }
 

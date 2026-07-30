@@ -8,6 +8,7 @@ import org.jarsi.arkphone.data.model.Conversation
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakePermissionChecker
+import org.jarsi.arkphone.testing.FakeSmsRole
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,6 +24,9 @@ class MessagesViewModelTest {
     private val repository = FakeMessagesRepository()
     private val contacts = FakeContactsRepository()
     private val permissions = FakePermissionChecker()
+    private val smsRole = FakeSmsRole(held = true)
+
+    private fun viewModel() = MessagesViewModel(repository, contacts, permissions, smsRole)
 
     private fun conversation(
         threadId: Long,
@@ -50,7 +54,7 @@ class MessagesViewModelTest {
         permissions.grant(Manifest.permission.READ_SMS)
         contacts.allContacts.value = listOf(contact("Matti", "+358 44 1234567"))
         repository.conversationsState.value = listOf(conversation(3, listOf("0441234567")))
-        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             skipItems(1)
             val state = awaitItem()
@@ -67,7 +71,7 @@ class MessagesViewModelTest {
             conversation(3, listOf("+358441234567")),
             conversation(4, listOf("+358400000000")),
         )
-        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             skipItems(1)
             awaitItem()
@@ -83,7 +87,7 @@ class MessagesViewModelTest {
         repository.conversationsState.value = listOf(
             conversation(9, listOf("+358401111111", "+358402222222")),
         )
-        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             skipItems(1)
             val item = awaitItem().conversations.single()
@@ -100,7 +104,7 @@ class MessagesViewModelTest {
             conversation(4, listOf("+358400000000")),
         )
         repository.bodyMatches["kokous"] = setOf(4L)
-        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             skipItems(1)
             awaitItem()
@@ -114,9 +118,35 @@ class MessagesViewModelTest {
 
     @Test
     fun missingPermissionIsExposed() = runTest {
-        val viewModel = MessagesViewModel(repository, contacts, permissions)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             assertFalse(awaitItem().hasReadSmsPermission)
+        }
+    }
+
+    @Test
+    fun aMissingSmsRoleIsExposedForTheBanner() = runTest {
+        smsRole.held = false
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            assertFalse(awaitItem().isDefaultSmsApp)
+        }
+    }
+
+    @Test
+    fun refreshPicksUpAFreshlyGrantedRole() = runTest {
+        smsRole.held = false
+        permissions.grant(Manifest.permission.READ_SMS)
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            assertFalse(awaitItem().isDefaultSmsApp)
+            smsRole.held = true
+            viewModel.refreshPermissionState()
+            var state = awaitItem()
+            while (!state.isDefaultSmsApp) {
+                state = awaitItem()
+            }
         }
     }
 }
