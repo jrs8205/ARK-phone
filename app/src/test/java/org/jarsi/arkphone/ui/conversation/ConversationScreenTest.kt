@@ -2,13 +2,18 @@ package org.jarsi.arkphone.ui.conversation
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,20 +44,25 @@ class ConversationScreenTest {
         subscriptionId = 1,
     )
 
-    private fun setContent(messages: List<Message>) {
+    private fun setContent(
+        messages: List<Message>,
+        address: String? = "+358441234567",
+        onSendText: (String) -> Unit = {},
+    ) {
         composeRule.setContent {
             ConversationContent(
                 uiState = ConversationUiState(
                     loading = false,
                     messages = messages,
                     title = "Matti",
-                    address = "+358441234567",
+                    address = address,
                 ),
                 onBack = {},
                 onCall = {},
                 onOpenContact = {},
                 onToggleBlocked = {},
                 onDeleteConversation = {},
+                onSendText = onSendText,
             )
         }
     }
@@ -85,6 +95,28 @@ class ConversationScreenTest {
             ),
         )
         composeRule.onAllNodesWithTag("day_separator").assertCountEquals(2)
+    }
+
+    @Test
+    fun typedTextIsSentAndTheFieldCleared() {
+        var sent: String? = null
+        setContent(listOf(message(1, 1_000)), onSendText = { sent = it })
+        composeRule.onNodeWithTag("composer_input").performTextInput("Moro taas")
+        composeRule.onNodeWithTag("composer_send").performClick()
+        assertEquals("Moro taas", sent)
+        composeRule.onNodeWithTag("composer_input").assertTextContains("")
+    }
+
+    @Test
+    fun sendIsDisabledWhileTheFieldIsBlank() {
+        setContent(listOf(message(1, 1_000)))
+        composeRule.onNodeWithTag("composer_send").assertIsNotEnabled()
+    }
+
+    @Test
+    fun composerIsDisabledForGroupThreads() {
+        setContent(listOf(message(1, 1_000)), address = null)
+        composeRule.onNodeWithTag("composer_input").assertIsNotEnabled()
     }
 
     @Test

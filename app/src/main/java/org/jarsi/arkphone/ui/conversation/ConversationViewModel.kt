@@ -20,6 +20,8 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
+import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.SmsSender
 import org.jarsi.arkphone.ui.messages.conversationTitle
 import java.time.Instant
 import java.time.LocalDate
@@ -69,7 +71,11 @@ class ConversationViewModel @Inject constructor(
     private val messagesRepository: MessagesRepository,
     private val contactsRepository: ContactsRepository,
     private val blockedNumbersRepository: BlockedNumbersRepository,
+    private val smsSender: SmsSender,
 ) : ViewModel() {
+
+    /** The SIM the next send uses; Task 8 wires the per-conversation choice. */
+    private var selectedSubscriptionId: Int = -1
 
     private val threadId = MutableStateFlow<Long?>(null)
     private val contact = MutableStateFlow<ContactMatch?>(null)
@@ -135,6 +141,26 @@ class ConversationViewModel @Inject constructor(
             } else {
                 if (blockedNumbersRepository.block(target)) blocked.value = true
             }
+        }
+    }
+
+    fun onSendText(body: String) {
+        val address = uiState.value.address ?: return
+        val trimmed = body.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            smsSender.send(address, trimmed, selectedSubscriptionId)
+            messagesRepository.refresh()
+        }
+    }
+
+    fun onRetry(message: Message) {
+        if (message.incoming || message.status != MessageStatus.FAILED) return
+        val body = message.body ?: return
+        viewModelScope.launch {
+            smsSender.discardFailed(message.id)
+            smsSender.send(message.address, body, message.subscriptionId)
+            messagesRepository.refresh()
         }
     }
 

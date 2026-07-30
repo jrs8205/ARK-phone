@@ -39,6 +39,9 @@ class FakeTelephonyProvider : ContentProvider() {
                 conversationRows.forEach(cursor::addRow)
                 cursor
             }
+            path.startsWith("content://mms-sms/threadID") -> {
+                MatrixCursor(arrayOf("_id")).apply { addRow(arrayOf(42L)) }
+            }
             path.startsWith("content://mms-sms/canonical-address/") -> {
                 val id = uri.lastPathSegment!!.toLong()
                 MatrixCursor(arrayOf("address")).apply {

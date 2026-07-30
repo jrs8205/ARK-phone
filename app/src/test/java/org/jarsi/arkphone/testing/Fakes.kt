@@ -203,6 +203,18 @@ class FakePermissionChecker(private val granted: MutableSet<String> = mutableSet
     override fun has(permission: String): Boolean = permission in granted
 }
 
+class FakeSmsSender : org.jarsi.arkphone.messaging.SmsSender {
+    val sent = mutableListOf<Triple<String, String, Int>>()
+    val discarded = mutableListOf<Long>()
+    override suspend fun send(address: String, body: String, subscriptionId: Int): android.net.Uri? {
+        sent += Triple(address, body, subscriptionId)
+        return null
+    }
+    override suspend fun discardFailed(messageId: Long) {
+        discarded += messageId
+    }
+}
+
 class FakeMessagesRepository : MessagesRepository {
     val conversationsState = MutableStateFlow<List<Conversation>>(emptyList())
     val messagesByThread = mutableMapOf<Long, MutableStateFlow<List<Message>>>()

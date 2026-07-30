@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -24,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +69,8 @@ fun ConversationScreen(
         onOpenContact = { uiState.contactId?.let(onOpenContact) },
         onToggleBlocked = viewModel::onToggleBlocked,
         onDeleteConversation = { viewModel.onDeleteConversation(onBack) },
+        onSendText = viewModel::onSendText,
+        onRetry = viewModel::onRetry,
     )
 }
 
@@ -76,6 +83,7 @@ fun ConversationContent(
     onOpenContact: () -> Unit,
     onToggleBlocked: () -> Unit,
     onDeleteConversation: () -> Unit,
+    onSendText: (String) -> Unit = {},
     onRetry: (Message) -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -166,6 +174,12 @@ fun ConversationContent(
                 },
             )
         },
+        bottomBar = {
+            ComposerRow(
+                enabled = uiState.address != null,
+                onSendText = onSendText,
+            )
+        },
     ) { padding ->
         val lastOutgoingId = uiState.messages.lastOrNull { !it.incoming }?.id
         LazyColumn(
@@ -214,6 +228,46 @@ fun ConversationContent(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun ComposerRow(enabled: Boolean, onSendText: (String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            enabled = enabled,
+            placeholder = { Text(stringResource(R.string.message_compose_hint)) },
+            shape = RoundedCornerShape(24.dp),
+            maxLines = 5,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("composer_input"),
+        )
+        IconButton(
+            onClick = {
+                onSendText(text)
+                text = ""
+            },
+            enabled = enabled && text.isNotBlank(),
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .testTag("composer_send"),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.Send,
+                contentDescription = stringResource(R.string.message_send),
+            )
+        }
     }
 }
 

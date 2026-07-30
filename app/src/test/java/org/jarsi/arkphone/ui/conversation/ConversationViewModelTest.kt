@@ -11,6 +11,7 @@ import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
+import org.jarsi.arkphone.testing.FakeSmsSender
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,6 +27,7 @@ class ConversationViewModelTest {
     private val repository = FakeMessagesRepository()
     private val contacts = FakeContactsRepository()
     private val blockedNumbers = FakeBlockedNumbersRepository()
+    private val smsSender = FakeSmsSender()
 
     private fun message(
         id: Long,
@@ -47,7 +49,7 @@ class ConversationViewModelTest {
         subscriptionId = 1,
     )
 
-    private fun viewModel() = ConversationViewModel(repository, contacts, blockedNumbers)
+    private fun viewModel() = ConversationViewModel(repository, contacts, blockedNumbers, smsSender)
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
         repository.messagesByThread
@@ -129,6 +131,54 @@ class ConversationViewModelTest {
                 state = awaitItem()
             }
         }
+    }
+
+    @Test
+    fun sendTextGoesToTheThreadAddressTrimmed() = runTest {
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.address == null) {
+                state = awaitItem()
+            }
+            viewModel.onSendText(" Moro ")
+            advanceUntilIdle()
+            assertEquals(Triple("+358441234567", "Moro", -1), smsSender.sent.single())
+            assertTrue(repository.refreshCalls > 0)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun retryDiscardsTheFailedRowAndResends() = runTest {
+        val failed = message(
+            7,
+            2000,
+            incoming = false,
+            body = "Aiemmin",
+            status = MessageStatus.FAILED,
+        )
+        seedThread(3L, listOf(failed))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.onRetry(failed)
+        advanceUntilIdle()
+        assertEquals(listOf(7L), smsSender.discarded)
+        assertEquals(Triple("+358441234567", "Aiemmin", 1), smsSender.sent.single())
+    }
+
+    @Test
+    fun retryIgnoresMessagesThatDidNotFail() = runTest {
+        val sent = message(8, 2000, incoming = false, status = MessageStatus.SENT)
+        seedThread(3L, listOf(sent))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.onRetry(sent)
+        advanceUntilIdle()
+        assertTrue(smsSender.sent.isEmpty())
+        assertTrue(smsSender.discarded.isEmpty())
     }
 
     @Test

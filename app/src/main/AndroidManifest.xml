@@ -102,6 +102,10 @@
             android:name=".telecom.CallActionReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".messaging.SmsSendStatusReceiver"
+            android:exported="false" />
+
         <!-- Declaring this receiver makes the system hand missed-call
              notifications to the default dialer instead of posting its own.
              The action is a protected broadcast only the system can send. -->

@@ -109,6 +109,8 @@
     <string name="message_status_sent">Sent</string>
     <string name="message_status_delivered">Delivered</string>
     <string name="message_status_failed_retry">Failed — tap to retry</string>
+    <string name="message_compose_hint">Text message</string>
+    <string name="message_send">Send</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>
