@@ -21,6 +21,8 @@ import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.MessagingSim
+import org.jarsi.arkphone.messaging.MessagingSims
 import org.jarsi.arkphone.messaging.SmsSender
 import org.jarsi.arkphone.ui.messages.conversationTitle
 import java.time.Instant
@@ -62,8 +64,13 @@ data class ConversationUiState(
     val isGroup: Boolean = false,
     val blocked: Boolean = false,
     val canBlock: Boolean = false,
+    val sims: List<MessagingSim> = emptyList(),
+    val selectedSubscriptionId: Int = -1,
 ) {
     val rows: List<ConversationRow> get() = dateSeparators(messages)
+
+    val selectedSimLabel: String?
+        get() = sims.firstOrNull { it.subscriptionId == selectedSubscriptionId }?.label
 }
 
 @HiltViewModel
@@ -72,15 +79,29 @@ class ConversationViewModel @Inject constructor(
     private val contactsRepository: ContactsRepository,
     private val blockedNumbersRepository: BlockedNumbersRepository,
     private val smsSender: SmsSender,
+    private val messagingSims: MessagingSims,
 ) : ViewModel() {
-
-    /** The SIM the next send uses; Task 8 wires the per-conversation choice. */
-    private var selectedSubscriptionId: Int = -1
 
     private val threadId = MutableStateFlow<Long?>(null)
     private val contact = MutableStateFlow<ContactMatch?>(null)
     private val blocked = MutableStateFlow(false)
     private val canBlock = MutableStateFlow(false)
+    private val sims = MutableStateFlow<List<MessagingSim>>(emptyList())
+
+    /** Per-open-conversation choice; never persisted. */
+    private val selectedSubscription = MutableStateFlow(-1)
+
+    private data class SendPanel(
+        val blocked: Boolean,
+        val canBlock: Boolean,
+        val sims: List<MessagingSim>,
+        val selectedSubscriptionId: Int,
+    )
+
+    private val sendPanel = combine(blocked, canBlock, sims, selectedSubscription) {
+            isBlocked, blockingAvailable, simList, selected ->
+        SendPanel(isBlocked, blockingAvailable, simList, selected)
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val messages = threadId.filterNotNull()
@@ -103,9 +124,8 @@ class ConversationViewModel @Inject constructor(
         messages,
         contactsRepository.contacts(),
         contact,
-        blocked,
-        canBlock,
-    ) { messages, contacts, match, isBlocked, blockingAvailable ->
+        sendPanel,
+    ) { messages, contacts, match, panel ->
         val addresses = messages.map { it.address }.filter { it.isNotBlank() }.distinct()
         ConversationUiState(
             loading = false,
@@ -115,8 +135,10 @@ class ConversationViewModel @Inject constructor(
             contactId = match?.contactId,
             address = addresses.singleOrNull(),
             isGroup = addresses.size > 1,
-            blocked = isBlocked,
-            canBlock = blockingAvailable,
+            blocked = panel.blocked,
+            canBlock = panel.canBlock,
+            sims = panel.sims,
+            selectedSubscriptionId = panel.selectedSubscriptionId,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -127,10 +149,19 @@ class ConversationViewModel @Inject constructor(
     fun open(threadId: Long) {
         if (this.threadId.value == threadId) return
         this.threadId.value = threadId
+        sims.value = messagingSims.sims()
+        selectedSubscription.value = messagingSims.defaultSubscriptionId()
         viewModelScope.launch {
             messagesRepository.markThreadRead(threadId)
             canBlock.value = blockedNumbersRepository.canBlock()
         }
+    }
+
+    fun onCycleSim() {
+        val simList = sims.value
+        if (simList.size < 2) return
+        val index = simList.indexOfFirst { it.subscriptionId == selectedSubscription.value }
+        selectedSubscription.value = simList[(index + 1) % simList.size].subscriptionId
     }
 
     fun onToggleBlocked() {
@@ -149,7 +180,7 @@ class ConversationViewModel @Inject constructor(
         val trimmed = body.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            smsSender.send(address, trimmed, selectedSubscriptionId)
+            smsSender.send(address, trimmed, selectedSubscription.value)
             messagesRepository.refresh()
         }
     }

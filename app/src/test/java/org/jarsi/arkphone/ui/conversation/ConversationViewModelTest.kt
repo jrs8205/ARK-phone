@@ -8,9 +8,11 @@ import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.MessagingSim
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
+import org.jarsi.arkphone.testing.FakeMessagingSims
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
@@ -28,6 +30,7 @@ class ConversationViewModelTest {
     private val contacts = FakeContactsRepository()
     private val blockedNumbers = FakeBlockedNumbersRepository()
     private val smsSender = FakeSmsSender()
+    private val messagingSims = FakeMessagingSims()
 
     private fun message(
         id: Long,
@@ -49,7 +52,8 @@ class ConversationViewModelTest {
         subscriptionId = 1,
     )
 
-    private fun viewModel() = ConversationViewModel(repository, contacts, blockedNumbers, smsSender)
+    private fun viewModel() =
+        ConversationViewModel(repository, contacts, blockedNumbers, smsSender, messagingSims)
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
         repository.messagesByThread
@@ -179,6 +183,45 @@ class ConversationViewModelTest {
         advanceUntilIdle()
         assertTrue(smsSender.sent.isEmpty())
         assertTrue(smsSender.discarded.isEmpty())
+    }
+
+    @Test
+    fun openingInitializesTheSimChoiceFromTheDefault() = runTest {
+        messagingSims.simList = listOf(MessagingSim(1, "DNA"), MessagingSim(2, "Elisa"))
+        messagingSims.defaultId = 2
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.selectedSubscriptionId != 2) {
+                state = awaitItem()
+            }
+            assertEquals(listOf("DNA", "Elisa"), state.sims.map { it.label })
+            assertEquals("Elisa", state.selectedSimLabel)
+        }
+    }
+
+    @Test
+    fun cyclingMovesToTheNextSimAndSendUsesIt() = runTest {
+        messagingSims.simList = listOf(MessagingSim(1, "DNA"), MessagingSim(2, "Elisa"))
+        messagingSims.defaultId = 1
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.address == null || state.selectedSubscriptionId != 1) {
+                state = awaitItem()
+            }
+            viewModel.onCycleSim()
+            state = awaitItem()
+            assertEquals(2, state.selectedSubscriptionId)
+            viewModel.onSendText("Moro")
+            advanceUntilIdle()
+            assertEquals(Triple("+358441234567", "Moro", 2), smsSender.sent.single())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

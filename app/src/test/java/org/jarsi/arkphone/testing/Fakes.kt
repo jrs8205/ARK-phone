@@ -203,6 +203,14 @@ class FakePermissionChecker(private val granted: MutableSet<String> = mutableSet
     override fun has(permission: String): Boolean = permission in granted
 }
 
+class FakeMessagingSims(
+    var simList: List<org.jarsi.arkphone.messaging.MessagingSim> = emptyList(),
+    var defaultId: Int = -1,
+) : org.jarsi.arkphone.messaging.MessagingSims {
+    override fun sims(): List<org.jarsi.arkphone.messaging.MessagingSim> = simList
+    override fun defaultSubscriptionId(): Int = defaultId
+}
+
 class FakeSmsSender : org.jarsi.arkphone.messaging.SmsSender {
     val sent = mutableListOf<Triple<String, String, Int>>()
     val discarded = mutableListOf<Long>()

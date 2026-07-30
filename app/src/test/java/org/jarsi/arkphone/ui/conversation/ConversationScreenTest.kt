@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.MessagingSim
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +48,10 @@ class ConversationScreenTest {
     private fun setContent(
         messages: List<Message>,
         address: String? = "+358441234567",
+        sims: List<MessagingSim> = emptyList(),
+        selectedSubscriptionId: Int = -1,
         onSendText: (String) -> Unit = {},
+        onCycleSim: () -> Unit = {},
     ) {
         composeRule.setContent {
             ConversationContent(
@@ -56,6 +60,8 @@ class ConversationScreenTest {
                     messages = messages,
                     title = "Matti",
                     address = address,
+                    sims = sims,
+                    selectedSubscriptionId = selectedSubscriptionId,
                 ),
                 onBack = {},
                 onCall = {},
@@ -63,6 +69,7 @@ class ConversationScreenTest {
                 onToggleBlocked = {},
                 onDeleteConversation = {},
                 onSendText = onSendText,
+                onCycleSim = onCycleSim,
             )
         }
     }
@@ -117,6 +124,31 @@ class ConversationScreenTest {
     fun composerIsDisabledForGroupThreads() {
         setContent(listOf(message(1, 1_000)), address = null)
         composeRule.onNodeWithTag("composer_input").assertIsNotEnabled()
+    }
+
+    @Test
+    fun simChipShowsTheSelectedSimOnlyWithSeveralSims() {
+        var cycled = false
+        setContent(
+            listOf(message(1, 1_000)),
+            sims = listOf(MessagingSim(1, "DNA"), MessagingSim(2, "Elisa")),
+            selectedSubscriptionId = 2,
+            onCycleSim = { cycled = true },
+        )
+        composeRule.onNodeWithTag("sim_chip").assertIsDisplayed()
+        composeRule.onNodeWithText("Elisa").assertIsDisplayed()
+        composeRule.onNodeWithTag("sim_chip").performClick()
+        assertEquals(true, cycled)
+    }
+
+    @Test
+    fun simChipIsHiddenOnASingleSimDevice() {
+        setContent(
+            listOf(message(1, 1_000)),
+            sims = listOf(MessagingSim(1, "DNA")),
+            selectedSubscriptionId = 1,
+        )
+        composeRule.onNodeWithTag("sim_chip").assertDoesNotExist()
     }
 
     @Test
