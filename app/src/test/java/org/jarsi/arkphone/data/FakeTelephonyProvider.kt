@@ -86,6 +86,46 @@ class FakeTelephonyProvider : ContentProvider() {
                     }
                 cursor
             }
+            uri == Telephony.Mms.CONTENT_URI -> {
+                val threadIdArg = selectionArgs?.firstOrNull()?.toLongOrNull()
+                val cursor = MatrixCursor(
+                    arrayOf("_id", "thread_id", "date", "msg_box", "read", "sub_id", "m_type", "ct_l"),
+                )
+                mmsRows
+                    .filter { threadIdArg == null || it.getAsLong("thread_id") == threadIdArg }
+                    .sortedBy { it.getAsLong("date") }
+                    .forEach { row ->
+                        cursor.addRow(
+                            arrayOf(
+                                row.getAsLong("_id"),
+                                row.getAsLong("thread_id"),
+                                row.getAsLong("date"),
+                                row.getAsInteger("msg_box"),
+                                row.getAsInteger("read"),
+                                row.getAsInteger("sub_id"),
+                                row.getAsInteger("m_type"),
+                                row.getAsString("ct_l"),
+                            ),
+                        )
+                    }
+                cursor
+            }
+            path.matches(Regex("content://mms/\\d+/part")) -> {
+                val messageId = uri.pathSegments[0].toLong()
+                val cursor = MatrixCursor(arrayOf("_id", "ct", "text"))
+                mmsPartRows
+                    .filter { it.first == messageId }
+                    .forEach { (_, row) ->
+                        cursor.addRow(
+                            arrayOf(
+                                row.getAsLong("_id"),
+                                row.getAsString("ct"),
+                                row.getAsString("text"),
+                            ),
+                        )
+                    }
+                cursor
+            }
             path.matches(Regex("content://mms/\\d+/addr")) -> {
                 val messageId = uri.pathSegments[0].toLong()
                 val cursor = MatrixCursor(arrayOf("address", "type"))

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,6 +44,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -51,7 +54,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
@@ -63,6 +68,7 @@ fun ConversationScreen(
     onBack: () -> Unit,
     onCall: (String) -> Unit,
     onOpenContact: (Long) -> Unit,
+    onRetryDownload: (Long) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ConversationContent(
@@ -75,6 +81,7 @@ fun ConversationScreen(
         onSendText = viewModel::onSendText,
         onRetry = viewModel::onRetry,
         onCycleSim = viewModel::onCycleSim,
+        onRetryDownload = onRetryDownload,
     )
 }
 
@@ -90,9 +97,11 @@ fun ConversationContent(
     onSendText: (String) -> Unit = {},
     onRetry: (Message) -> Unit = {},
     onCycleSim: () -> Unit = {},
+    onRetryDownload: (Long) -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var viewerImageUri by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val rows = uiState.rows
     LaunchedEffect(rows.size) {
@@ -211,9 +220,23 @@ fun ConversationContent(
                         message = row.message,
                         showStatus = row.message.id == lastOutgoingId,
                         onRetry = onRetry,
+                        onRetryDownload = onRetryDownload,
+                        onOpenImage = { viewerImageUri = it },
                     )
                 }
             }
+        }
+    }
+    viewerImageUri?.let { imageUri ->
+        Dialog(onDismissRequest = { viewerImageUri = null }) {
+            AsyncImage(
+                model = imageUri,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewerImageUri = null }
+                    .testTag("mms_image_viewer"),
+            )
         }
     }
     if (confirmDelete) {
@@ -318,6 +341,8 @@ private fun MessageBubble(
     message: Message,
     showStatus: Boolean,
     onRetry: (Message) -> Unit,
+    onRetryDownload: (Long) -> Unit = {},
+    onOpenImage: (String) -> Unit = {},
 ) {
     val incoming = message.incoming
     val failed = !incoming && message.status == MessageStatus.FAILED
@@ -341,14 +366,39 @@ private fun MessageBubble(
                 modifier = Modifier
                     .testTag(if (incoming) "bubble_in" else "bubble_out")
                     .let { base ->
-                        if (failed) base.clickable { onRetry(message) } else base
+                        when {
+                            message.pendingDownload -> base.clickable { onRetryDownload(message.id) }
+                            failed -> base.clickable { onRetry(message) }
+                            else -> base
+                        }
                     },
             ) {
-                Text(
-                    text = message.body.orEmpty(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    message.attachments.forEach { attachment ->
+                        AsyncImage(
+                            model = attachment.partUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .padding(bottom = 4.dp)
+                                .sizeIn(maxWidth = 240.dp, maxHeight = 240.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onOpenImage(attachment.partUri) }
+                                .testTag("mms_image"),
+                        )
+                    }
+                    val bodyText = when {
+                        message.pendingDownload ->
+                            stringResource(R.string.mms_download_failed_retry)
+                        else -> message.body.orEmpty()
+                    }
+                    if (bodyText.isNotEmpty() || message.attachments.isEmpty()) {
+                        Text(
+                            text = bodyText,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
             }
             val statusText = when {
                 failed -> stringResource(R.string.message_status_failed_retry)

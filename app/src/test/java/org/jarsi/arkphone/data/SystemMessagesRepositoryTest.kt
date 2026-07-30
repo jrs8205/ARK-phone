@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.data.model.MmsAttachment
 import org.jarsi.arkphone.util.PermissionChecker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -99,7 +100,7 @@ class SystemMessagesRepositoryTest {
     @Test
     fun `mark read updates only unread rows of the thread`() = runTest {
         repository.markThreadRead(3L)
-        val (uri, values) = provider.updatedUris.single()
+        val (uri, values) = provider.updatedUris.first()
         assertEquals(Telephony.Sms.CONTENT_URI, uri)
         assertEquals(1, values.getAsInteger(Telephony.Sms.READ))
     }
@@ -109,6 +110,83 @@ class SystemMessagesRepositoryTest {
         assertTrue(provider.deletedUris.isEmpty())
         assertTrue(repository.deleteThread(3L))
         assertTrue(provider.deletedUris.single().toString().endsWith("/conversations/3"))
+    }
+
+    @Test
+    fun `thread merges sms and mms rows by time`() = runTest {
+        provider.smsRows += smsRow(
+            id = 1, threadId = 3, address = "+358441234567", body = "Moro",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        provider.mmsRows += mmsRow(id = 600, threadId = 3, dateSeconds = 2, mType = 132)
+        provider.mmsPartRows += 600L to partValues(id = 901, ct = "text/plain", text = "MMS-teksti")
+        provider.mmsPartRows += 600L to partValues(id = 902, ct = "image/jpeg")
+        provider.mmsAddrRows += 600L to android.content.ContentValues().apply {
+            put("address", "+358441234567")
+            put("type", 137)
+        }
+
+        val messages = repository.messages(3L).first()
+
+        assertEquals(listOf("Moro", "MMS-teksti"), messages.map { it.body })
+        with(messages[1]) {
+            assertTrue(isMms)
+            assertTrue(incoming)
+            assertEquals("+358441234567", address)
+            assertEquals(2000L, timestampMillis)
+            assertEquals(
+                listOf(MmsAttachment("content://mms/part/902", "image/jpeg")),
+                attachments,
+            )
+            assertTrue(!pendingDownload)
+        }
+    }
+
+    @Test
+    fun `an undownloaded mms is flagged for retry`() = runTest {
+        provider.mmsRows += mmsRow(id = 601, threadId = 3, dateSeconds = 5, mType = 130)
+        val message = repository.messages(3L).first().single()
+        assertTrue(message.pendingDownload)
+        assertTrue(message.isMms)
+        assertEquals(null, message.body)
+    }
+
+    @Test
+    fun `mark read touches both message tables`() = runTest {
+        repository.markThreadRead(3L)
+        val uris = provider.updatedUris.map { it.first }
+        assertTrue(Telephony.Sms.CONTENT_URI in uris)
+        assertTrue(Telephony.Mms.CONTENT_URI in uris)
+    }
+
+    private fun mmsRow(
+        id: Long,
+        threadId: Long,
+        dateSeconds: Long,
+        mType: Int,
+        msgBox: Int = Telephony.Mms.MESSAGE_BOX_INBOX,
+        read: Int = 1,
+        subId: Int = 1,
+    ): android.content.ContentValues = android.content.ContentValues().apply {
+        put("_id", id)
+        put("thread_id", threadId)
+        put("date", dateSeconds)
+        put("msg_box", msgBox)
+        put("read", read)
+        put("sub_id", subId)
+        put("m_type", mType)
+        put("ct_l", "http://mmsc/x")
+    }
+
+    private fun partValues(
+        id: Long,
+        ct: String,
+        text: String? = null,
+    ): android.content.ContentValues = android.content.ContentValues().apply {
+        put("_id", id)
+        put("ct", ct)
+        text?.let { put("text", it) }
     }
 
     @Test

@@ -7,7 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import org.jarsi.arkphone.messaging.MmsDownloader
 import org.jarsi.arkphone.telecom.PhoneCaller
 import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
@@ -24,6 +27,8 @@ class ConversationActivity : ComponentActivity() {
     }
 
     @Inject lateinit var phoneCaller: PhoneCaller
+
+    @Inject lateinit var mmsDownloader: MmsDownloader
 
     private val viewModel: ConversationViewModel by viewModels()
 
@@ -44,6 +49,9 @@ class ConversationActivity : ComponentActivity() {
                     onCall = { phoneCaller.placeCall(it) },
                     onOpenContact = { contactId ->
                         startActivity(ContactCardActivity.intent(this, contactId))
+                    },
+                    onRetryDownload = { messageId ->
+                        lifecycleScope.launch { mmsDownloader.retryDownload(messageId) }
                     },
                 )
             }

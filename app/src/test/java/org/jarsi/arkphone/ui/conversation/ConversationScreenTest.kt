@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.data.model.MmsAttachment
 import org.jarsi.arkphone.messaging.MessagingSim
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -52,6 +53,7 @@ class ConversationScreenTest {
         selectedSubscriptionId: Int = -1,
         onSendText: (String) -> Unit = {},
         onCycleSim: () -> Unit = {},
+        onRetryDownload: (Long) -> Unit = {},
     ) {
         composeRule.setContent {
             ConversationContent(
@@ -70,6 +72,7 @@ class ConversationScreenTest {
                 onDeleteConversation = {},
                 onSendText = onSendText,
                 onCycleSim = onCycleSim,
+                onRetryDownload = onRetryDownload,
             )
         }
     }
@@ -149,6 +152,30 @@ class ConversationScreenTest {
             selectedSubscriptionId = 1,
         )
         composeRule.onNodeWithTag("sim_chip").assertDoesNotExist()
+    }
+
+    @Test
+    fun anMmsImageRendersInsideTheBubble() {
+        setContent(
+            listOf(
+                message(1, 1_000).copy(
+                    isMms = true,
+                    attachments = listOf(MmsAttachment("content://mms/part/901", "image/jpeg")),
+                ),
+            ),
+        )
+        composeRule.onNodeWithTag("mms_image", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun aPendingDownloadRowFiresTheRetryCallback() {
+        var retried: Long? = null
+        setContent(
+            listOf(message(9, 1_000).copy(isMms = true, pendingDownload = true, body = null)),
+            onRetryDownload = { retried = it },
+        )
+        composeRule.onNodeWithText("Download failed — tap to retry").performClick()
+        assertEquals(9L, retried)
     }
 
     @Test
