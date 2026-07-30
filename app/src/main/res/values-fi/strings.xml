@@ -22,6 +22,15 @@
     <string name="messages_permission_rationale">Salli tekstiviestien käyttö, jotta viestisi voidaan näyttää.</string>
     <string name="messages_new">Uusi viesti</string>
     <string name="messages_empty">Ei viestejä</string>
+    <string name="conversation_call">Soita</string>
+    <string name="conversation_menu">Lisää valintoja</string>
+    <string name="conversation_delete">Poista keskustelu</string>
+    <string name="conversation_delete_confirm_title">Poistetaanko keskustelu?</string>
+    <string name="conversation_delete_confirm_text">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</string>
+    <string name="message_status_sending">Lähetetään…</string>
+    <string name="message_status_sent">Lähetetty</string>
+    <string name="message_status_delivered">Toimitettu</string>
+    <string name="message_status_failed_retry">Epäonnistui — yritä uudelleen napauttamalla</string>
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>

@@ -100,6 +100,15 @@
     <string name="messages_permission_rationale">To show your messages, allow SMS access.</string>
     <string name="messages_new">New message</string>
     <string name="messages_empty">No messages</string>
+    <string name="conversation_call">Call</string>
+    <string name="conversation_menu">More options</string>
+    <string name="conversation_delete">Delete conversation</string>
+    <string name="conversation_delete_confirm_title">Delete conversation?</string>
+    <string name="conversation_delete_confirm_text">All messages in this conversation will be removed from your phone.</string>
+    <string name="message_status_sending">Sending…</string>
+    <string name="message_status_sent">Sent</string>
+    <string name="message_status_delivered">Delivered</string>
+    <string name="message_status_failed_retry">Failed — tap to retry</string>
     <string name="banner_not_default">ARK-phone is not your default phone app.</string>
     <string name="banner_set_default">Set as default</string>
     <string name="dialpad_call">Call</string>

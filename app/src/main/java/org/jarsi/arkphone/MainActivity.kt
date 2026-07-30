@@ -21,6 +21,7 @@ import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.MissedCallNotifier
 import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.ui.conversation.ConversationActivity
 import org.jarsi.arkphone.ui.navigation.MainScreen
 import org.jarsi.arkphone.ui.onboarding.OnboardingScreen
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
@@ -100,6 +101,9 @@ class MainActivity : ComponentActivity() {
                         onRequestedNumberConsumed = { dialRequest.value = null },
                         onRequestSmsPermission = {
                             smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                        },
+                        onOpenThread = { threadId ->
+                            startActivity(ConversationActivity.intent(this, threadId))
                         },
                     )
                 }

@@ -77,6 +77,10 @@
             android:name=".ui.contactcard.ContactCardActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.conversation.ConversationActivity"
+            android:exported="false" />
+
         <service
             android:name=".telecom.ArkCallScreeningService"
             android:permission="android.permission.BIND_SCREENING_SERVICE"
