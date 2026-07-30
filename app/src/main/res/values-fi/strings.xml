@@ -34,6 +34,8 @@
     <string name="message_compose_hint">Tekstiviesti</string>
     <string name="message_send">Lähetä</string>
     <string name="message_sim_chip_description">Lähettävä SIM</string>
+    <string name="notification_channel_messages">Viestit</string>
+    <string name="message_notification_self">Minä</string>
     <string name="banner_not_default">ARK-phone ei ole oletuspuhelinsovelluksesi.</string>
     <string name="banner_set_default">Aseta oletukseksi</string>
     <string name="dialpad_call">Soita</string>

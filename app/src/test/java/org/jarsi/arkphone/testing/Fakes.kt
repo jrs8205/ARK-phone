@@ -203,6 +203,30 @@ class FakePermissionChecker(private val granted: MutableSet<String> = mutableSet
     override fun has(permission: String): Boolean = permission in granted
 }
 
+class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
+    data class Notified(
+        val threadId: Long,
+        val address: String,
+        val displayName: String?,
+        val body: String,
+        val timestampMillis: Long,
+    )
+    val notified = mutableListOf<Notified>()
+    val cancelledThreads = mutableListOf<Long>()
+    override fun notifyMessage(
+        threadId: Long,
+        address: String,
+        displayName: String?,
+        body: String,
+        timestampMillis: Long,
+    ) {
+        notified += Notified(threadId, address, displayName, body, timestampMillis)
+    }
+    override fun cancelThread(threadId: Long) {
+        cancelledThreads += threadId
+    }
+}
+
 class FakeMessagingSims(
     var simList: List<org.jarsi.arkphone.messaging.MessagingSim> = emptyList(),
     var defaultId: Int = -1,

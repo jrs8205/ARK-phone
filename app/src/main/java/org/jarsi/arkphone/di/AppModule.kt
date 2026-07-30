@@ -39,8 +39,10 @@ import org.jarsi.arkphone.data.SystemMessagesRepository
 import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
+import org.jarsi.arkphone.messaging.AndroidMessageNotifier
 import org.jarsi.arkphone.messaging.AndroidMessagingSims
 import org.jarsi.arkphone.messaging.AndroidSmsSender
+import org.jarsi.arkphone.messaging.MessageNotifier
 import org.jarsi.arkphone.messaging.MessagingSims
 import org.jarsi.arkphone.messaging.SmsSender
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
@@ -187,6 +189,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindMessagingSims(impl: AndroidMessagingSims): MessagingSims
+
+    @Binds
+    @Singleton
+    abstract fun bindMessageNotifier(impl: AndroidMessageNotifier): MessageNotifier
 
     companion object {
         @Provides
