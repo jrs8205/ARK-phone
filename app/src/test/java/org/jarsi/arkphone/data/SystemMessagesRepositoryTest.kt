@@ -170,6 +170,7 @@ class SystemMessagesRepositoryTest {
         )
         val message = repository.messages(3L).first().single()
         assertTrue(!message.pendingDownload)
+        assertEquals(MessageStatus.SENT, message.status)
     }
 
     @Test

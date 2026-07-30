@@ -16,3 +16,12 @@ internal fun smsStatusFrom(type: Int, status: Int): MessageStatus = when (type) 
 
 /** The mms table stores DATE in seconds where sms stores milliseconds. */
 internal fun mmsTimestampMillis(providerDateSeconds: Long): Long = providerDateSeconds * 1000
+
+/** MMS send progress lives in MESSAGE_BOX; there are no delivery reports.
+ *  Box 5 is the app's own failed marker (see AndroidMmsSender). */
+internal fun mmsStatusFrom(messageBox: Int): MessageStatus = when (messageBox) {
+    Telephony.Mms.MESSAGE_BOX_OUTBOX -> MessageStatus.SENDING
+    Telephony.Mms.MESSAGE_BOX_SENT -> MessageStatus.SENT
+    5 -> MessageStatus.FAILED
+    else -> MessageStatus.NONE
+}

@@ -59,4 +59,12 @@ class MessageMappingTest {
     fun `mms provider dates are seconds`() {
         assertEquals(1_722_000_000_000L, mmsTimestampMillis(1_722_000_000L))
     }
+
+    @Test
+    fun `mms status comes from the message box`() {
+        assertEquals(MessageStatus.SENDING, mmsStatusFrom(Telephony.Mms.MESSAGE_BOX_OUTBOX))
+        assertEquals(MessageStatus.SENT, mmsStatusFrom(Telephony.Mms.MESSAGE_BOX_SENT))
+        assertEquals(MessageStatus.FAILED, mmsStatusFrom(5))
+        assertEquals(MessageStatus.NONE, mmsStatusFrom(Telephony.Mms.MESSAGE_BOX_INBOX))
+    }
 }

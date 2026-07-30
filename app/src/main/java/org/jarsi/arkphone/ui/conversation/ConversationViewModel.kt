@@ -211,7 +211,9 @@ class ConversationViewModel @Inject constructor(
 
     fun onRetry(message: Message) {
         if (!canSend.value) return
-        if (message.incoming || message.status != MessageStatus.FAILED) return
+        // The retry path deletes and resends through the SMS sender; an MMS
+        // row must never reach it — the ids point at a different table.
+        if (message.isMms || message.incoming || message.status != MessageStatus.FAILED) return
         val body = message.body ?: return
         viewModelScope.launch {
             smsSender.discardFailed(message.id)

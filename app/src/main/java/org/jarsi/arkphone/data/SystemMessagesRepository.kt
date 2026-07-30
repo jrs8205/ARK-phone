@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.Conversation
 import org.jarsi.arkphone.data.model.Message
-import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.data.model.MmsAttachment
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.util.PermissionChecker
@@ -225,7 +224,7 @@ class SystemMessagesRepository @Inject constructor(
                     body = content.body,
                     timestampMillis = mmsTimestampMillis(cursor.getLong(2)),
                     incoming = incoming,
-                    status = MessageStatus.NONE,
+                    status = mmsStatusFrom(cursor.getInt(3)),
                     subscriptionId = cursor.getInt(5),
                     attachments = content.attachments,
                     pendingDownload = cursor.getInt(6) == MMS_MESSAGE_TYPE_NOTIFICATION ||

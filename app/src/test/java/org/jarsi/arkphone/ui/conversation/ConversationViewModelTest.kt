@@ -180,6 +180,21 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun retryIgnoresFailedMmsRows() = runTest {
+        // The retry path deletes and resends through the SMS sender; MMS ids
+        // point at a different provider table.
+        val failedMms = message(9, 2000, incoming = false, status = MessageStatus.FAILED)
+            .copy(isMms = true)
+        seedThread(3L, listOf(failedMms))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        viewModel.onRetry(failedMms)
+        advanceUntilIdle()
+        assertTrue(smsSender.sent.isEmpty())
+        assertTrue(smsSender.discarded.isEmpty())
+    }
+
+    @Test
     fun retryIgnoresMessagesThatDidNotFail() = runTest {
         val sent = message(8, 2000, incoming = false, status = MessageStatus.SENT)
         seedThread(3L, listOf(sent))
