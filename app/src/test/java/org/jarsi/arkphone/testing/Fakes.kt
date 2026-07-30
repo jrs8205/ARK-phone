@@ -235,6 +235,25 @@ class FakeMessagingSims(
     override fun defaultSubscriptionId(): Int = defaultId
 }
 
+class FakeMmsSender : org.jarsi.arkphone.messaging.MmsSender {
+    data class Sent(
+        val address: String,
+        val text: String?,
+        val imageUri: android.net.Uri,
+        val subscriptionId: Int,
+    )
+    val sent = mutableListOf<Sent>()
+    override suspend fun send(
+        address: String,
+        text: String?,
+        imageUri: android.net.Uri,
+        subscriptionId: Int,
+    ): android.net.Uri? {
+        sent += Sent(address, text, imageUri, subscriptionId)
+        return null
+    }
+}
+
 class FakeSmsSender : org.jarsi.arkphone.messaging.SmsSender {
     val sent = mutableListOf<Triple<String, String, Int>>()
     val discarded = mutableListOf<Long>()

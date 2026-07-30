@@ -1,6 +1,9 @@
 package org.jarsi.arkphone.ui.conversation
 
 import android.text.format.DateUtils
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -71,6 +76,9 @@ fun ConversationScreen(
     onRetryDownload: (Long) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(viewModel::onAttachImage) }
     ConversationContent(
         uiState = uiState,
         onBack = onBack,
@@ -82,6 +90,12 @@ fun ConversationScreen(
         onRetry = viewModel::onRetry,
         onCycleSim = viewModel::onCycleSim,
         onRetryDownload = onRetryDownload,
+        onPickImage = {
+            imagePicker.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+        onRemoveAttachment = { viewModel.onAttachImage(null) },
     )
 }
 
@@ -98,6 +112,8 @@ fun ConversationContent(
     onRetry: (Message) -> Unit = {},
     onCycleSim: () -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
+    onPickImage: () -> Unit = {},
+    onRemoveAttachment: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -192,8 +208,11 @@ fun ConversationContent(
             ComposerRow(
                 enabled = uiState.address != null,
                 simLabel = if (uiState.sims.size >= 2) uiState.selectedSimLabel else null,
+                attachedImageUri = uiState.attachedImageUri,
                 onCycleSim = onCycleSim,
                 onSendText = onSendText,
+                onPickImage = onPickImage,
+                onRemoveAttachment = onRemoveAttachment,
             )
         },
     ) { padding ->
@@ -265,54 +284,91 @@ fun ConversationContent(
 private fun ComposerRow(
     enabled: Boolean,
     simLabel: String?,
+    attachedImageUri: String?,
     onCycleSim: () -> Unit,
     onSendText: (String) -> Unit,
+    onPickImage: () -> Unit,
+    onRemoveAttachment: () -> Unit,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Bottom,
     ) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            enabled = enabled,
-            placeholder = { Text(stringResource(R.string.message_compose_hint)) },
-            shape = RoundedCornerShape(24.dp),
-            maxLines = 5,
-            modifier = Modifier
-                .weight(1f)
-                .testTag("composer_input"),
-        )
-        if (simLabel != null) {
-            val simDescription = stringResource(R.string.message_sim_chip_description)
-            AssistChip(
-                onClick = onCycleSim,
-                label = { Text(simLabel, maxLines = 1) },
+        if (attachedImageUri != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = attachedImageUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .sizeIn(maxWidth = 96.dp, maxHeight = 96.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .testTag("attachment_preview"),
+                )
+                IconButton(
+                    onClick = onRemoveAttachment,
+                    modifier = Modifier.testTag("attachment_remove"),
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.message_remove_attachment),
+                    )
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            IconButton(
+                onClick = onPickImage,
+                enabled = enabled,
+                modifier = Modifier.testTag("composer_attach"),
+            ) {
+                Icon(
+                    Icons.Filled.Image,
+                    contentDescription = stringResource(R.string.message_attach),
+                )
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                enabled = enabled,
+                placeholder = { Text(stringResource(R.string.message_compose_hint)) },
+                shape = RoundedCornerShape(24.dp),
+                maxLines = 5,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("composer_input"),
+            )
+            if (simLabel != null) {
+                val simDescription = stringResource(R.string.message_sim_chip_description)
+                AssistChip(
+                    onClick = onCycleSim,
+                    label = { Text(simLabel, maxLines = 1) },
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .semantics { contentDescription = simDescription }
+                        .testTag("sim_chip"),
+                )
+            }
+            IconButton(
+                onClick = {
+                    onSendText(text)
+                    text = ""
+                },
+                enabled = enabled && (text.isNotBlank() || attachedImageUri != null),
                 modifier = Modifier
                     .padding(start = 8.dp)
-                    .semantics { contentDescription = simDescription }
-                    .testTag("sim_chip"),
-            )
-        }
-        IconButton(
-            onClick = {
-                onSendText(text)
-                text = ""
-            },
-            enabled = enabled && text.isNotBlank(),
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .testTag("composer_send"),
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(R.string.message_send),
-            )
+                    .testTag("composer_send"),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.message_send),
+                )
+            }
         }
     }
 }

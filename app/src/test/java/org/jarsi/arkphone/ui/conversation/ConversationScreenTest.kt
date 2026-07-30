@@ -2,6 +2,7 @@ package org.jarsi.arkphone.ui.conversation
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -54,6 +55,8 @@ class ConversationScreenTest {
         onSendText: (String) -> Unit = {},
         onCycleSim: () -> Unit = {},
         onRetryDownload: (Long) -> Unit = {},
+        attachedImageUri: String? = null,
+        onRemoveAttachment: () -> Unit = {},
     ) {
         composeRule.setContent {
             ConversationContent(
@@ -64,6 +67,7 @@ class ConversationScreenTest {
                     address = address,
                     sims = sims,
                     selectedSubscriptionId = selectedSubscriptionId,
+                    attachedImageUri = attachedImageUri,
                 ),
                 onBack = {},
                 onCall = {},
@@ -73,6 +77,7 @@ class ConversationScreenTest {
                 onSendText = onSendText,
                 onCycleSim = onCycleSim,
                 onRetryDownload = onRetryDownload,
+                onRemoveAttachment = onRemoveAttachment,
             )
         }
     }
@@ -176,6 +181,25 @@ class ConversationScreenTest {
         )
         composeRule.onNodeWithText("Download failed — tap to retry").performClick()
         assertEquals(9L, retried)
+    }
+
+    @Test
+    fun anAttachmentPreviewShowsAndCanBeRemoved() {
+        var removed = false
+        setContent(
+            listOf(message(1, 1_000)),
+            attachedImageUri = "content://media/1",
+            onRemoveAttachment = { removed = true },
+        )
+        composeRule.onNodeWithTag("attachment_preview", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("attachment_remove").performClick()
+        assertEquals(true, removed)
+    }
+
+    @Test
+    fun anAttachmentAloneEnablesSend() {
+        setContent(listOf(message(1, 1_000)), attachedImageUri = "content://media/1")
+        composeRule.onNodeWithTag("composer_send").assertIsEnabled()
     }
 
     @Test

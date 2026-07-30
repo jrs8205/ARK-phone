@@ -41,9 +41,13 @@ import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.messaging.AndroidMessageNotifier
 import org.jarsi.arkphone.messaging.AndroidMessagingSims
+import org.jarsi.arkphone.messaging.AndroidMmsSender
 import org.jarsi.arkphone.messaging.AndroidSmsSender
 import org.jarsi.arkphone.messaging.MessageNotifier
 import org.jarsi.arkphone.messaging.MessagingSims
+import org.jarsi.arkphone.messaging.MmsSender
+import org.jarsi.arkphone.messaging.MmsTransport
+import org.jarsi.arkphone.messaging.PlatformMmsTransport
 import org.jarsi.arkphone.messaging.SmsSender
 import org.jarsi.arkphone.telecom.AndroidAnnounceGate
 import org.jarsi.arkphone.telecom.AndroidCallScreeningRole
@@ -193,6 +197,14 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindMessageNotifier(impl: AndroidMessageNotifier): MessageNotifier
+
+    @Binds
+    @Singleton
+    abstract fun bindMmsSender(impl: AndroidMmsSender): MmsSender
+
+    @Binds
+    @Singleton
+    abstract fun bindMmsTransport(impl: PlatformMmsTransport): MmsTransport
 
     companion object {
         @Provides

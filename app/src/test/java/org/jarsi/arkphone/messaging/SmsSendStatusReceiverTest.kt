@@ -43,4 +43,19 @@ class SmsSendStatusReceiverTest {
     fun `unknown action is ignored`() {
         assertNull(sentUpdateFor("org.example.SOMETHING_ELSE", Activity.RESULT_OK))
     }
+
+    @Test
+    fun `mms sent ok moves the row to the sent box`() {
+        val values = sentUpdateFor(ACTION_MMS_SENT, Activity.RESULT_OK)
+        assertEquals(
+            Telephony.Mms.MESSAGE_BOX_SENT,
+            values!!.getAsInteger(Telephony.Mms.MESSAGE_BOX),
+        )
+    }
+
+    @Test
+    fun `mms sent failure moves the row to the failed box`() {
+        val values = sentUpdateFor(ACTION_MMS_SENT, SmsManager.RESULT_ERROR_GENERIC_FAILURE)
+        assertEquals(5, values!!.getAsInteger(Telephony.Mms.MESSAGE_BOX))
+    }
 }

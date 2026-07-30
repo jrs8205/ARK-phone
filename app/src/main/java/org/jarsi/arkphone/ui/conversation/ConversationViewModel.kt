@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.conversation
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.messaging.MessagingSim
 import org.jarsi.arkphone.messaging.MessagingSims
+import org.jarsi.arkphone.messaging.MmsSender
 import org.jarsi.arkphone.messaging.SmsSender
 import org.jarsi.arkphone.ui.messages.conversationTitle
 import java.time.Instant
@@ -66,6 +68,8 @@ data class ConversationUiState(
     val canBlock: Boolean = false,
     val sims: List<MessagingSim> = emptyList(),
     val selectedSubscriptionId: Int = -1,
+    /** The picked image waiting in the composer, as a content URI string. */
+    val attachedImageUri: String? = null,
 ) {
     val rows: List<ConversationRow> get() = dateSeparators(messages)
 
@@ -79,6 +83,7 @@ class ConversationViewModel @Inject constructor(
     private val contactsRepository: ContactsRepository,
     private val blockedNumbersRepository: BlockedNumbersRepository,
     private val smsSender: SmsSender,
+    private val mmsSender: MmsSender,
     private val messagingSims: MessagingSims,
 ) : ViewModel() {
 
@@ -87,6 +92,7 @@ class ConversationViewModel @Inject constructor(
     private val blocked = MutableStateFlow(false)
     private val canBlock = MutableStateFlow(false)
     private val sims = MutableStateFlow<List<MessagingSim>>(emptyList())
+    private val attachedImage = MutableStateFlow<Uri?>(null)
 
     /** Per-open-conversation choice; never persisted. */
     private val selectedSubscription = MutableStateFlow(-1)
@@ -96,11 +102,12 @@ class ConversationViewModel @Inject constructor(
         val canBlock: Boolean,
         val sims: List<MessagingSim>,
         val selectedSubscriptionId: Int,
+        val attachedImage: Uri?,
     )
 
-    private val sendPanel = combine(blocked, canBlock, sims, selectedSubscription) {
-            isBlocked, blockingAvailable, simList, selected ->
-        SendPanel(isBlocked, blockingAvailable, simList, selected)
+    private val sendPanel = combine(blocked, canBlock, sims, selectedSubscription, attachedImage) {
+            isBlocked, blockingAvailable, simList, selected, attachment ->
+        SendPanel(isBlocked, blockingAvailable, simList, selected, attachment)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -139,6 +146,7 @@ class ConversationViewModel @Inject constructor(
             canBlock = panel.canBlock,
             sims = panel.sims,
             selectedSubscriptionId = panel.selectedSubscriptionId,
+            attachedImageUri = panel.attachedImage?.toString(),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -175,12 +183,27 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
+    fun onAttachImage(imageUri: Uri?) {
+        attachedImage.value = imageUri
+    }
+
     fun onSendText(body: String) {
         val address = uiState.value.address ?: return
         val trimmed = body.trim()
-        if (trimmed.isEmpty()) return
+        val attachment = attachedImage.value
+        if (trimmed.isEmpty() && attachment == null) return
         viewModelScope.launch {
-            smsSender.send(address, trimmed, selectedSubscription.value)
+            if (attachment != null) {
+                attachedImage.value = null
+                mmsSender.send(
+                    address,
+                    trimmed.takeIf { it.isNotEmpty() },
+                    attachment,
+                    selectedSubscription.value,
+                )
+            } else {
+                smsSender.send(address, trimmed, selectedSubscription.value)
+            }
             messagesRepository.refresh()
         }
     }

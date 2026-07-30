@@ -13,6 +13,7 @@ import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakeMessagingSims
+import org.jarsi.arkphone.testing.FakeMmsSender
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
@@ -52,8 +53,14 @@ class ConversationViewModelTest {
         subscriptionId = 1,
     )
 
-    private fun viewModel() =
-        ConversationViewModel(repository, contacts, blockedNumbers, smsSender, messagingSims)
+    private fun viewModel() = ConversationViewModel(
+        repository,
+        contacts,
+        blockedNumbers,
+        smsSender,
+        FakeMmsSender(),
+        messagingSims,
+    )
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
         repository.messagesByThread
