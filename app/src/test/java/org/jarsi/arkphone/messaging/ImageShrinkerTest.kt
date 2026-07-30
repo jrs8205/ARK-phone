@@ -4,8 +4,10 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.exifinterface.media.ExifInterface
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -42,5 +44,29 @@ class ImageShrinkerTest {
         val source = File(context.cacheDir, "corrupt.jpg")
         source.writeBytes("this is not an image".toByteArray())
         assertNull(shrinker.shrink(Uri.fromFile(source), maxBytes = 100_000))
+    }
+
+    @Test
+    fun `exif orientation is baked into the sent pixels`() = runTest {
+        // Cameras often store sideways pixels plus a rotation tag; the
+        // re-encode drops the tag, so the rotation must be applied.
+        val source = File(context.cacheDir, "rotated.jpg")
+        Bitmap.createBitmap(200, 100, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(0xFF3366AA.toInt())
+            source.outputStream().use { compress(Bitmap.CompressFormat.JPEG, 95, it) }
+        }
+        ExifInterface(source.absolutePath).apply {
+            setAttribute(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_ROTATE_90.toString(),
+            )
+            saveAttributes()
+        }
+
+        val shrunk = shrinker.shrink(Uri.fromFile(source), maxBytes = 100_000)!!
+
+        val decoded = BitmapFactory.decodeByteArray(shrunk, 0, shrunk.size)
+        assertEquals(100, decoded.width)
+        assertEquals(200, decoded.height)
     }
 }

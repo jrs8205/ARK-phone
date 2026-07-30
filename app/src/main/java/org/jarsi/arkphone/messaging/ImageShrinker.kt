@@ -3,8 +3,10 @@ package org.jarsi.arkphone.messaging
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import androidx.core.graphics.scale
+import androidx.exifinterface.media.ExifInterface
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
@@ -33,6 +35,13 @@ class ImageShrinker @Inject constructor(
         var bitmap = context.contentResolver.openInputStream(source)?.use {
             BitmapFactory.decodeStream(it, null, options)
         } ?: return@runCatching null
+        // Re-encoding drops the EXIF block, so a rotation stored as
+        // metadata has to be baked into the pixels here.
+        val rotation = exifRotationDegrees(source)
+        if (rotation != 0f) {
+            val matrix = Matrix().apply { postRotate(rotation) }
+            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        }
         while (true) {
             var quality = QUALITY_START
             while (quality >= QUALITY_FLOOR) {
@@ -50,6 +59,22 @@ class ImageShrinker @Inject constructor(
         @Suppress("UNREACHABLE_CODE")
         null
     }.getOrNull()
+
+    private fun exifRotationDegrees(source: Uri): Float = runCatching {
+        context.contentResolver.openInputStream(source)?.use { stream ->
+            when (
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+            ) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+        }
+    }.getOrNull() ?: 0f
 
     private fun sampleSizeFor(width: Int, height: Int): Int {
         var sampleSize = 1
