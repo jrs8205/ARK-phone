@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
@@ -152,15 +153,23 @@ fun MessagesContent(
 @Composable
 private fun SmsRoleBanner(onRequestSmsRole: () -> Unit) {
     val haptics = rememberHaptics()
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+    // Shaped and inset like the conversation cards below it so the banner
+    // reads as part of the list instead of a strip glued to the search bar.
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp, bottom = 4.dp),
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(R.string.messages_banner_not_default),
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
             TextButton(
