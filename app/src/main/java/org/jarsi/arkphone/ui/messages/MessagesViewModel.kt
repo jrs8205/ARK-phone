@@ -36,7 +36,10 @@ data class MessagesUiState(
     val query: String = "",
     val hasReadSmsPermission: Boolean = true,
     val isDefaultSmsApp: Boolean = true,
-)
+    val selectedThreadIds: Set<Long> = emptySet(),
+) {
+    val selectionActive: Boolean get() = selectedThreadIds.isNotEmpty()
+}
 
 /** Contact names for every participant, the raw address when unknown. */
 internal fun conversationTitle(addresses: List<String>, contacts: List<Contact>): String =
@@ -79,9 +82,10 @@ class MessagesViewModel @Inject constructor(
     private val permissionState = MutableStateFlow(hasSmsPermission())
     private val roleState = MutableStateFlow(smsRole.isHeld())
     private val query = MutableStateFlow("")
+    private val selected = MutableStateFlow<Set<Long>>(emptySet())
 
-    private val access = combine(permissionState, roleState) { hasPermission, roleHeld ->
-        hasPermission to roleHeld
+    private val access = combine(permissionState, roleState, selected) { hasPermission, roleHeld, sel ->
+        Triple(hasPermission, roleHeld, sel)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -94,7 +98,7 @@ class MessagesViewModel @Inject constructor(
         query,
         access,
         bodyMatchedThreadIds,
-    ) { conversations, contacts, query, (hasPermission, roleHeld), bodyMatches ->
+    ) { conversations, contacts, query, (hasPermission, roleHeld, sel), bodyMatches ->
         val items = conversations.map { conversation ->
             ConversationItem(
                 conversation = conversation,
@@ -111,6 +115,9 @@ class MessagesViewModel @Inject constructor(
             query = query,
             hasReadSmsPermission = hasPermission,
             isDefaultSmsApp = roleHeld,
+            selectedThreadIds = sel.filterTo(mutableSetOf()) { id ->
+                conversations.any { it.threadId == id }
+            },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -126,9 +133,26 @@ class MessagesViewModel @Inject constructor(
         query.value = value
     }
 
-    fun onDeleteConversation(threadId: Long) {
+    fun onToggleSelection(threadId: Long) {
+        selected.value = selected.value.let { if (threadId in it) it - threadId else it + threadId }
+    }
+
+    fun onSelectAll() {
+        selected.value = uiState.value.conversations.mapTo(mutableSetOf()) {
+            it.conversation.threadId
+        }
+    }
+
+    fun onClearSelection() {
+        selected.value = emptySet()
+    }
+
+    fun onDeleteSelected() {
+        val targets = selected.value
+        if (targets.isEmpty()) return
         viewModelScope.launch {
-            repository.deleteThread(threadId)
+            targets.forEach { repository.deleteThread(it) }
+            selected.value = emptySet()
             repository.refresh()
         }
     }

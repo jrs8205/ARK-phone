@@ -10,6 +10,7 @@ import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeMessageSharer
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakeMmsSender
 import org.jarsi.arkphone.testing.FakeSmsRole
@@ -59,6 +60,7 @@ class ConversationViewModelTest {
         smsSender,
         FakeMmsSender(),
         smsRole,
+        FakeMessageSharer(),
     )
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
@@ -236,6 +238,7 @@ class ConversationViewModelTest {
             smsSender,
             mmsSender,
             smsRole,
+            FakeMessageSharer(),
         )
         viewModel.open(3L)
         viewModel.uiState.test {
@@ -272,18 +275,6 @@ class ConversationViewModelTest {
             assertTrue(smsSender.sent.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun deleteMessageForwardsTheRowAndItsKind() = runTest {
-        val target = message(4, 1500).copy(isMms = true)
-        seedThread(3L, listOf(target))
-        val viewModel = viewModel()
-        viewModel.open(3L)
-        viewModel.onDeleteMessage(target)
-        advanceUntilIdle()
-        assertEquals(listOf(4L to true), repository.deletedMessages)
-        assertTrue(repository.refreshCalls > 0)
     }
 
     @Test

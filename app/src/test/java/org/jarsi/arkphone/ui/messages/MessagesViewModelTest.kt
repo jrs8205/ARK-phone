@@ -134,6 +134,89 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun togglingARowSelectsAndUnselectsIt() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(conversation(3, listOf("+358441234567")))
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            assertEquals(setOf(3L), awaitItem().selectedThreadIds)
+            viewModel.onToggleSelection(3L)
+            val state = awaitItem()
+            assertTrue(state.selectedThreadIds.isEmpty())
+            assertFalse(state.selectionActive)
+        }
+    }
+
+    @Test
+    fun selectAllSelectsOnlyTheVisibleConversations() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        contacts.allContacts.value = listOf(contact("Matti", "+358441234567"))
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onQueryChange("mat")
+            var state = awaitItem()
+            while (state.conversations.size != 1) {
+                state = awaitItem()
+            }
+            viewModel.onSelectAll()
+            assertEquals(setOf(3L), awaitItem().selectedThreadIds)
+        }
+    }
+
+    @Test
+    fun deleteSelectedRemovesEachThreadAndClearsTheSelection() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            awaitItem()
+            viewModel.onToggleSelection(4L)
+            awaitItem()
+            viewModel.onDeleteSelected()
+            var state = awaitItem()
+            while (state.selectedThreadIds.isNotEmpty()) {
+                state = awaitItem()
+            }
+            assertEquals(setOf(3L, 4L), repository.deletedThreads.toSet())
+            assertTrue(repository.refreshCalls > 0)
+        }
+    }
+
+    @Test
+    fun selectionDropsConversationsThatDisappear() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            awaitItem()
+            repository.conversationsState.value = listOf(conversation(4, listOf("+358400000000")))
+            val state = awaitItem()
+            assertTrue(state.selectedThreadIds.isEmpty())
+        }
+    }
+
+    @Test
     fun refreshPicksUpAFreshlyGrantedRole() = runTest {
         smsRole.held = false
         permissions.grant(Manifest.permission.READ_SMS)

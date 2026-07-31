@@ -42,6 +42,7 @@ class ConversationViewModelMmsTest {
         smsSender,
         mmsSender,
         org.jarsi.arkphone.testing.FakeSmsRole(held = true),
+        org.jarsi.arkphone.testing.FakeMessageSharer(),
     )
 
     private fun seedThread() {

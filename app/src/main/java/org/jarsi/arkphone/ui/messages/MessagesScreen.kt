@@ -1,11 +1,13 @@
 package org.jarsi.arkphone.ui.messages
 
 import android.text.format.DateUtils
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,12 +17,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +52,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.ContactAvatar
 import org.jarsi.arkphone.ui.components.RowCard
 import org.jarsi.arkphone.ui.components.SearchRow
+import org.jarsi.arkphone.ui.components.SelectionTopBar
 import org.jarsi.arkphone.ui.components.clickableListItem
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.components.transparentListItemColors
@@ -72,7 +80,10 @@ fun MessagesScreen(
         onRequestPermission = onRequestPermission,
         onRequestSmsRole = onRequestSmsRole,
         onOpenSettings = { context.startActivity(SettingsActivity.intent(context)) },
-        onDeleteConversation = viewModel::onDeleteConversation,
+        onToggleSelection = viewModel::onToggleSelection,
+        onSelectAll = viewModel::onSelectAll,
+        onClearSelection = viewModel::onClearSelection,
+        onDeleteSelected = viewModel::onDeleteSelected,
     )
 }
 
@@ -85,18 +96,54 @@ fun MessagesContent(
     onRequestPermission: () -> Unit,
     onRequestSmsRole: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    onDeleteConversation: (Long) -> Unit = {},
+    onToggleSelection: (Long) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
-    var confirmDelete by remember { mutableStateOf<ConversationItem?>(null) }
+    var confirmBulkDelete by remember { mutableStateOf(false) }
+    BackHandler(enabled = uiState.selectionActive) { onClearSelection() }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            SearchRow(
-                query = uiState.query,
-                onQueryChange = onQueryChange,
-                placeholder = stringResource(R.string.messages_search_placeholder),
-                onOpenSettings = onOpenSettings,
-            )
+            if (uiState.selectionActive) {
+                // The main scaffold already pads the status bar above this column.
+                SelectionTopBar(
+                    count = uiState.selectedThreadIds.size,
+                    onClose = onClearSelection,
+                    windowInsets = WindowInsets(0.dp),
+                ) {
+                    IconButton(
+                        onClick = {
+                            haptics.click()
+                            onSelectAll()
+                        },
+                    ) {
+                        Icon(
+                            Icons.Filled.SelectAll,
+                            contentDescription = stringResource(R.string.selection_select_all),
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            haptics.click()
+                            confirmBulkDelete = true
+                        },
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.common_delete),
+                        )
+                    }
+                }
+            } else {
+                SearchRow(
+                    query = uiState.query,
+                    onQueryChange = onQueryChange,
+                    placeholder = stringResource(R.string.messages_search_placeholder),
+                    onOpenSettings = onOpenSettings,
+                )
+            }
             if (!uiState.loading && !uiState.isDefaultSmsApp) {
                 SmsRoleBanner(onRequestSmsRole)
             }
@@ -135,42 +182,58 @@ fun MessagesContent(
                 }
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(uiState.conversations, key = { it.conversation.threadId }) { item ->
+                        val threadId = item.conversation.threadId
                         ConversationRow(
                             item = item,
-                            onOpenThread = onOpenThread,
-                            onLongPress = { confirmDelete = item },
+                            selectionActive = uiState.selectionActive,
+                            selected = threadId in uiState.selectedThreadIds,
+                            onClick = {
+                                if (uiState.selectionActive) {
+                                    onToggleSelection(threadId)
+                                } else {
+                                    onOpenThread(threadId)
+                                }
+                            },
+                            onLongPress = { onToggleSelection(threadId) },
                         )
                     }
                 }
             }
         }
-        FloatingActionButton(
-            onClick = {
-                haptics.confirm()
-                onNewMessage()
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp),
-        ) {
-            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.messages_new))
+        if (!uiState.selectionActive) {
+            FloatingActionButton(
+                onClick = {
+                    haptics.confirm()
+                    onNewMessage()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+            ) {
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.messages_new))
+            }
         }
     }
-    confirmDelete?.let { item ->
+    if (confirmBulkDelete) {
+        val count = uiState.selectedThreadIds.size
         AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(stringResource(R.string.conversation_delete_confirm_title)) },
-            text = { Text(stringResource(R.string.conversation_delete_confirm_text)) },
+            onDismissRequest = { confirmBulkDelete = false },
+            title = {
+                Text(pluralStringResource(R.plurals.conversations_delete_confirm_title, count, count))
+            },
+            text = {
+                Text(pluralStringResource(R.plurals.conversations_delete_confirm_text, count, count))
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        confirmDelete = null
-                        onDeleteConversation(item.conversation.threadId)
+                        confirmBulkDelete = false
+                        onDeleteSelected()
                     },
                 ) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) {
+                TextButton(onClick = { confirmBulkDelete = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -215,7 +278,9 @@ private fun SmsRoleBanner(onRequestSmsRole: () -> Unit) {
 @Composable
 private fun ConversationRow(
     item: ConversationItem,
-    onOpenThread: (Long) -> Unit,
+    selectionActive: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
     onLongPress: () -> Unit,
 ) {
     val conversation = item.conversation
@@ -223,14 +288,25 @@ private fun ConversationRow(
         ListItem(
             colors = transparentListItemColors(),
             modifier = Modifier.clickableListItem(
-                onClick = { onOpenThread(conversation.threadId) },
+                onClick = onClick,
                 onLongClick = onLongPress,
             ),
             leadingContent = {
-                ContactAvatar(
-                    displayName = item.title.ifBlank { null },
-                    photoUri = item.photoUri,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selectionActive) {
+                        Checkbox(
+                            checked = selected,
+                            onCheckedChange = null,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .testTag("select_conversation"),
+                        )
+                    }
+                    ContactAvatar(
+                        displayName = item.title.ifBlank { null },
+                        photoUri = item.photoUri,
+                    )
+                }
             },
             headlineContent = {
                 Text(

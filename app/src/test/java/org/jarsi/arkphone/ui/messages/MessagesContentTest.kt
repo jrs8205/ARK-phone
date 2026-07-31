@@ -82,8 +82,8 @@ class MessagesContentTest {
     }
 
     @Test
-    fun longPressOffersDeleteAndConfirmingDeletes() {
-        var deleted: Long? = null
+    fun longPressTogglesTheRowIntoSelection() {
+        var toggled: Long? = null
         composeRule.setContent {
             MessagesContent(
                 uiState = MessagesUiState(
@@ -95,13 +95,101 @@ class MessagesContentTest {
                 onOpenThread = {},
                 onNewMessage = {},
                 onRequestPermission = {},
-                onDeleteConversation = { deleted = it },
+                onToggleSelection = { toggled = it },
             )
         }
         composeRule.onNodeWithText("Matti").performTouchInput { longClick() }
-        composeRule.onNodeWithText("Delete conversation?").assertIsDisplayed()
+        assertEquals(3L, toggled)
+    }
+
+    @Test
+    fun selectionModeTapTogglesInsteadOfOpening() {
+        var toggled: Long? = null
+        var opened: Long? = null
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item()),
+                    hasReadSmsPermission = true,
+                    selectedThreadIds = setOf(3L),
+                ),
+                onQueryChange = {},
+                onOpenThread = { opened = it },
+                onNewMessage = {},
+                onRequestPermission = {},
+                onToggleSelection = { toggled = it },
+            )
+        }
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Matti").performClick()
+        assertEquals(3L, toggled)
+        assertEquals(null, opened)
+    }
+
+    @Test
+    fun selectionModeHidesTheNewMessageButton() {
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item()),
+                    hasReadSmsPermission = true,
+                    selectedThreadIds = setOf(3L),
+                ),
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+            )
+        }
+        composeRule.onNodeWithContentDescription("New message").assertDoesNotExist()
+    }
+
+    @Test
+    fun selectAllActionSelectsEverything() {
+        var selectedAll = false
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item(), item(threadId = 4, title = "Liisa")),
+                    hasReadSmsPermission = true,
+                    selectedThreadIds = setOf(3L),
+                ),
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+                onSelectAll = { selectedAll = true },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Select all").performClick()
+        assertEquals(true, selectedAll)
+    }
+
+    @Test
+    fun deleteActionConfirmsWithTheCountAndDeletes() {
+        var deleted = false
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item(), item(threadId = 4, title = "Liisa")),
+                    hasReadSmsPermission = true,
+                    selectedThreadIds = setOf(3L, 4L),
+                ),
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+                onDeleteSelected = { deleted = true },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Delete").performClick()
+        composeRule.onNodeWithText("Delete 2 conversations?").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
-        assertEquals(3L, deleted)
+        assertEquals(true, deleted)
     }
 
     @Test

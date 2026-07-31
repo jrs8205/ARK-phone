@@ -106,8 +106,29 @@
     <string name="conversation_delete">Delete conversation</string>
     <string name="conversation_delete_confirm_title">Delete conversation?</string>
     <string name="conversation_delete_confirm_text">All messages in this conversation will be removed from your phone.</string>
-    <string name="message_delete_confirm_title">Delete message?</string>
-    <string name="message_delete_confirm_text">The message will be removed from your phone.</string>
+    <plurals name="selection_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="selection_exit">Exit selection</string>
+    <string name="selection_select_all">Select all</string>
+    <string name="selection_share">Share</string>
+    <plurals name="conversations_delete_confirm_title">
+        <item quantity="one">Delete conversation?</item>
+        <item quantity="other">Delete %1$d conversations?</item>
+    </plurals>
+    <plurals name="conversations_delete_confirm_text">
+        <item quantity="one">All messages in this conversation will be removed from your phone.</item>
+        <item quantity="other">All messages in these conversations will be removed from your phone.</item>
+    </plurals>
+    <plurals name="messages_delete_confirm_title">
+        <item quantity="one">Delete message?</item>
+        <item quantity="other">Delete %1$d messages?</item>
+    </plurals>
+    <plurals name="messages_delete_confirm_text">
+        <item quantity="one">The message will be removed from your phone.</item>
+        <item quantity="other">The messages will be removed from your phone.</item>
+    </plurals>
     <string name="message_status_sending">Sending…</string>
     <string name="message_status_sent">Sent</string>
     <string name="message_status_delivered">Delivered</string>

@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.conversation
 
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,6 +23,7 @@ import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.MessageSharer
 import org.jarsi.arkphone.messaging.MmsSender
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.messaging.SmsSender
@@ -37,6 +39,12 @@ sealed interface ConversationRow {
     data class DaySeparator(val epochMillis: Long) : ConversationRow
     data class MessageRow(val message: Message) : ConversationRow
 }
+
+/** Sms and mms rows live in different tables whose ids overlap; a
+ *  selection key carries the table side too. */
+data class MessageKey(val id: Long, val isMms: Boolean)
+
+internal val Message.selectionKey: MessageKey get() = MessageKey(id, isMms)
 
 internal fun dateSeparators(messages: List<Message>): List<ConversationRow> {
     val rows = mutableListOf<ConversationRow>()
@@ -69,8 +77,12 @@ data class ConversationUiState(
     val attachedImageUri: String? = null,
     /** False while ARK-phone is not the default SMS app. */
     val canSend: Boolean = true,
+    val selectedMessageKeys: Set<MessageKey> = emptySet(),
 ) {
     val rows: List<ConversationRow> get() = dateSeparators(messages)
+    val selectionActive: Boolean get() = selectedMessageKeys.isNotEmpty()
+    val selectedMessages: List<Message>
+        get() = messages.filter { it.selectionKey in selectedMessageKeys }
 }
 
 @HiltViewModel
@@ -81,6 +93,7 @@ class ConversationViewModel @Inject constructor(
     private val smsSender: SmsSender,
     private val mmsSender: MmsSender,
     private val smsRole: SmsRole,
+    private val messageSharer: MessageSharer,
 ) : ViewModel() {
 
     private val threadId = MutableStateFlow<Long?>(null)
@@ -90,21 +103,23 @@ class ConversationViewModel @Inject constructor(
     private val attachedImage = MutableStateFlow<Uri?>(null)
     private val canSend = MutableStateFlow(smsRole.isHeld())
     private val recipients = MutableStateFlow<List<String>>(emptyList())
+    private val selectedKeys = MutableStateFlow<Set<MessageKey>>(emptySet())
 
     private data class SendPanel(
         val blocked: Boolean,
         val canBlock: Boolean,
         val attachedImage: Uri?,
         val canSend: Boolean,
+        val selection: Set<MessageKey>,
     )
 
     private val blockingState = combine(blocked, canBlock) { isBlocked, blockingAvailable ->
         isBlocked to blockingAvailable
     }
 
-    private val sendPanel = combine(blockingState, attachedImage, canSend) {
-            (isBlocked, blockingAvailable), attachment, sendAllowed ->
-        SendPanel(isBlocked, blockingAvailable, attachment, sendAllowed)
+    private val sendPanel = combine(blockingState, attachedImage, canSend, selectedKeys) {
+            (isBlocked, blockingAvailable), attachment, sendAllowed, selection ->
+        SendPanel(isBlocked, blockingAvailable, attachment, sendAllowed, selection)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -149,6 +164,9 @@ class ConversationViewModel @Inject constructor(
             canBlock = panel.canBlock,
             attachedImageUri = panel.attachedImage?.toString(),
             canSend = panel.canSend,
+            selectedMessageKeys = panel.selection.filterTo(mutableSetOf()) { key ->
+                messages.any { it.selectionKey == key }
+            },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -222,10 +240,32 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
-    fun onDeleteMessage(message: Message) {
+    fun onToggleMessageSelection(message: Message) {
+        val key = message.selectionKey
+        selectedKeys.value = selectedKeys.value.let { if (key in it) it - key else it + key }
+    }
+
+    fun onClearSelection() {
+        selectedKeys.value = emptySet()
+    }
+
+    fun onDeleteSelected() {
+        val targets = selectedKeys.value
+        if (targets.isEmpty()) return
         viewModelScope.launch {
-            messagesRepository.deleteMessage(message.id, message.isMms)
+            targets.forEach { messagesRepository.deleteMessage(it.id, it.isMms) }
+            selectedKeys.value = emptySet()
             messagesRepository.refresh()
+        }
+    }
+
+    fun onShareSelected(onReady: (Intent) -> Unit) {
+        val targets = uiState.value.selectedMessages
+        if (targets.isEmpty()) return
+        viewModelScope.launch {
+            val intent = messageSharer.shareIntent(targets) ?: return@launch
+            selectedKeys.value = emptySet()
+            onReady(intent)
         }
     }
 

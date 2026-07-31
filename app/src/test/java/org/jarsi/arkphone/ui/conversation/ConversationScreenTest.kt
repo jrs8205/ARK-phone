@@ -54,10 +54,14 @@ class ConversationScreenTest {
         address: String? = "+358441234567",
         isGroup: Boolean = false,
         onSendText: (String) -> Unit = {},
-        onDeleteMessage: (Message) -> Unit = {},
         onRetryDownload: (Long) -> Unit = {},
         attachedImageUri: String? = null,
         onRemoveAttachment: () -> Unit = {},
+        selectedKeys: Set<MessageKey> = emptySet(),
+        onToggleMessageSelection: (Message) -> Unit = {},
+        onDeleteSelected: () -> Unit = {},
+        onShareSelected: () -> Unit = {},
+        onRetry: (Message) -> Unit = {},
     ) {
         composeRule.setContent {
             ConversationContent(
@@ -68,6 +72,7 @@ class ConversationScreenTest {
                     address = address,
                     isGroup = isGroup,
                     attachedImageUri = attachedImageUri,
+                    selectedMessageKeys = selectedKeys,
                 ),
                 onBack = {},
                 onCall = {},
@@ -75,9 +80,12 @@ class ConversationScreenTest {
                 onToggleBlocked = {},
                 onDeleteConversation = {},
                 onSendText = onSendText,
-                onDeleteMessage = onDeleteMessage,
+                onRetry = onRetry,
                 onRetryDownload = onRetryDownload,
                 onRemoveAttachment = onRemoveAttachment,
+                onToggleMessageSelection = onToggleMessageSelection,
+                onDeleteSelected = onDeleteSelected,
+                onShareSelected = onShareSelected,
             )
         }
     }
@@ -143,14 +151,55 @@ class ConversationScreenTest {
     }
 
     @Test
-    fun longPressOnABubbleOffersDeleteAndConfirmingDeletes() {
-        var deleted: Message? = null
-        setContent(listOf(message(1, 1_000)), onDeleteMessage = { deleted = it })
+    fun longPressOnABubbleTogglesItIntoSelection() {
+        var toggled: Message? = null
+        setContent(listOf(message(1, 1_000)), onToggleMessageSelection = { toggled = it })
         composeRule.onNodeWithTag("bubble_in", useUnmergedTree = true)
             .performTouchInput { longClick() }
-        composeRule.onNodeWithText("Delete message?").assertIsDisplayed()
+        assertEquals(1L, toggled?.id)
+    }
+
+    @Test
+    fun selectionModeTapTogglesInsteadOfRetrying() {
+        var toggled: Message? = null
+        var retried = false
+        val failed = message(1, 1_000, incoming = false, status = MessageStatus.FAILED)
+        setContent(
+            listOf(failed),
+            selectedKeys = setOf(MessageKey(9, false)),
+            onToggleMessageSelection = { toggled = it },
+            onRetry = { retried = true },
+        )
+        composeRule.onNodeWithTag("bubble_out", useUnmergedTree = true).performClick()
+        assertEquals(1L, toggled?.id)
+        assertEquals(false, retried)
+    }
+
+    @Test
+    fun selectionDeleteConfirmsWithTheCountAndDeletes() {
+        var deleted = false
+        setContent(
+            listOf(message(1, 1_000), message(2, 2_000)),
+            selectedKeys = setOf(MessageKey(1, false), MessageKey(2, false)),
+            onDeleteSelected = { deleted = true },
+        )
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Delete").performClick()
+        composeRule.onNodeWithText("Delete 2 messages?").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
-        assertEquals(1L, deleted?.id)
+        assertEquals(true, deleted)
+    }
+
+    @Test
+    fun selectionShareForwardsToTheShareAction() {
+        var shared = false
+        setContent(
+            listOf(message(1, 1_000)),
+            selectedKeys = setOf(MessageKey(1, false)),
+            onShareSelected = { shared = true },
+        )
+        composeRule.onNodeWithContentDescription("Share").performClick()
+        assertEquals(true, shared)
     }
 
     @Test

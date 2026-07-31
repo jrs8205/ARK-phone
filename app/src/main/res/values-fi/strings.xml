@@ -28,8 +28,29 @@
     <string name="conversation_delete">Poista keskustelu</string>
     <string name="conversation_delete_confirm_title">Poistetaanko keskustelu?</string>
     <string name="conversation_delete_confirm_text">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</string>
-    <string name="message_delete_confirm_title">Poistetaanko viesti?</string>
-    <string name="message_delete_confirm_text">Viesti poistetaan puhelimesta.</string>
+    <plurals name="selection_count">
+        <item quantity="one">%1$d valittu</item>
+        <item quantity="other">%1$d valittua</item>
+    </plurals>
+    <string name="selection_exit">Sulje valintatila</string>
+    <string name="selection_select_all">Valitse kaikki</string>
+    <string name="selection_share">Jaa</string>
+    <plurals name="conversations_delete_confirm_title">
+        <item quantity="one">Poistetaanko keskustelu?</item>
+        <item quantity="other">Poistetaanko %1$d keskustelua?</item>
+    </plurals>
+    <plurals name="conversations_delete_confirm_text">
+        <item quantity="one">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</item>
+        <item quantity="other">Kaikki näiden keskustelujen viestit poistetaan puhelimesta.</item>
+    </plurals>
+    <plurals name="messages_delete_confirm_title">
+        <item quantity="one">Poistetaanko viesti?</item>
+        <item quantity="other">Poistetaanko %1$d viestiä?</item>
+    </plurals>
+    <plurals name="messages_delete_confirm_text">
+        <item quantity="one">Viesti poistetaan puhelimesta.</item>
+        <item quantity="other">Viestit poistetaan puhelimesta.</item>
+    </plurals>
     <string name="message_status_sending">Lähetetään…</string>
     <string name="message_status_sent">Lähetetty</string>
     <string name="message_status_delivered">Toimitettu</string>

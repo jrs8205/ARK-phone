@@ -249,6 +249,15 @@ class FakeMmsSender : org.jarsi.arkphone.messaging.MmsSender {
     }
 }
 
+class FakeMessageSharer : org.jarsi.arkphone.messaging.MessageSharer {
+    val requests = mutableListOf<List<Message>>()
+    var intent: android.content.Intent? = null
+    override suspend fun shareIntent(messages: List<Message>): android.content.Intent? {
+        requests += messages
+        return intent
+    }
+}
+
 class FakeSmsSender : org.jarsi.arkphone.messaging.SmsSender {
     val sent = mutableListOf<Pair<String, String>>()
     val discarded = mutableListOf<Long>()

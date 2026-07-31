@@ -1,11 +1,14 @@
 package org.jarsi.arkphone.ui.conversation
 
+import android.content.Intent
 import android.text.format.DateUtils
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
@@ -27,9 +30,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,10 +70,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import androidx.compose.ui.res.pluralStringResource
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.ui.components.ContactAvatar
+import org.jarsi.arkphone.ui.components.SelectionTopBar
 
 @Composable
 fun ConversationScreen(
@@ -78,6 +86,7 @@ fun ConversationScreen(
     onRetryDownload: (Long) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri -> uri?.let(viewModel::onAttachImage) }
@@ -90,7 +99,6 @@ fun ConversationScreen(
         onDeleteConversation = { viewModel.onDeleteConversation(onBack) },
         onSendText = viewModel::onSendText,
         onRetry = viewModel::onRetry,
-        onDeleteMessage = viewModel::onDeleteMessage,
         onRetryDownload = onRetryDownload,
         onPickImage = {
             imagePicker.launch(
@@ -98,6 +106,14 @@ fun ConversationScreen(
             )
         },
         onRemoveAttachment = { viewModel.onAttachImage(null) },
+        onToggleMessageSelection = viewModel::onToggleMessageSelection,
+        onClearSelection = viewModel::onClearSelection,
+        onDeleteSelected = viewModel::onDeleteSelected,
+        onShareSelected = {
+            viewModel.onShareSelected { intent ->
+                context.startActivity(Intent.createChooser(intent, null))
+            }
+        },
     )
 }
 
@@ -112,113 +128,56 @@ fun ConversationContent(
     onDeleteConversation: () -> Unit,
     onSendText: (String) -> Unit = {},
     onRetry: (Message) -> Unit = {},
-    onDeleteMessage: (Message) -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onPickImage: () -> Unit = {},
     onRemoveAttachment: () -> Unit = {},
+    onToggleMessageSelection: (Message) -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
+    onShareSelected: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var deleteCandidate by remember { mutableStateOf<Message?>(null) }
+    var confirmBulkDelete by remember { mutableStateOf(false) }
     var viewerImageUri by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val rows = uiState.rows
     LaunchedEffect(rows.size) {
         if (rows.isNotEmpty()) listState.scrollToItem(rows.lastIndex)
     }
+    BackHandler(enabled = uiState.selectionActive) { onClearSelection() }
     Scaffold(
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            if (uiState.selectionActive) {
+                SelectionTopBar(
+                    count = uiState.selectedMessageKeys.size,
+                    onClose = onClearSelection,
+                ) {
+                    IconButton(onClick = onShareSelected) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back),
+                            Icons.Filled.Share,
+                            contentDescription = stringResource(R.string.selection_share),
                         )
                     }
-                },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = if (uiState.contactId != null) {
-                            Modifier.clickable(onClick = onOpenContact)
-                        } else {
-                            Modifier
-                        },
-                    ) {
-                        ContactAvatar(
-                            displayName = uiState.title.ifBlank { null },
-                            photoUri = uiState.photoUri,
-                            size = 36.dp,
-                        )
-                        Text(
-                            text = uiState.title.ifBlank {
-                                stringResource(R.string.call_log_unknown_caller)
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = 12.dp),
-                        )
-                    }
-                },
-                actions = {
-                    if (uiState.address != null) {
-                        IconButton(onClick = onCall) {
-                            Icon(
-                                Icons.Filled.Call,
-                                contentDescription = stringResource(R.string.conversation_call),
-                            )
-                        }
-                    }
-                    IconButton(onClick = { menuOpen = true }) {
+                    IconButton(onClick = { confirmBulkDelete = true }) {
                         Icon(
-                            Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.conversation_menu),
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.common_delete),
                         )
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (uiState.address != null) {
-                            val clipboard = LocalClipboardManager.current
-                            val context = LocalContext.current
-                            val copiedText = stringResource(R.string.number_copied)
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_copy_number)) },
-                                onClick = {
-                                    menuOpen = false
-                                    clipboard.setText(AnnotatedString(uiState.address))
-                                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-                                },
-                            )
-                        }
-                        if (uiState.address != null && uiState.canBlock) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (uiState.blocked) {
-                                                R.string.detail_unblock
-                                            } else {
-                                                R.string.detail_block
-                                            },
-                                        ),
-                                    )
-                                },
-                                onClick = {
-                                    menuOpen = false
-                                    onToggleBlocked()
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.conversation_delete)) },
-                            onClick = {
-                                menuOpen = false
-                                confirmDelete = true
-                            },
-                        )
-                    }
-                },
-            )
+                }
+            } else {
+                ConversationTopBar(
+                    uiState = uiState,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
+                    onBack = onBack,
+                    onCall = onCall,
+                    onOpenContact = onOpenContact,
+                    onToggleBlocked = onToggleBlocked,
+                    onDeleteConversation = { confirmDelete = true },
+                )
+            }
         },
         bottomBar = {
             ComposerRow(
@@ -251,7 +210,9 @@ fun ConversationContent(
                     is ConversationRow.MessageRow -> MessageBubble(
                         message = row.message,
                         onRetry = onRetry,
-                        onLongPress = { deleteCandidate = it },
+                        selectionActive = uiState.selectionActive,
+                        selected = row.message.selectionKey in uiState.selectedMessageKeys,
+                        onToggle = onToggleMessageSelection,
                         onRetryDownload = onRetryDownload,
                         onOpenImage = { viewerImageUri = it },
                     )
@@ -271,21 +232,26 @@ fun ConversationContent(
             )
         }
     }
-    deleteCandidate?.let { candidate ->
+    if (confirmBulkDelete) {
+        val count = uiState.selectedMessageKeys.size
         AlertDialog(
-            onDismissRequest = { deleteCandidate = null },
-            title = { Text(stringResource(R.string.message_delete_confirm_title)) },
-            text = { Text(stringResource(R.string.message_delete_confirm_text)) },
+            onDismissRequest = { confirmBulkDelete = false },
+            title = {
+                Text(pluralStringResource(R.plurals.messages_delete_confirm_title, count, count))
+            },
+            text = {
+                Text(pluralStringResource(R.plurals.messages_delete_confirm_text, count, count))
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        deleteCandidate = null
-                        onDeleteMessage(candidate)
+                        confirmBulkDelete = false
+                        onDeleteSelected()
                     },
                 ) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { deleteCandidate = null }) {
+                TextButton(onClick = { confirmBulkDelete = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -311,6 +277,111 @@ fun ConversationContent(
             },
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConversationTopBar(
+    uiState: ConversationUiState,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    onCall: () -> Unit,
+    onOpenContact: () -> Unit,
+    onToggleBlocked: () -> Unit,
+    onDeleteConversation: () -> Unit,
+) {
+    TopAppBar(
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.settings_back),
+                )
+            }
+        },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (uiState.contactId != null) {
+                    Modifier.clickable(onClick = onOpenContact)
+                } else {
+                    Modifier
+                },
+            ) {
+                ContactAvatar(
+                    displayName = uiState.title.ifBlank { null },
+                    photoUri = uiState.photoUri,
+                    size = 36.dp,
+                )
+                Text(
+                    text = uiState.title.ifBlank {
+                        stringResource(R.string.call_log_unknown_caller)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        },
+        actions = {
+            if (uiState.address != null) {
+                IconButton(onClick = onCall) {
+                    Icon(
+                        Icons.Filled.Call,
+                        contentDescription = stringResource(R.string.conversation_call),
+                    )
+                }
+            }
+            IconButton(onClick = { onMenuOpenChange(true) }) {
+                Icon(
+                    Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.conversation_menu),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { onMenuOpenChange(false) }) {
+                if (uiState.address != null) {
+                    val clipboard = LocalClipboardManager.current
+                    val context = LocalContext.current
+                    val copiedText = stringResource(R.string.number_copied)
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.conversation_copy_number)) },
+                        onClick = {
+                            onMenuOpenChange(false)
+                            clipboard.setText(AnnotatedString(uiState.address))
+                            Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
+                if (uiState.address != null && uiState.canBlock) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (uiState.blocked) {
+                                        R.string.detail_unblock
+                                    } else {
+                                        R.string.detail_block
+                                    },
+                                ),
+                            )
+                        },
+                        onClick = {
+                            onMenuOpenChange(false)
+                            onToggleBlocked()
+                        },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.conversation_delete)) },
+                    onClick = {
+                        onMenuOpenChange(false)
+                        onDeleteConversation()
+                    },
+                )
+            }
+        },
+    )
 }
 
 @Composable
@@ -417,7 +488,9 @@ private fun DaySeparatorRow(epochMillis: Long) {
 private fun MessageBubble(
     message: Message,
     onRetry: (Message) -> Unit,
-    onLongPress: (Message) -> Unit = {},
+    selectionActive: Boolean = false,
+    selected: Boolean = false,
+    onToggle: (Message) -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onOpenImage: (String) -> Unit = {},
 ) {
@@ -426,8 +499,27 @@ private fun MessageBubble(
     Row(
         Modifier
             .fillMaxWidth()
+            .then(
+                if (selected) {
+                    Modifier.background(
+                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 12.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selectionActive) {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = null,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .testTag("select_message"),
+            )
+        }
         if (!incoming) Spacer(Modifier.weight(0.2f))
         Column(
             modifier = Modifier.weight(0.8f, fill = false),
@@ -444,6 +536,9 @@ private fun MessageBubble(
                     .testTag(if (incoming) "bubble_in" else "bubble_out")
                     .combinedClickable(
                         onClick = when {
+                            selectionActive -> {
+                                { onToggle(message) }
+                            }
                             message.pendingDownload -> {
                                 { onRetryDownload(message.id) }
                             }
@@ -455,7 +550,7 @@ private fun MessageBubble(
                                 {}
                             }
                         },
-                        onLongClick = { onLongPress(message) },
+                        onLongClick = { onToggle(message) },
                     ),
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -468,7 +563,16 @@ private fun MessageBubble(
                                 .padding(bottom = 4.dp)
                                 .sizeIn(maxWidth = 240.dp, maxHeight = 240.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { onOpenImage(attachment.partUri) }
+                                .combinedClickable(
+                                    onClick = {
+                                        if (selectionActive) {
+                                            onToggle(message)
+                                        } else {
+                                            onOpenImage(attachment.partUri)
+                                        }
+                                    },
+                                    onLongClick = { onToggle(message) },
+                                )
                                 .testTag("mms_image"),
                         )
                     }
