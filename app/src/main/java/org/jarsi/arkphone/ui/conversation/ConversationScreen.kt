@@ -84,6 +84,7 @@ fun ConversationScreen(
     onCall: (String) -> Unit,
     onOpenContact: (Long) -> Unit,
     onRetryDownload: (Long) -> Unit = {},
+    initialComposerText: String = "",
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -114,6 +115,7 @@ fun ConversationScreen(
                 context.startActivity(Intent.createChooser(intent, null))
             }
         },
+        initialComposerText = initialComposerText,
     )
 }
 
@@ -135,6 +137,7 @@ fun ConversationContent(
     onClearSelection: () -> Unit = {},
     onDeleteSelected: () -> Unit = {},
     onShareSelected: () -> Unit = {},
+    initialComposerText: String = "",
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -186,6 +189,7 @@ fun ConversationContent(
                 onSendText = onSendText,
                 onPickImage = onPickImage,
                 onRemoveAttachment = onRemoveAttachment,
+                initialText = initialComposerText,
             )
         },
     ) { padding ->
@@ -391,8 +395,9 @@ private fun ComposerRow(
     onSendText: (String) -> Unit,
     onPickImage: () -> Unit,
     onRemoveAttachment: () -> Unit,
+    initialText: String = "",
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
+    var text by rememberSaveable { mutableStateOf(initialText) }
     Column(
         modifier = Modifier
             .fillMaxWidth()

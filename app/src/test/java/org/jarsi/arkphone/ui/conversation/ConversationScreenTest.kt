@@ -62,6 +62,7 @@ class ConversationScreenTest {
         onDeleteSelected: () -> Unit = {},
         onShareSelected: () -> Unit = {},
         onRetry: (Message) -> Unit = {},
+        initialComposerText: String = "",
     ) {
         composeRule.setContent {
             ConversationContent(
@@ -86,6 +87,7 @@ class ConversationScreenTest {
                 onToggleMessageSelection = onToggleMessageSelection,
                 onDeleteSelected = onDeleteSelected,
                 onShareSelected = onShareSelected,
+                initialComposerText = initialComposerText,
             )
         }
     }
@@ -188,6 +190,19 @@ class ConversationScreenTest {
         composeRule.onNodeWithText("Delete 2 messages?").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
         assertEquals(true, deleted)
+    }
+
+    @Test
+    fun sharedTextPrefillsTheComposer() {
+        var sent: String? = null
+        setContent(
+            listOf(message(1, 1_000)),
+            onSendText = { sent = it },
+            initialComposerText = "Jaettu teksti",
+        )
+        composeRule.onNodeWithTag("composer_input").assertTextContains("Jaettu teksti")
+        composeRule.onNodeWithTag("composer_send").performClick()
+        assertEquals("Jaettu teksti", sent)
     }
 
     @Test

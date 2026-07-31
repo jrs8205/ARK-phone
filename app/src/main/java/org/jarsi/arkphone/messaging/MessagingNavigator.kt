@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.messaging
 
 import android.content.Context
+import android.net.Uri
 import android.provider.Telephony
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -24,8 +25,14 @@ class MessagingNavigator @Inject constructor(
     fun openConversation(context: Context, number: String) =
         openConversation(context, listOf(number))
 
-    /** Several recipients resolve to the shared group thread. */
-    fun openConversation(context: Context, numbers: List<String>) {
+    /** Several recipients resolve to the shared group thread; a shared or
+     *  prefilled body and image land in the conversation composer. */
+    fun openConversation(
+        context: Context,
+        numbers: List<String>,
+        initialBody: String? = null,
+        initialImage: Uri? = null,
+    ) {
         val recipients = numbers.filter { it.isNotBlank() }
         if (recipients.isEmpty()) return
         scope.launch {
@@ -39,7 +46,9 @@ class MessagingNavigator @Inject constructor(
                 }.getOrNull()
             } ?: return@launch
             runCatching {
-                context.startActivity(ConversationActivity.intent(context, threadId))
+                context.startActivity(
+                    ConversationActivity.intent(context, threadId, initialBody, initialImage),
+                )
             }
         }
     }
