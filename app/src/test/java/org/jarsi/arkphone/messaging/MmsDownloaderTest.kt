@@ -113,6 +113,31 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a download finishing into an already read row does not notify`() = runTest {
+        // The thread was open on screen when the content landed (or the user
+        // tapped retry): the row is already read and a notification would
+        // stick over the open conversation with nothing to cancel it.
+        downloader.onPush(pushPdu())
+        val row = provider.mmsRows.single()
+        val messageId = row.getAsLong("_id")
+        row.put("read", 1)
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("+358400000000"),
+                    listOf(MmsPart("text/plain", "Luettu jo".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertTrue(notifier.notified.isEmpty())
+    }
+
+    @Test
     fun `a blocked sender is stored read and never notified`() = runTest {
         blockedNumbers.blocked += "+358441234567"
         downloader.onPush(pushPdu())

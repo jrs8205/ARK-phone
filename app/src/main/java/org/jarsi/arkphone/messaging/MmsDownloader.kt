@@ -264,6 +264,10 @@ class MmsDownloader @Inject constructor(
     }
 
     private suspend fun notifyUnlessBlocked(messageId: Long, conf: RetrieveConf) {
+        // The row is already read when the thread was open on screen while
+        // the content landed, or when this was a manual retry — a
+        // notification posted now would stick with nothing to cancel it.
+        if (queryColumn(messageId, Telephony.Mms.READ)?.toIntOrNull() == 1) return
         val sender = conf.from ?: querySender(messageId) ?: return
         if (blockedNumbers.isBlocked(sender)) return
         val threadId = queryColumn(messageId, Telephony.Mms.THREAD_ID)?.toLongOrNull() ?: return

@@ -25,6 +25,7 @@ class ConversationActivity : ComponentActivity() {
         const val EXTRA_THREAD_ID = "org.jarsi.arkphone.extra.THREAD_ID"
         const val EXTRA_INITIAL_BODY = "org.jarsi.arkphone.extra.INITIAL_BODY"
         const val EXTRA_INITIAL_IMAGE = "org.jarsi.arkphone.extra.INITIAL_IMAGE"
+        private const val STATE_IMAGE_PENDING = "org.jarsi.arkphone.state.IMAGE_PENDING"
 
         fun intent(
             context: Context,
@@ -44,6 +45,8 @@ class ConversationActivity : ComponentActivity() {
 
     private val viewModel: ConversationViewModel by viewModels()
 
+    private var initialImage: Uri? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,9 +56,13 @@ class ConversationActivity : ComponentActivity() {
             return
         }
         viewModel.open(threadId)
-        if (savedInstanceState == null) {
-            IntentCompat.getParcelableExtra(intent, EXTRA_INITIAL_IMAGE, Uri::class.java)
-                ?.let(viewModel::onAttachImage)
+        initialImage = IntentCompat.getParcelableExtra(intent, EXTRA_INITIAL_IMAGE, Uri::class.java)
+        // After process death the ViewModel is new and has lost the shared
+        // attachment; re-attach it unless the user already sent or removed it
+        // (the saved flag remembers which).
+        val imagePending = savedInstanceState?.getBoolean(STATE_IMAGE_PENDING, false) ?: true
+        if (imagePending) {
+            initialImage?.let(viewModel::onAttachImage)
         }
         setContent {
             ArkPhoneTheme {
@@ -73,5 +80,13 @@ class ConversationActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(
+            STATE_IMAGE_PENDING,
+            initialImage != null && viewModel.currentAttachment() == initialImage,
+        )
     }
 }

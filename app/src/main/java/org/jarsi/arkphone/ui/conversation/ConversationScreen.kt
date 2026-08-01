@@ -64,6 +64,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -669,19 +672,34 @@ private fun MessageBubble(
                             modifier = if (links.isEmpty()) {
                                 Modifier
                             } else {
-                                Modifier.pointerInput(links) {
-                                    detectTapGestures(
-                                        onTap = { position ->
-                                            val link = layout?.let { linkAt(it, links, position) }
-                                            if (link != null) {
+                                Modifier
+                                    .pointerInput(links) {
+                                        detectTapGestures(
+                                            onTap = { position ->
+                                                val link =
+                                                    layout?.let { linkAt(it, links, position) }
+                                                if (link != null) {
+                                                    currentOnLinkTap(link.url)
+                                                } else {
+                                                    currentBubbleClick()
+                                                }
+                                            },
+                                            onLongPress = { currentOnToggle(message) },
+                                        )
+                                    }
+                                    // The custom tap path carries no semantics of its
+                                    // own; expose each link so TalkBack and Switch
+                                    // Access can activate it too.
+                                    .semantics {
+                                        customActions = links.map { link ->
+                                            CustomAccessibilityAction(
+                                                bodyText.substring(link.start, link.end),
+                                            ) {
                                                 currentOnLinkTap(link.url)
-                                            } else {
-                                                currentBubbleClick()
+                                                true
                                             }
-                                        },
-                                        onLongPress = { currentOnToggle(message) },
-                                    )
-                                }
+                                        }
+                                    }
                             },
                         )
                     }

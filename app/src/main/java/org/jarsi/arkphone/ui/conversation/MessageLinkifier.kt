@@ -51,27 +51,31 @@ object MessageLinkifier {
             Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES or Linkify.PHONE_NUMBERS,
         )
         return spannable.getSpans(0, spannable.length, URLSpan::class.java)
-            .map { span ->
+            .mapNotNull { span ->
                 val start = spannable.getSpanStart(span)
                 val end = spannable.getSpanEnd(span)
-                LinkSpan(start, end, normalize(span.url, body.substring(start, end)))
+                val text = body.substring(start, end)
+                LinkSpan(start, end, normalize(span.url, text)).takeIf { keep(it.url, text) }
             }
-            .filter { keep(it.url) }
             .sortedBy { it.start }
     }
 
     // Linkify prepends plain http:// when the text had no scheme; upgrade those to https.
     private fun normalize(url: String, text: String): String =
-        if (url.startsWith("http://") && !text.startsWith("http://")) {
+        if (url.startsWith("http://") && !text.startsWith("http://", ignoreCase = true)) {
             "https://" + url.removePrefix("http://")
         } else {
             url
         }
 
+    private val dateLike = Regex("""\d{1,2}\.\d{1,2}\.\d{2,4}""")
+
     // Leniency.POSSIBLE linkifies date- and time-like digit runs; real Finnish
-    // numbers have at least five digits and start with 0 or +.
-    private fun keep(url: String): Boolean {
+    // numbers have at least five digits, start with 0 or +, and are not
+    // written in the dotted date shape ("01.08.2026" would otherwise pass).
+    private fun keep(url: String, text: String): Boolean {
         if (!url.startsWith("tel:")) return true
+        if (dateLike.matches(text)) return false
         val number = url.removePrefix("tel:")
         return number.count { it.isDigit() } >= 5 &&
             (number.startsWith("+") || number.startsWith("0"))

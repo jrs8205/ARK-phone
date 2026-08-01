@@ -214,6 +214,8 @@ class ConversationViewModel @Inject constructor(
         attachedImage.value = imageUri
     }
 
+    fun currentAttachment(): Uri? = attachedImage.value
+
     fun onSendText(body: String) {
         if (!canSend.value) return
         val state = uiState.value

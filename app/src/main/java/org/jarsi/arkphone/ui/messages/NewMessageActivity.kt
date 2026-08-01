@@ -11,6 +11,7 @@ import androidx.core.content.IntentCompat
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.messaging.MessagingNavigator
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
+import java.io.File
 import javax.inject.Inject
 
 /** The recipient a SENDTO/SEND intent already names, if any. The scheme part
@@ -22,8 +23,13 @@ internal fun directRecipient(intent: Intent): String? =
 
 /** The prefilled message text a SEND/SENDTO intent carries, if any. */
 internal fun sharedBody(intent: Intent): String? {
-    intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { return it }
-    return intent.data?.schemeSpecificPart
+    // Senders may put a styled CharSequence in EXTRA_TEXT; getStringExtra
+    // would return null for those.
+    intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        ?.takeIf { it.isNotBlank() }?.let { return it }
+    // Split the still-encoded form so an encoded '&' inside the body value
+    // survives, then decode exactly once.
+    return intent.data?.encodedSchemeSpecificPart
         ?.substringAfter('?', "")
         ?.split('&')
         ?.firstOrNull { it.startsWith("body=") }
@@ -35,6 +41,30 @@ internal fun sharedBody(intent: Intent): String? {
 /** The image a SEND intent shares, if any. */
 internal fun sharedImage(intent: Intent): Uri? =
     IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+
+/** Copies a shared image into an app-owned cache file while the sender's
+ *  URI grant is still alive — the grant dies when this activity finishes,
+ *  and the conversation reads the image only later at send time. */
+internal fun stageSharedImage(context: Context, source: Uri?): Uri? {
+    source ?: return null
+    return runCatching {
+        val dir = File(context.cacheDir, "shared").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        val extension = when (context.contentResolver.getType(source)) {
+            "image/png" -> "png"
+            "image/gif" -> "gif"
+            "image/webp" -> "webp"
+            else -> "jpg"
+        }
+        val file = File(dir, "incoming.$extension")
+        checkNotNull(context.contentResolver.openInputStream(source)).use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        }
+        Uri.fromFile(file)
+    }.getOrNull()
+}
 
 @AndroidEntryPoint
 class NewMessageActivity : ComponentActivity() {
@@ -49,7 +79,7 @@ class NewMessageActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val body = sharedBody(intent)
-        val image = sharedImage(intent)
+        val image = stageSharedImage(this, sharedImage(intent))
         val direct = directRecipient(intent)
         if (direct != null) {
             messagingNavigator.openConversation(this, listOf(direct), body, image)

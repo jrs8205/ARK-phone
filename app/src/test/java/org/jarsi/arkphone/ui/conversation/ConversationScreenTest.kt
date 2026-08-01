@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -399,6 +401,19 @@ class ConversationScreenTest {
         composeRule.onNodeWithText("Call").performClick()
         assertEquals("0401234567", called)
         composeRule.onNodeWithText("0401234567").assertDoesNotExist()
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun linksAreExposedAsAccessibilityActions() {
+        var opened: String? = null
+        setContent(
+            listOf(message(1, 1_000, body = "Katso https://yle.fi nyt")),
+            onOpenLink = { opened = it },
+        )
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .performCustomAccessibilityActionWithLabel("https://yle.fi")
+        assertEquals("https://yle.fi", opened)
     }
 
     @Test

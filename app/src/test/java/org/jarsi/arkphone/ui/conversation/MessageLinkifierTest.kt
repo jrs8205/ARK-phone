@@ -89,6 +89,21 @@ class MessageLinkifierTest {
     }
 
     @Test
+    fun aZeroPaddedDateIsNotALink() {
+        assertEquals(
+            emptyList<LinkSpan>(),
+            MessageLinkifier.detect("Palaveri siirtyy 01.08.2026 aamuun"),
+        )
+    }
+
+    @Test
+    fun anUppercaseHttpSchemeIsNotRewrittenToHttps() {
+        val links = MessageLinkifier.detect("vanha sivu HTTP://old.example.com toimii")
+        assertEquals(1, links.size)
+        assertTrue(links[0].url.startsWith("http://", ignoreCase = true))
+    }
+
+    @Test
     fun plainTextHasNoLinks() {
         assertEquals(emptyList<LinkSpan>(), MessageLinkifier.detect("Moro, tuutko syömään?"))
     }
