@@ -28,6 +28,8 @@
     <string name="conversation_delete">Poista keskustelu</string>
     <string name="conversation_delete_confirm_title">Poistetaanko keskustelu?</string>
     <string name="conversation_delete_confirm_text">Kaikki tämän keskustelun viestit poistetaan puhelimesta.</string>
+    <string name="message_link_call">Soita</string>
+    <string name="message_link_copy">Kopioi</string>
     <plurals name="selection_count">
         <item quantity="one">%1$d valittu</item>
         <item quantity="other">%1$d valittua</item>

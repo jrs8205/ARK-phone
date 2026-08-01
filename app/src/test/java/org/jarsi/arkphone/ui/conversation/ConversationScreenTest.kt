@@ -1,10 +1,15 @@
 package org.jarsi.arkphone.ui.conversation
 
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -12,13 +17,18 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.data.model.MmsAttachment
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +72,8 @@ class ConversationScreenTest {
         onDeleteSelected: () -> Unit = {},
         onShareSelected: () -> Unit = {},
         onRetry: (Message) -> Unit = {},
+        onCallNumber: (String) -> Unit = {},
+        onOpenLink: (String) -> Unit = {},
         initialComposerText: String = "",
     ) {
         composeRule.setContent {
@@ -87,6 +99,8 @@ class ConversationScreenTest {
                 onToggleMessageSelection = onToggleMessageSelection,
                 onDeleteSelected = onDeleteSelected,
                 onShareSelected = onShareSelected,
+                onCallNumber = onCallNumber,
+                onOpenLink = onOpenLink,
                 initialComposerText = initialComposerText,
             )
         }
@@ -284,6 +298,117 @@ class ConversationScreenTest {
     fun anAttachmentAloneEnablesSend() {
         setContent(listOf(message(1, 1_000)), attachedImageUri = "content://media/1")
         composeRule.onNodeWithTag("composer_send").assertIsEnabled()
+    }
+
+    // Robolectric's glyph boxes are reliable only for the first character of a style
+    // run, so always target a run-initial index: a link's start, or 0 for plain text.
+    private fun SemanticsNodeInteraction.tapAtChar(index: Int) {
+        val layouts = mutableListOf<TextLayoutResult>()
+        performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val center = layouts.first().getBoundingBox(index).center
+        performTouchInput { click(center) }
+    }
+
+    private fun SemanticsNodeInteraction.longPressAtChar(index: Int) {
+        val layouts = mutableListOf<TextLayoutResult>()
+        performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val center = layouts.first().getBoundingBox(index).center
+        performTouchInput { longClick(center) }
+    }
+
+    @Test
+    fun tappingALinkOpensIt() {
+        var opened: String? = null
+        setContent(
+            listOf(message(1, 1_000, body = "Katso https://yle.fi nyt")),
+            onOpenLink = { opened = it },
+        )
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .tapAtChar(6)
+        assertEquals("https://yle.fi", opened)
+    }
+
+    @Test
+    fun aLinkTapLosesToActiveSelectionMode() {
+        var opened: String? = null
+        var toggled: Message? = null
+        setContent(
+            listOf(message(1, 1_000, body = "Katso https://yle.fi nyt")),
+            selectedKeys = setOf(MessageKey(99, false)),
+            onToggleMessageSelection = { toggled = it },
+            onOpenLink = { opened = it },
+        )
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .tapAtChar(6)
+        assertNull(opened)
+        assertEquals(1L, toggled?.id)
+    }
+
+    @Test
+    fun longPressOnALinkStartsSelection() {
+        var opened: String? = null
+        var toggled: Message? = null
+        setContent(
+            listOf(message(1, 1_000, body = "Katso https://yle.fi nyt")),
+            onToggleMessageSelection = { toggled = it },
+            onOpenLink = { opened = it },
+        )
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .longPressAtChar(6)
+        assertNull(opened)
+        assertEquals(1L, toggled?.id)
+    }
+
+    @Test
+    fun aFailedSmsRetriesFromPlainTextButOpensItsLink() {
+        var retried = false
+        var opened: String? = null
+        setContent(
+            listOf(
+                message(
+                    2,
+                    2_000,
+                    incoming = false,
+                    body = "uusi yritys https://yle.fi",
+                    status = MessageStatus.FAILED,
+                ),
+            ),
+            onRetry = { retried = true },
+            onOpenLink = { opened = it },
+        )
+        val bubbleText =
+            composeRule.onNodeWithText("uusi yritys https://yle.fi", useUnmergedTree = true)
+        bubbleText.tapAtChar(0)
+        assertTrue(retried)
+        assertNull(opened)
+        bubbleText.tapAtChar(12)
+        assertEquals("https://yle.fi", opened)
+    }
+
+    @Test
+    fun tappingAPhoneNumberOffersCallCopyCancel() {
+        var called: String? = null
+        setContent(
+            listOf(message(1, 1_000, body = "soita 040 1234567")),
+            onCallNumber = { called = it },
+        )
+        composeRule.onNodeWithText("soita 040 1234567", useUnmergedTree = true).tapAtChar(6)
+        composeRule.onNodeWithText("0401234567").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").assertIsDisplayed()
+        composeRule.onNodeWithText("Call").performClick()
+        assertEquals("0401234567", called)
+        composeRule.onNodeWithText("0401234567").assertDoesNotExist()
+    }
+
+    @Test
+    fun copyingFromTheNumberDialogFillsTheClipboard() {
+        setContent(listOf(message(1, 1_000, body = "soita 040 1234567")))
+        composeRule.onNodeWithText("soita 040 1234567", useUnmergedTree = true).tapAtChar(6)
+        composeRule.onNodeWithText("Copy").performClick()
+        val clipboard = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+        assertEquals("0401234567", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        composeRule.onNodeWithText("Copy").assertDoesNotExist()
     }
 
     @Test

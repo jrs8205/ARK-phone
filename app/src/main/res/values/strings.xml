@@ -106,6 +106,8 @@
     <string name="conversation_delete">Delete conversation</string>
     <string name="conversation_delete_confirm_title">Delete conversation?</string>
     <string name="conversation_delete_confirm_text">All messages in this conversation will be removed from your phone.</string>
+    <string name="message_link_call">Call</string>
+    <string name="message_link_copy">Copy</string>
     <plurals name="selection_count">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>

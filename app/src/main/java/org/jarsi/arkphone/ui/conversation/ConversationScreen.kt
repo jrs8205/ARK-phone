@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,11 +65,17 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import androidx.compose.ui.res.pluralStringResource
@@ -115,6 +123,12 @@ fun ConversationScreen(
                 context.startActivity(Intent.createChooser(intent, null))
             }
         },
+        onCallNumber = onCall,
+        onOpenLink = { url ->
+            val action =
+                if (url.startsWith("mailto:")) Intent.ACTION_SENDTO else Intent.ACTION_VIEW
+            runCatching { context.startActivity(Intent(action, url.toUri())) }
+        },
         initialComposerText = initialComposerText,
     )
 }
@@ -137,12 +151,15 @@ fun ConversationContent(
     onClearSelection: () -> Unit = {},
     onDeleteSelected: () -> Unit = {},
     onShareSelected: () -> Unit = {},
+    onCallNumber: (String) -> Unit = {},
+    onOpenLink: (String) -> Unit = {},
     initialComposerText: String = "",
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmBulkDelete by remember { mutableStateOf(false) }
     var viewerImageUri by remember { mutableStateOf<String?>(null) }
+    var linkDialogNumber by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val rows = uiState.rows
     LaunchedEffect(rows.size) {
@@ -219,6 +236,13 @@ fun ConversationContent(
                         onToggle = onToggleMessageSelection,
                         onRetryDownload = onRetryDownload,
                         onOpenImage = { viewerImageUri = it },
+                        onLinkTap = { url ->
+                            if (url.startsWith("tel:")) {
+                                linkDialogNumber = url.removePrefix("tel:")
+                            } else {
+                                onOpenLink(url)
+                            }
+                        },
                     )
                 }
             }
@@ -235,6 +259,32 @@ fun ConversationContent(
                     .testTag("mms_image_viewer"),
             )
         }
+    }
+    linkDialogNumber?.let { number ->
+        val clipboard = LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { linkDialogNumber = null },
+            title = { Text(number) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(number))
+                        linkDialogNumber = null
+                    },
+                ) { Text(stringResource(R.string.message_link_copy)) }
+                TextButton(
+                    onClick = {
+                        onCallNumber(number)
+                        linkDialogNumber = null
+                    },
+                ) { Text(stringResource(R.string.message_link_call)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { linkDialogNumber = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
     if (confirmBulkDelete) {
         val count = uiState.selectedMessageKeys.size
@@ -498,9 +548,25 @@ private fun MessageBubble(
     onToggle: (Message) -> Unit = {},
     onRetryDownload: (Long) -> Unit = {},
     onOpenImage: (String) -> Unit = {},
+    onLinkTap: (String) -> Unit = {},
 ) {
     val incoming = message.incoming
     val failed = !incoming && message.status == MessageStatus.FAILED
+    val bubbleClick: () -> Unit = when {
+        selectionActive -> {
+            { onToggle(message) }
+        }
+        message.pendingDownload -> {
+            { onRetryDownload(message.id) }
+        }
+        // The retry path only exists for SMS rows.
+        failed && !message.isMms -> {
+            { onRetry(message) }
+        }
+        else -> {
+            {}
+        }
+    }
     Row(
         Modifier
             .fillMaxWidth()
@@ -540,21 +606,7 @@ private fun MessageBubble(
                 modifier = Modifier
                     .testTag(if (incoming) "bubble_in" else "bubble_out")
                     .combinedClickable(
-                        onClick = when {
-                            selectionActive -> {
-                                { onToggle(message) }
-                            }
-                            message.pendingDownload -> {
-                                { onRetryDownload(message.id) }
-                            }
-                            // The retry path only exists for SMS rows.
-                            failed && !message.isMms -> {
-                                { onRetry(message) }
-                            }
-                            else -> {
-                                {}
-                            }
-                        },
+                        onClick = bubbleClick,
                         onLongClick = { onToggle(message) },
                     ),
             ) {
@@ -587,9 +639,47 @@ private fun MessageBubble(
                         else -> message.body.orEmpty()
                     }
                     if (bodyText.isNotEmpty() || message.attachments.isEmpty()) {
+                        val linksEnabled = !selectionActive && !message.pendingDownload
+                        val links = remember(bodyText, linksEnabled) {
+                            if (linksEnabled) MessageLinkifier.detect(bodyText) else emptyList()
+                        }
+                        val linkColor =
+                            if (incoming) MaterialTheme.colorScheme.primary else Color.Unspecified
+                        val body = remember(bodyText, links, linkColor) {
+                            styledMessageBody(
+                                bodyText,
+                                links,
+                                SpanStyle(
+                                    color = linkColor,
+                                    textDecoration = TextDecoration.Underline,
+                                ),
+                            )
+                        }
+                        val currentOnLinkTap by rememberUpdatedState(onLinkTap)
+                        val currentBubbleClick by rememberUpdatedState(bubbleClick)
+                        val currentOnToggle by rememberUpdatedState(onToggle)
+                        var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
                         Text(
-                            text = bodyText,
+                            text = body,
                             style = MaterialTheme.typography.bodyLarge,
+                            onTextLayout = { layout = it },
+                            modifier = if (links.isEmpty()) {
+                                Modifier
+                            } else {
+                                Modifier.pointerInput(links) {
+                                    detectTapGestures(
+                                        onTap = { position ->
+                                            val link = layout?.let { linkAt(it, links, position) }
+                                            if (link != null) {
+                                                currentOnLinkTap(link.url)
+                                            } else {
+                                                currentBubbleClick()
+                                            }
+                                        },
+                                        onLongPress = { currentOnToggle(message) },
+                                    )
+                                }
+                            },
                         )
                     }
                 }
