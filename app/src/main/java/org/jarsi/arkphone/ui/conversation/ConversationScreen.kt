@@ -96,6 +96,9 @@ fun ConversationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    LaunchedEffect(uiState.messages.size, uiState.messages.lastOrNull()?.id) {
+        if (uiState.messages.isNotEmpty()) viewModel.onMessagesViewed()
+    }
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri -> uri?.let(viewModel::onAttachImage) }
@@ -585,7 +588,7 @@ private fun MessageBubble(
         if (selectionActive) {
             Checkbox(
                 checked = selected,
-                onCheckedChange = null,
+                onCheckedChange = { onToggle(message) },
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .testTag("select_message"),

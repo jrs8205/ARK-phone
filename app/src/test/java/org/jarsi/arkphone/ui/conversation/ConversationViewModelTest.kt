@@ -10,6 +10,7 @@ import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeMessageNotifier
 import org.jarsi.arkphone.testing.FakeMessageSharer
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakeMmsSender
@@ -32,6 +33,7 @@ class ConversationViewModelTest {
     private val blockedNumbers = FakeBlockedNumbersRepository()
     private val smsSender = FakeSmsSender()
     private val smsRole = FakeSmsRole(held = true)
+    private val notifier = FakeMessageNotifier()
 
     private fun message(
         id: Long,
@@ -61,12 +63,36 @@ class ConversationViewModelTest {
         FakeMmsSender(),
         smsRole,
         FakeMessageSharer(),
+        notifier,
     )
 
     private fun seedThread(threadId: Long, messages: List<Message>) {
         repository.messagesByThread
             .getOrPut(threadId) { MutableStateFlow(emptyList()) }
             .value = messages
+    }
+
+    @Test
+    fun openingAThreadCancelsItsNotification() = runTest {
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        advanceUntilIdle()
+        assertTrue(3L in notifier.cancelledThreads)
+    }
+
+    @Test
+    fun viewingMessagesMarksTheThreadReadAndCancelsItsNotification() = runTest {
+        seedThread(3L, listOf(message(1, 1000)))
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        advanceUntilIdle()
+        notifier.cancelledThreads.clear()
+        repository.markedRead.clear()
+        viewModel.onMessagesViewed()
+        advanceUntilIdle()
+        assertTrue(3L in repository.markedRead)
+        assertTrue(3L in notifier.cancelledThreads)
     }
 
     @Test
@@ -239,6 +265,7 @@ class ConversationViewModelTest {
             mmsSender,
             smsRole,
             FakeMessageSharer(),
+            notifier,
         )
         viewModel.open(3L)
         viewModel.uiState.test {

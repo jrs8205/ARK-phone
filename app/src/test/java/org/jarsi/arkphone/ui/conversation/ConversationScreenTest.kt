@@ -2,6 +2,7 @@ package org.jarsi.arkphone.ui.conversation
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
@@ -398,6 +399,60 @@ class ConversationScreenTest {
         composeRule.onNodeWithText("Call").performClick()
         assertEquals("0401234567", called)
         composeRule.onNodeWithText("0401234567").assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingTheCheckboxTogglesTheMessage() {
+        var toggled: Message? = null
+        setContent(
+            listOf(message(1, 1_000), message(2, 2_000)),
+            selectedKeys = setOf(MessageKey(1, false)),
+            onToggleMessageSelection = { toggled = it },
+        )
+        composeRule.onAllNodesWithTag("select_message")[1].performClick()
+        assertEquals(2L, toggled?.id)
+        composeRule.onAllNodesWithTag("select_message")[0].performClick()
+        assertEquals(1L, toggled?.id)
+    }
+
+    @Test
+    fun selectionSurvivesTheFullLongPressFlow() {
+        val selected = mutableStateOf(setOf<MessageKey>())
+        composeRule.setContent {
+            ConversationContent(
+                uiState = ConversationUiState(
+                    loading = false,
+                    messages = listOf(
+                        message(1, 1_000, body = "Katso https://yle.fi nyt"),
+                        message(2, 2_000, body = "Moro vaan"),
+                    ),
+                    title = "Matti",
+                    address = "+358441234567",
+                    selectedMessageKeys = selected.value,
+                ),
+                onBack = {},
+                onCall = {},
+                onOpenContact = {},
+                onToggleBlocked = {},
+                onDeleteConversation = {},
+                onToggleMessageSelection = { m ->
+                    val k = m.selectionKey
+                    selected.value =
+                        if (k in selected.value) selected.value - k else selected.value + k
+                },
+            )
+        }
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .longPressAtChar(6)
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Moro vaan", useUnmergedTree = true)
+            .performTouchInput { longClick() }
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Moro vaan", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Katso https://yle.fi nyt", useUnmergedTree = true)
+            .tapAtChar(6)
+        composeRule.onNodeWithText("1 selected").assertDoesNotExist()
     }
 
     @Test

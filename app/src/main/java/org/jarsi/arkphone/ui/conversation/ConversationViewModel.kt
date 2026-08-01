@@ -23,6 +23,7 @@ import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.data.model.Message
 import org.jarsi.arkphone.data.model.MessageStatus
+import org.jarsi.arkphone.messaging.MessageNotifier
 import org.jarsi.arkphone.messaging.MessageSharer
 import org.jarsi.arkphone.messaging.MmsSender
 import org.jarsi.arkphone.messaging.SmsRole
@@ -94,6 +95,7 @@ class ConversationViewModel @Inject constructor(
     private val mmsSender: MmsSender,
     private val smsRole: SmsRole,
     private val messageSharer: MessageSharer,
+    private val messageNotifier: MessageNotifier,
 ) : ViewModel() {
 
     private val threadId = MutableStateFlow<Long?>(null)
@@ -181,7 +183,19 @@ class ConversationViewModel @Inject constructor(
         viewModelScope.launch {
             recipients.value = messagesRepository.recipients(threadId)
             messagesRepository.markThreadRead(threadId)
+            messageNotifier.cancelThread(threadId)
             canBlock.value = blockedNumbersRepository.canBlock()
+        }
+    }
+
+    // Called by the screen whenever the visible message list changes, so a
+    // message arriving while the user is reading the thread is also marked
+    // read and its notification cleared — open() alone only covers entry.
+    fun onMessagesViewed() {
+        val id = threadId.value ?: return
+        viewModelScope.launch {
+            messagesRepository.markThreadRead(id)
+            messageNotifier.cancelThread(id)
         }
     }
 

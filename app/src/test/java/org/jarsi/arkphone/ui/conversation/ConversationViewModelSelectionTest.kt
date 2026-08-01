@@ -62,6 +62,7 @@ class ConversationViewModelSelectionTest {
         FakeMmsSender(),
         FakeSmsRole(held = true),
         sharer,
+        org.jarsi.arkphone.testing.FakeMessageNotifier(),
     )
 
     private fun seedThread(messages: List<Message>) {
