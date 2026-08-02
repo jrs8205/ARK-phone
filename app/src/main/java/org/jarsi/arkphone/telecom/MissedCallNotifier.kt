@@ -110,7 +110,7 @@ class MissedCallNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_MISSED)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(
                 context.resources.getQuantityString(
                     R.plurals.notification_missed_calls_title, count, count,

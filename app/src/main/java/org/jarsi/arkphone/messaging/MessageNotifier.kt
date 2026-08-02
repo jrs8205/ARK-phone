@@ -58,7 +58,7 @@ class AndroidMessageNotifier @Inject constructor(
         val style = NotificationCompat.MessagingStyle(self)
             .addMessage(body, timestampMillis, sender)
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)

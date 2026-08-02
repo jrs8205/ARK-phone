@@ -126,18 +126,18 @@ class CallNotifications @Inject constructor(
         // system banner a second set of answer/decline buttons over it. The
         // actions stay as plain ones so the shade and lock screen keep them.
         return NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))
             .apply {
                 if (!quiet) {
                     addAction(
-                        R.drawable.ic_launcher_foreground,
+                        R.drawable.ic_notification,
                         context.getString(R.string.incall_decline),
                         declineIntent(info.id),
                     )
                     addAction(
-                        R.drawable.ic_launcher_foreground,
+                        R.drawable.ic_notification,
                         context.getString(R.string.incall_answer),
                         answerIntent(info.id),
                     )
@@ -158,7 +158,7 @@ class CallNotifications @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ONGOING)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_ongoing_title))
             .setContentText(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setCategory(NotificationCompat.CATEGORY_CALL)
