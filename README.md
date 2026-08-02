@@ -69,7 +69,7 @@ messages go through your carrier, and nothing about you leaves the device.
 
 ## Install
 
-1. Download `app-release.apk` from the
+1. Download `ARK-phone-<version>.apk` from the
    [latest release](https://github.com/jrs8205/ARK-phone/releases/latest).
 2. Open the file on your phone and allow installing from unknown sources
    when asked.

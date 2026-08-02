@@ -7,6 +7,14 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val appVersionName = "1.23"
+
+// APKs build as ARK-phone-<version>-<variant>.apk so a downloaded file
+// always tells which version it is.
+base {
+    archivesName.set("ARK-phone-$appVersionName")
+}
+
 android {
     namespace = "org.jarsi.arkphone"
     compileSdk = 36
@@ -15,8 +23,8 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.22"
+        versionCode = 10
+        versionName = appVersionName
     }
 
     // Credentials live in the user's ~/.gradle/gradle.properties, never in the
