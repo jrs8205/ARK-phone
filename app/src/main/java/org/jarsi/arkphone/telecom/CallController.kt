@@ -32,6 +32,12 @@ class CallController @Inject constructor() {
     private val _calls = MutableStateFlow<List<CallInfo>>(emptyList())
     val calls: StateFlow<List<CallInfo>> = _calls.asStateFlow()
 
+    /** Final snapshot of the last removed call when it ended in error. The
+     *  calls list may already be empty by the time the UI collects it (state
+     *  change and removal can conflate), but the cause must still be shown. */
+    private val _endedCall = MutableStateFlow<CallInfo?>(null)
+    val endedCall: StateFlow<CallInfo?> = _endedCall.asStateFlow()
+
     private val _audio = MutableStateFlow(CallAudioUiState())
     val audio: StateFlow<CallAudioUiState> = _audio.asStateFlow()
 
@@ -48,6 +54,7 @@ class CallController @Inject constructor() {
     @Synchronized
     fun onCallAdded(handle: CallHandle) {
         handles[handle.id] = handle
+        _endedCall.value = null
         publish()
     }
 
@@ -56,7 +63,10 @@ class CallController @Inject constructor() {
 
     @Synchronized
     fun onCallRemoved(id: String) {
-        handles.remove(id)
+        val removed = handles.remove(id)
+        if (removed?.disconnectError != null) {
+            _endedCall.value = infoOf(removed).copy(status = CallStatus.DISCONNECTED)
+        }
         pendingDtmfStop?.cancel(false)
         pendingDtmfStop = null
         publish()
@@ -111,17 +121,18 @@ class CallController @Inject constructor() {
 
     private var sawOffHookCall = false
 
+    private fun infoOf(handle: CallHandle) = CallInfo(
+        id = handle.id,
+        number = handle.number,
+        displayName = handle.displayName,
+        status = mapTelecomState(handle.telecomState),
+        connectedAtMillis = handle.connectTimeMillis.takeIf { it > 0 },
+        simAccountId = handle.simAccountId,
+        disconnectError = handle.disconnectError,
+    )
+
     private fun publish() {
-        _calls.value = handles.values.map { handle ->
-            CallInfo(
-                id = handle.id,
-                number = handle.number,
-                displayName = handle.displayName,
-                status = mapTelecomState(handle.telecomState),
-                connectedAtMillis = handle.connectTimeMillis.takeIf { it > 0 },
-                simAccountId = handle.simAccountId,
-            )
-        }
+        _calls.value = handles.values.map(::infoOf)
         if (_calls.value.any { it.status.isOffHook }) sawOffHookCall = true
     }
 }

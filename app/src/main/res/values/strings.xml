@@ -11,6 +11,8 @@
     <string name="call_type_blocked">Blocked call</string>
     <string name="call_source_whatsapp" translatable="false">WhatsApp</string>
     <string name="call_feature_wifi">Wi-Fi</string>
+    <string name="call_failed_title">Call failed</string>
+    <string name="common_ok">OK</string>
     <string name="call_whatsapp">Call on WhatsApp</string>
     <string name="call_log_unknown_caller">Unknown</string>
     <string name="contact_event_birthday">Birthday</string>

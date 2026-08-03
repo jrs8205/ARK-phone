@@ -2,6 +2,7 @@ package org.jarsi.arkphone.telecom
 
 import android.os.Build
 import android.telecom.Call
+import android.telecom.DisconnectCause
 import android.telecom.VideoProfile
 import java.util.UUID
 
@@ -32,6 +33,11 @@ class TelecomCallHandle(private val call: Call) : CallHandle {
 
     override val simAccountId: String?
         get() = call.details?.accountHandle?.id
+
+    override val disconnectError: DisconnectError?
+        get() = call.details?.disconnectCause?.let { cause ->
+            disconnectErrorOf(cause.code == DisconnectCause.ERROR, cause.label, cause.description)
+        }
 
     override fun answer() = call.answer(VideoProfile.STATE_AUDIO_ONLY)
     override fun reject() = call.reject(false, null)

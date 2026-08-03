@@ -22,6 +22,7 @@ private class FakeCallHandle(
     override var telecomState: Int = Call.STATE_RINGING,
     override val connectTimeMillis: Long = 0,
     override val simAccountId: String? = null,
+    override var disconnectError: DisconnectError? = null,
 ) : CallHandle {
     var answered = false
     var rejected = false
@@ -67,6 +68,39 @@ class CallControllerTest {
         val info = controller.calls.value.single()
         assertEquals("call-1", info.id)
         assertEquals(CallStatus.RINGING, info.status)
+    }
+
+    @Test
+    fun publishesTheDisconnectError() {
+        val controller = CallController()
+        val handle = FakeCallHandle(telecomState = Call.STATE_DISCONNECTED)
+        handle.disconnectError = DisconnectError("Radio off", "Turn off aeroplane mode.")
+        controller.onCallAdded(handle)
+        assertEquals(
+            DisconnectError("Radio off", "Turn off aeroplane mode."),
+            controller.calls.value.single().disconnectError,
+        )
+    }
+
+    @Test
+    fun keepsTheErrorSnapshotAfterRemovalUntilTheNextCall() {
+        val controller = CallController()
+        val handle = FakeCallHandle(telecomState = Call.STATE_DISCONNECTED)
+        handle.disconnectError = DisconnectError("Radio off", null)
+        controller.onCallAdded(handle)
+        controller.onCallRemoved("call-1")
+        assertEquals("Radio off", controller.endedCall.value?.disconnectError?.label)
+        assertEquals(CallStatus.DISCONNECTED, controller.endedCall.value?.status)
+        controller.onCallAdded(FakeCallHandle(id = "call-2"))
+        assertEquals(null, controller.endedCall.value)
+    }
+
+    @Test
+    fun normalHangUpsLeaveNoEndedSnapshot() {
+        val controller = CallController()
+        controller.onCallAdded(FakeCallHandle(telecomState = Call.STATE_DISCONNECTED))
+        controller.onCallRemoved("call-1")
+        assertEquals(null, controller.endedCall.value)
     }
 
     @Test

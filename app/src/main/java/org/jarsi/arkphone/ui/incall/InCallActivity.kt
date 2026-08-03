@@ -9,6 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -49,15 +52,23 @@ class InCallActivity : ComponentActivity() {
                 val viewModel: InCallViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 val call = uiState.call
+                var errorDismissed by rememberSaveable(call?.id) { mutableStateOf(false) }
+                val disconnectError = call?.disconnectError
+                    ?.takeIf { call.status == CallStatus.DISCONNECTED && !errorDismissed }
+                // After a real conversation the whole app closes and leaves
+                // recents (user request). A ring that was missed or declined
+                // only closes this screen, so an unanswered call can never
+                // pull the app out from under the user.
+                val close = {
+                    if (uiState.sawOffHook) finishAndRemoveTask() else finish()
+                }
                 InCallFinishGuard(
-                    hasCall = call != null && call.status != CallStatus.DISCONNECTED,
-                    // After a real conversation the whole app closes and leaves
-                    // recents (user request). A ring that was missed or declined
-                    // only closes this screen, so an unanswered call can never
-                    // pull the app out from under the user.
-                    onFinish = {
-                        if (uiState.sawOffHook) finishAndRemoveTask() else finish()
-                    },
+                    // An error explanation stays up until the user dismisses
+                    // it — without this the guard would close the screen (or
+                    // the whole app) before the text can be read.
+                    hasCall = (call != null && call.status != CallStatus.DISCONNECTED) ||
+                        disconnectError != null,
+                    onFinish = close,
                 )
                 CallScreen(
                     uiState = uiState,
@@ -66,6 +77,15 @@ class InCallActivity : ComponentActivity() {
                         startActivity(ContactCardActivity.intent(this, contactId))
                     },
                 )
+                disconnectError?.let { error ->
+                    DisconnectErrorDialog(
+                        error = error,
+                        onDismiss = {
+                            errorDismissed = true
+                            close()
+                        },
+                    )
+                }
             }
         }
     }

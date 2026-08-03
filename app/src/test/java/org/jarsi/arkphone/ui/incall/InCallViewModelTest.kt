@@ -10,6 +10,7 @@ import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallHandle
 import org.jarsi.arkphone.telecom.CallStatus
+import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeSimAccountRepository
@@ -28,6 +29,7 @@ private class TestCallHandle(
     override val displayName: String? = null
     override val connectTimeMillis = 0L
     override val simAccountId: String? = null
+    override var disconnectError: DisconnectError? = null
     var answered = false
     var rejected = false
     override fun answer() { answered = true }
@@ -92,6 +94,28 @@ class InCallViewModelTest {
             while (state.call == null) state = awaitItem()
             viewModel.onAnswer()
             assertTrue(handle.answered)
+        }
+    }
+
+    @Test
+    fun keepsTheDisconnectErrorAfterTelecomRemovesTheCall() = runTest {
+        val controller = CallController()
+        val handle = TestCallHandle(telecomState = Call.STATE_DIALING)
+        controller.onCallAdded(handle)
+        val viewModel = viewModel(controller)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            handle.telecomState = Call.STATE_DISCONNECTED
+            handle.disconnectError = DisconnectError(
+                label = "Radio pois käytöstä",
+                description = "Poista lentokonetila käytöstä.",
+            )
+            controller.onCallChanged()
+            controller.onCallRemoved(handle.id)
+            while (state.call?.disconnectError == null) state = awaitItem()
+            assertEquals(CallStatus.DISCONNECTED, state.call?.status)
+            assertEquals("Radio pois käytöstä", state.call?.disconnectError?.label)
         }
     }
 

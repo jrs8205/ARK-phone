@@ -139,12 +139,17 @@ class InCallViewModel @Inject constructor(
     private var offHookSeen = false
 
     val uiState: StateFlow<InCallUiState> = combine(
-        callController.calls, callController.audio, keypadVisible, ticker, callerContextWithSim,
-    ) { calls, audio, keypad, now, caller ->
+        // Nested pair to stay within combine's five-flow limit; endedCall
+        // carries the disconnect error of a call Telecom already removed —
+        // the list snapshot with the cause can conflate away before the UI
+        // collects it.
+        combine(callController.calls, callController.endedCall, ::Pair),
+        callController.audio, keypadVisible, ticker, callerContextWithSim,
+    ) { (calls, ended), audio, keypad, now, caller ->
         val live = primaryCall(calls)
         if (live != null) lastShownCall = live
         if (calls.any { it.status.isOffHook }) offHookSeen = true
-        val call = live ?: lastShownCall?.copy(status = CallStatus.DISCONNECTED)
+        val call = live ?: ended ?: lastShownCall?.copy(status = CallStatus.DISCONNECTED)
         InCallUiState(
             call = call,
             muted = audio.muted,

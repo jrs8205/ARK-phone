@@ -10,6 +10,8 @@
     <string name="call_type_blocked">Estetty puhelu</string>
     <string name="call_type_other">Puhelu</string>
     <string name="call_feature_wifi">Wifi</string>
+    <string name="call_failed_title">Puhelu epäonnistui</string>
+    <string name="common_ok">OK</string>
     <string name="contacts_search_hint">Hae yhteystietoja</string>
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
