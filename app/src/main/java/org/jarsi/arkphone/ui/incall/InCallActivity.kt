@@ -82,6 +82,8 @@ class InCallActivity : ComponentActivity() {
                         error = error,
                         onDismiss = {
                             errorDismissed = true
+                            // Un-blocks MainActivity's app-close guard too.
+                            callController.clearEndedCall()
                             close()
                         },
                     )

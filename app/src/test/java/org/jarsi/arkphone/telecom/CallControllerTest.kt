@@ -96,6 +96,17 @@ class CallControllerTest {
     }
 
     @Test
+    fun clearingTheEndedSnapshotEmptiesIt() {
+        val controller = CallController()
+        val handle = FakeCallHandle(telecomState = Call.STATE_DISCONNECTED)
+        handle.disconnectError = DisconnectError("Radio off", null)
+        controller.onCallAdded(handle)
+        controller.onCallRemoved("call-1")
+        controller.clearEndedCall()
+        assertEquals(null, controller.endedCall.value)
+    }
+
+    @Test
     fun normalHangUpsLeaveNoEndedSnapshot() {
         val controller = CallController()
         controller.onCallAdded(FakeCallHandle(telecomState = Call.STATE_DISCONNECTED))

@@ -82,10 +82,17 @@ class MainActivity : ComponentActivity() {
         // The user wants the whole app gone once a call ends. The call screen
         // handles this itself when visible; this covers the case where it is
         // buried under other app screens and its finish guard is paused.
+        // A pending disconnect error blocks the close: the call screen sits in
+        // THIS task showing the explanation dialog, and removing the task
+        // would tear it down mid-read. Its dismissal closes everything.
         lifecycleScope.launch {
             callController.allCallsEnded.collectLatest {
                 delay(APP_CLOSE_GRACE_MILLIS)
-                if (callController.calls.value.isEmpty()) finishAndRemoveTask()
+                if (callController.calls.value.isEmpty() &&
+                    callController.endedCall.value == null
+                ) {
+                    finishAndRemoveTask()
+                }
             }
         }
         lifecycleScope.launch {

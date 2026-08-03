@@ -61,6 +61,12 @@ class CallController @Inject constructor() {
     @Synchronized
     fun onCallChanged() = publish()
 
+    /** The error explanation was shown and dismissed — nothing pends anymore. */
+    @Synchronized
+    fun clearEndedCall() {
+        _endedCall.value = null
+    }
+
     @Synchronized
     fun onCallRemoved(id: String) {
         val removed = handles.remove(id)
