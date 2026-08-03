@@ -30,6 +30,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="vnd.android.cursor.item/*" />
         </intent>
+        <!-- Explicit entries so the installed-check that hides WhatsApp UI
+             keeps working even if the intent filter above stops matching. -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
     </queries>
 
     <application

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
@@ -113,6 +114,10 @@ fun MessagesContent(
                     onClose = onClearSelection,
                     windowInsets = WindowInsets(0.dp),
                 ) {
+                    val allSelected = uiState.conversations.isNotEmpty() &&
+                        uiState.conversations.all {
+                            it.conversation.threadId in uiState.selectedThreadIds
+                        }
                     IconButton(
                         onClick = {
                             haptics.click()
@@ -120,8 +125,14 @@ fun MessagesContent(
                         },
                     ) {
                         Icon(
-                            Icons.Filled.SelectAll,
-                            contentDescription = stringResource(R.string.selection_select_all),
+                            if (allSelected) Icons.Filled.Deselect else Icons.Filled.SelectAll,
+                            contentDescription = stringResource(
+                                if (allSelected) {
+                                    R.string.selection_deselect_all
+                                } else {
+                                    R.string.selection_select_all
+                                },
+                            ),
                         )
                     }
                     IconButton(

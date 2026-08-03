@@ -56,6 +56,11 @@ internal fun callSourceFrom(phoneAccountComponent: String?): CallSource = when {
     else -> CallSource.OTHER
 }
 
+/** The telephony stack sets the Wi-Fi feature bit on VoWiFi calls (API 29+
+ *  writers; older rows simply never have it). */
+internal fun isWifiCall(features: Int): Boolean =
+    features and CallLog.Calls.FEATURES_WIFI != 0
+
 internal fun whatsAppPackageFrom(phoneAccountComponent: String?): String? = when {
     phoneAccountComponent == null -> null
     phoneAccountComponent.contains("com.whatsapp.w4b") -> "com.whatsapp.w4b"
@@ -88,6 +93,7 @@ class SystemCallLogRepository @Inject constructor(
                 CallLog.Calls.DURATION,
                 CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
                 CallLog.Calls.PHONE_ACCOUNT_ID,
+                CallLog.Calls.FEATURES,
             )
             val entries = mutableListOf<CallLogEntry>()
             resolver.query(
@@ -105,6 +111,7 @@ class SystemCallLogRepository @Inject constructor(
                         source = callSourceFrom(cursor.getString(6)),
                         whatsAppPackage = whatsAppPackageFrom(cursor.getString(6)),
                         simAccountId = cursor.getString(7)?.takeIf { it.isNotBlank() },
+                        wasWifiCall = isWifiCall(cursor.getInt(8)),
                     )
                 }
             }

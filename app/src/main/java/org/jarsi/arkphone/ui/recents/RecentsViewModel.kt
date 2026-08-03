@@ -16,6 +16,7 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.telecom.WhatsAppAvailability
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.util.PermissionChecker
 import javax.inject.Inject
@@ -33,6 +34,8 @@ data class RecentsUiState(
     val filter: RecentsFilter = RecentsFilter.ALL,
     /** Empty or single-entry on a device where SIMs are not worth showing. */
     val simAccounts: List<SimAccount> = emptyList(),
+    /** False when no WhatsApp variant is installed, hiding the filter chip. */
+    val showWhatsAppFilter: Boolean = true,
 )
 
 internal fun groupConsecutiveCalls(entries: List<CallLogEntry>): List<GroupedCallLogEntry> {
@@ -78,12 +81,14 @@ class RecentsViewModel @Inject constructor(
     private val permissionChecker: PermissionChecker,
     private val whatsAppCallLauncher: WhatsAppCallLauncher,
     private val simAccountRepository: SimAccountRepository,
+    private val whatsAppAvailability: WhatsAppAvailability,
 ) : ViewModel() {
 
     private val permissionState = MutableStateFlow(hasCallLogPermission())
     private val query = MutableStateFlow("")
     private val filter = MutableStateFlow(RecentsFilter.ALL)
     private val simAccounts = MutableStateFlow<List<SimAccount>>(emptyList())
+    private val whatsAppInstalled = MutableStateFlow(whatsAppAvailability.isAnyVariantInstalled())
 
     init {
         refreshSimAccounts()
@@ -92,29 +97,44 @@ class RecentsViewModel @Inject constructor(
     val uiState: StateFlow<RecentsUiState> =
         combine(
             repository.callLog(),
-            permissionState,
+            combine(permissionState, whatsAppInstalled, ::Pair),
             query,
             filter,
             simAccounts,
-        ) { entries, hasPermission, query, filter, sims ->
+        ) { entries, (hasPermission, whatsAppInstalled), query, filter, sims ->
+            // An uninstall while the WhatsApp filter is active would leave the
+            // list stuck on a hidden chip, so fall back to showing everything.
+            val effectiveFilter = if (filter == RecentsFilter.WHATSAPP && !whatsAppInstalled) {
+                RecentsFilter.ALL
+            } else {
+                filter
+            }
             RecentsUiState(
                 loading = false,
                 entries = groupConsecutiveCalls(
-                    entries.filter { matchesFilter(it, filter) && matchesCallQuery(it, query) },
+                    entries.filter {
+                        matchesFilter(it, effectiveFilter) && matchesCallQuery(it, query)
+                    },
                 ),
                 hasPermission = hasPermission,
                 query = query,
-                filter = filter,
+                filter = effectiveFilter,
                 simAccounts = sims,
+                showWhatsAppFilter = whatsAppInstalled,
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = RecentsUiState(loading = true, hasPermission = hasCallLogPermission()),
+            initialValue = RecentsUiState(
+                loading = true,
+                hasPermission = hasCallLogPermission(),
+                showWhatsAppFilter = whatsAppInstalled.value,
+            ),
         )
 
     fun refreshPermissionState() {
         permissionState.value = hasCallLogPermission()
+        whatsAppInstalled.value = whatsAppAvailability.isAnyVariantInstalled()
         repository.refresh()
         refreshSimAccounts()
     }

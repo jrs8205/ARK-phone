@@ -73,6 +73,7 @@ fun RecentsFilterChips(
     selected: RecentsFilter,
     onSelect: (RecentsFilter) -> Unit,
     modifier: Modifier = Modifier,
+    showWhatsApp: Boolean = true,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -84,7 +85,9 @@ fun RecentsFilterChips(
         RecentsFilterChip(selected, RecentsFilter.MISSED, R.string.recents_filter_missed, onSelect)
         RecentsFilterChip(selected, RecentsFilter.OUTGOING, R.string.recents_filter_outgoing, onSelect)
         RecentsFilterChip(selected, RecentsFilter.BLOCKED, R.string.recents_filter_blocked, onSelect)
-        RecentsFilterChip(selected, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, onSelect)
+        if (showWhatsApp) {
+            RecentsFilterChip(selected, RecentsFilter.WHATSAPP, R.string.call_source_whatsapp, onSelect)
+        }
     }
 }
 
@@ -195,6 +198,11 @@ private fun RecentsRowItem(
     } else {
         ""
     }
+    val wifiSuffix = if (entry.wasWifiCall) {
+        " · " + stringResource(R.string.call_feature_wifi)
+    } else {
+        ""
+    }
     val simSuffix = simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -227,7 +235,7 @@ private fun RecentsRowItem(
             Text(
                 text = typeLabel + " · " +
                     DateUtils.getRelativeTimeSpanString(entry.timestampMillis) +
-                    sourceSuffix + simSuffix,
+                    sourceSuffix + wifiSuffix + simSuffix,
                 color = if (entry.type == CallType.MISSED) {
                     MaterialTheme.colorScheme.error
                 } else {

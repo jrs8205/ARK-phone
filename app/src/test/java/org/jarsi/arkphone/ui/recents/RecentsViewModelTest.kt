@@ -10,6 +10,7 @@ import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakePermissionChecker
 import org.jarsi.arkphone.testing.FakeSimAccountRepository
+import org.jarsi.arkphone.testing.FakeWhatsAppAvailability
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +30,10 @@ class RecentsViewModelTest {
     private val launcher = WhatsAppCallLauncher { number, name, sourcePackage ->
         launchedCalls += Triple(number, name, sourcePackage)
     }
+    private val whatsAppAvailability = FakeWhatsAppAvailability()
+
+    private fun viewModel() =
+        RecentsViewModel(repository, permissions, launcher, simAccounts, whatsAppAvailability)
 
     private fun entry(
         id: Long,
@@ -52,7 +57,7 @@ class RecentsViewModelTest {
 
     @Test
     fun whatsAppCallPassesTheNumberAndName() {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.onWhatsAppCall(
             entry(1).copy(number = "+358 44 5552841", displayName = "Matti"),
         )
@@ -61,14 +66,14 @@ class RecentsViewModelTest {
 
     @Test
     fun whatsAppCallWithoutANumberPassesNull() {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.onWhatsAppCall(entry(1).copy(number = "", displayName = "Matti"))
         assertEquals(listOf(Triple<String?, String?, String?>(null, "Matti", null)), launchedCalls)
     }
 
     @Test
     fun whatsAppCallRoutesThroughTheRecordedSourcePackage() {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.onWhatsAppCall(
             entry(1).copy(
                 number = "+358 44 5552841",
@@ -82,7 +87,7 @@ class RecentsViewModelTest {
     @Test
     fun emitsEntriesFromRepository() = runTest {
         permissions.grant(Manifest.permission.READ_CALL_LOG)
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             assertTrue(awaitItem().loading)
             repository.entries.value = listOf(entry(2, "0501112223"), entry(1))
@@ -95,7 +100,7 @@ class RecentsViewModelTest {
 
     @Test
     fun searchMatchesNamesAndNormalizedNumbers() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         repository.entries.value = listOf(
             entry(3, "+358 44 5552841", "Matti Meikäläinen"),
             entry(2, "0401234567", "Liisa"),
@@ -114,7 +119,7 @@ class RecentsViewModelTest {
 
     @Test
     fun missedFilterShowsOnlyMissedCalls() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         repository.entries.value = listOf(
             entry(3, type = CallType.MISSED),
             entry(2, "0501112223", type = CallType.OUTGOING),
@@ -128,7 +133,7 @@ class RecentsViewModelTest {
 
     @Test
     fun outgoingFilterShowsOnlyOutgoingCalls() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         repository.entries.value = listOf(
             entry(3, type = CallType.OUTGOING),
             entry(2, "0501112223", type = CallType.INCOMING),
@@ -142,7 +147,7 @@ class RecentsViewModelTest {
 
     @Test
     fun blockedFilterShowsOnlyBlockedCalls() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         repository.entries.value = listOf(
             entry(3, type = CallType.BLOCKED),
             entry(2, "0501112223"),
@@ -156,7 +161,7 @@ class RecentsViewModelTest {
 
     @Test
     fun whatsAppFilterShowsOnlyWhatsAppCalls() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         repository.entries.value = listOf(
             entry(3, source = CallSource.WHATSAPP),
             entry(2, "0501112223"),
@@ -165,6 +170,46 @@ class RecentsViewModelTest {
             skipItems(1)
             viewModel.onFilterChange(RecentsFilter.WHATSAPP)
             assertEquals(listOf(3L), awaitItem().entries.map { it.entry.id })
+        }
+    }
+
+    @Test
+    fun whatsAppFilterChipIsHiddenWhenNoVariantIsInstalled() = runTest {
+        whatsAppAvailability.installed = false
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            assertFalse(awaitItem().showWhatsAppFilter)
+            repository.entries.value = listOf(entry(1))
+            assertFalse(awaitItem().showWhatsAppFilter)
+        }
+    }
+
+    @Test
+    fun whatsAppFilterChipIsShownWhenAVariantIsInstalled() = runTest {
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            repository.entries.value = listOf(entry(1))
+            skipItems(1)
+            assertTrue(awaitItem().showWhatsAppFilter)
+        }
+    }
+
+    @Test
+    fun activeWhatsAppFilterFallsBackToAllWhenWhatsAppDisappears() = runTest {
+        val viewModel = viewModel()
+        repository.entries.value = listOf(
+            entry(3, source = CallSource.WHATSAPP),
+            entry(2, "0501112223"),
+        )
+        viewModel.uiState.test {
+            skipItems(1)
+            viewModel.onFilterChange(RecentsFilter.WHATSAPP)
+            assertEquals(listOf(3L), awaitItem().entries.map { it.entry.id })
+            whatsAppAvailability.installed = false
+            viewModel.refreshPermissionState()
+            val state = awaitItem()
+            assertEquals(RecentsFilter.ALL, state.filter)
+            assertEquals(listOf(3L, 2L), state.entries.map { it.entry.id })
         }
     }
 
@@ -196,14 +241,14 @@ class RecentsViewModelTest {
 
     @Test
     fun refreshPermissionStateAlsoRefreshesTheRepository() {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.refreshPermissionState()
         assertEquals(1, repository.refreshCalls)
     }
 
     @Test
     fun reportsMissingPermission() = runTest {
-        val viewModel = RecentsViewModel(repository, permissions, launcher, simAccounts)
+        val viewModel = viewModel()
         viewModel.uiState.test {
             awaitItem()
             repository.entries.value = emptyList()

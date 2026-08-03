@@ -35,6 +35,11 @@ fun interface WhatsAppCallLauncher {
     fun startCall(number: String?, name: String?, sourcePackage: String?)
 }
 
+/** Whether any WhatsApp variant is installed, for hiding WhatsApp UI. */
+fun interface WhatsAppAvailability {
+    fun isAnyVariantInstalled(): Boolean
+}
+
 /** True when a WhatsApp voip.call contact row belongs to the given caller. */
 internal fun whatsAppRowMatches(
     number: String?,
@@ -79,7 +84,10 @@ class WhatsAppCaller @Inject constructor(
     @ApplicationContext private val context: Context,
     @ApplicationScope private val scope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-) : WhatsAppCallLauncher {
+) : WhatsAppCallLauncher, WhatsAppAvailability {
+    override fun isAnyVariantInstalled(): Boolean =
+        preferredWhatsAppPackage(sourcePackage = null, isInstalled = ::isInstalled) != null
+
     override fun startCall(number: String?, name: String?, sourcePackage: String?) {
         scope.launch {
             val intent = withContext(ioDispatcher) { callIntent(number, name, sourcePackage) }

@@ -9,6 +9,7 @@
     <string name="call_type_rejected">Hylätty puhelu</string>
     <string name="call_type_blocked">Estetty puhelu</string>
     <string name="call_type_other">Puhelu</string>
+    <string name="call_feature_wifi">Wifi</string>
     <string name="contacts_search_hint">Hae yhteystietoja</string>
     <string name="contacts_favorites">Suosikit</string>
     <string name="contacts_empty">Ei yhteystietoja</string>
@@ -36,6 +37,7 @@
     </plurals>
     <string name="selection_exit">Sulje valintatila</string>
     <string name="selection_select_all">Valitse kaikki</string>
+    <string name="selection_deselect_all">Poista kaikki valinnat</string>
     <string name="selection_share">Jaa</string>
     <plurals name="conversations_delete_confirm_title">
         <item quantity="one">Poistetaanko keskustelu?</item>

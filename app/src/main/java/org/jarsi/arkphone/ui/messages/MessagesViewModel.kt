@@ -137,10 +137,13 @@ class MessagesViewModel @Inject constructor(
         selected.value = selected.value.let { if (threadId in it) it - threadId else it + threadId }
     }
 
+    /** Selects every visible conversation, or clears the selection when
+     *  everything is already selected so the icon works as a toggle. */
     fun onSelectAll() {
-        selected.value = uiState.value.conversations.mapTo(mutableSetOf()) {
+        val visible = uiState.value.conversations.mapTo(mutableSetOf()) {
             it.conversation.threadId
         }
+        selected.value = if (selected.value.containsAll(visible)) emptySet() else visible
     }
 
     fun onClearSelection() {

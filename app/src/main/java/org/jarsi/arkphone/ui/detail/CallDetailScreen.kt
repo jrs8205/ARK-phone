@@ -390,7 +390,12 @@ private fun HistoryRowItem(
                 .takeIf { it > 0 }
                 ?.let { " · " + formatDuration(it) }
                 .orEmpty()
-            Text(time + duration + simLabel?.let { " · $it" }.orEmpty())
+            val wifi = if (entry.wasWifiCall) {
+                " · " + stringResource(R.string.call_feature_wifi)
+            } else {
+                ""
+            }
+            Text(time + duration + wifi + simLabel?.let { " · $it" }.orEmpty())
         },
         leadingContent = {
             val icon = when (entry.type) {

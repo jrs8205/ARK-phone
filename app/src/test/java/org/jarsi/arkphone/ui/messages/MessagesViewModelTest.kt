@@ -173,6 +173,28 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun selectAllClearsTheSelectionWhenEverythingIsAlreadySelected() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            awaitItem()
+            viewModel.onSelectAll()
+            assertEquals(setOf(3L, 4L), awaitItem().selectedThreadIds)
+            viewModel.onSelectAll()
+            val state = awaitItem()
+            assertTrue(state.selectedThreadIds.isEmpty())
+            assertFalse(state.selectionActive)
+        }
+    }
+
+    @Test
     fun deleteSelectedRemovesEachThreadAndClearsTheSelection() = runTest {
         permissions.grant(Manifest.permission.READ_SMS)
         repository.conversationsState.value = listOf(

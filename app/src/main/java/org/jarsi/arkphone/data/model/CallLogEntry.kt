@@ -17,4 +17,6 @@ data class CallLogEntry(
     val whatsAppPackage: String? = null,
     /** Phone account the call went through; null for app calls and old rows. */
     val simAccountId: String? = null,
+    /** True when the call was carried over Wi-Fi (VoWiFi). */
+    val wasWifiCall: Boolean = false,
 )

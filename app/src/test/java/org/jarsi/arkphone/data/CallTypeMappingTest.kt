@@ -23,6 +23,14 @@ class CallTypeMappingTest {
     }
 
     @Test
+    fun detectsTheWifiFeatureBitAmongOtherFeatures() {
+        assertEquals(true, isWifiCall(CallLog.Calls.FEATURES_WIFI))
+        assertEquals(true, isWifiCall(CallLog.Calls.FEATURES_WIFI or CallLog.Calls.FEATURES_HD_CALL))
+        assertEquals(false, isWifiCall(0))
+        assertEquals(false, isWifiCall(CallLog.Calls.FEATURES_HD_CALL))
+    }
+
+    @Test
     fun derivesTheWhatsAppVariantFromThePhoneAccountComponent() {
         assertEquals(
             "com.whatsapp",

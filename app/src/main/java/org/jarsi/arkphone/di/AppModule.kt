@@ -67,6 +67,7 @@ import org.jarsi.arkphone.telecom.RingSilencer
 import org.jarsi.arkphone.telecom.SmsRejectMessageSender
 import org.jarsi.arkphone.telecom.SpeechEngine
 import org.jarsi.arkphone.telecom.TtsSpeechEngine
+import org.jarsi.arkphone.telecom.WhatsAppAvailability
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.telecom.WhatsAppCaller
 import org.jarsi.arkphone.util.AndroidNotificationAccessChecker
@@ -163,6 +164,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindWhatsAppCallLauncher(impl: WhatsAppCaller): WhatsAppCallLauncher
+
+    @Binds
+    @Singleton
+    abstract fun bindWhatsAppAvailability(impl: WhatsAppCaller): WhatsAppAvailability
 
     @Binds
     @Singleton

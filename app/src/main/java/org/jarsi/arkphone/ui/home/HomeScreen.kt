@@ -96,6 +96,7 @@ fun HomeContent(
                 selected = recentsUiState.filter,
                 onSelect = onFilterChange,
                 modifier = Modifier.fillMaxWidth(),
+                showWhatsApp = recentsUiState.showWhatsAppFilter,
             )
         }
         if (favorites.isNotEmpty()) {

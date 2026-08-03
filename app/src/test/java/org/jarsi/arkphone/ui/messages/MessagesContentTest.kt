@@ -169,6 +169,28 @@ class MessagesContentTest {
     }
 
     @Test
+    fun selectAllActionOffersDeselectingWhenEverythingIsSelected() {
+        var selectedAll = false
+        composeRule.setContent {
+            MessagesContent(
+                uiState = MessagesUiState(
+                    loading = false,
+                    conversations = listOf(item(), item(threadId = 4, title = "Liisa")),
+                    hasReadSmsPermission = true,
+                    selectedThreadIds = setOf(3L, 4L),
+                ),
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+                onSelectAll = { selectedAll = true },
+            )
+        }
+        composeRule.onNodeWithContentDescription("Deselect all").performClick()
+        assertEquals(true, selectedAll)
+    }
+
+    @Test
     fun deleteActionConfirmsWithTheCountAndDeletes() {
         var deleted = false
         composeRule.setContent {
