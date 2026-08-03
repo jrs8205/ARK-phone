@@ -214,42 +214,6 @@ class InCallViewModelTest {
     }
 
     @Test
-    fun offHookMemorySticksThroughDisconnect() = runTest {
-        val controller = CallController()
-        val handle = TestCallHandle()
-        controller.onCallAdded(handle)
-        val viewModel = viewModel(controller)
-        viewModel.uiState.test {
-            var state = awaitItem()
-            while (state.call == null) state = awaitItem()
-            assertEquals(false, state.sawOffHook)
-            handle.telecomState = Call.STATE_ACTIVE
-            controller.onCallChanged()
-            while (!state.sawOffHook) state = awaitItem()
-            controller.onCallRemoved(handle.id)
-            while (state.call?.status != CallStatus.DISCONNECTED) state = awaitItem()
-            assertTrue(state.sawOffHook)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun missedCallNeverTurnsOnTheOffHookMemory() = runTest {
-        val controller = CallController()
-        val handle = TestCallHandle()
-        controller.onCallAdded(handle)
-        val viewModel = viewModel(controller)
-        viewModel.uiState.test {
-            var state = awaitItem()
-            while (state.call == null) state = awaitItem()
-            controller.onCallRemoved(handle.id)
-            while (state.call?.status != CallStatus.DISCONNECTED) state = awaitItem()
-            assertEquals(false, state.sawOffHook)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     fun unknownCallerAndLastCallAreExposed() = runTest {
         val controller = CallController()
         controller.onCallAdded(TestCallHandle())

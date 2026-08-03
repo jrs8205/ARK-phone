@@ -55,13 +55,10 @@ class InCallActivity : ComponentActivity() {
                 var errorDismissed by rememberSaveable(call?.id) { mutableStateOf(false) }
                 val disconnectError = call?.disconnectError
                     ?.takeIf { call.status == CallStatus.DISCONNECTED && !errorDismissed }
-                // After a real conversation the whole app closes and leaves
-                // recents (user request). A ring that was missed or declined
-                // only closes this screen, so an unanswered call can never
-                // pull the app out from under the user.
-                val close = {
-                    if (uiState.sawOffHook) finishAndRemoveTask() else finish()
-                }
+                // This screen is alone in its own recents-hidden task (Google
+                // dialer model), so removing the task only removes the call
+                // screen — the main app, if open, stays exactly where it was.
+                val close = { finishAndRemoveTask() }
                 InCallFinishGuard(
                     // An error explanation stays up until the user dismisses
                     // it — without this the guard would close the screen (or

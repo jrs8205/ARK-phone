@@ -15,14 +15,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.telecom.BlockedCallNotifier
-import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.MissedCallNotifier
 import org.jarsi.arkphone.telecom.PhoneCaller
@@ -40,15 +37,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
     @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
-    @Inject lateinit var callController: CallController
     @Inject lateinit var smsRole: SmsRole
     @Inject lateinit var messagesRepository: MessagesRepository
-
-    private companion object {
-        // A touch longer than the call screen's ended-grace, so the visible
-        // "call ended" moment is never cut short from below.
-        const val APP_CLOSE_GRACE_MILLIS = 2_000L
-    }
 
     private val dialRequest = mutableStateOf<String?>(null)
     private val isDefault = mutableStateOf(false)
@@ -79,22 +69,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         readDialIntent(intent)
         refreshSetupState()
-        // The user wants the whole app gone once a call ends. The call screen
-        // handles this itself when visible; this covers the case where it is
-        // buried under other app screens and its finish guard is paused.
-        // A pending disconnect error blocks the close: the call screen sits in
-        // THIS task showing the explanation dialog, and removing the task
-        // would tear it down mid-read. Its dismissal closes everything.
-        lifecycleScope.launch {
-            callController.allCallsEnded.collectLatest {
-                delay(APP_CLOSE_GRACE_MILLIS)
-                if (callController.calls.value.isEmpty() &&
-                    callController.endedCall.value == null
-                ) {
-                    finishAndRemoveTask()
-                }
-            }
-        }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 messagesRepository.conversations()

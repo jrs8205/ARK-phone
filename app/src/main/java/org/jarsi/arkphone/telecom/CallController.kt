@@ -1,10 +1,7 @@
 package org.jarsi.arkphone.telecom
 
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -41,14 +38,6 @@ class CallController @Inject constructor() {
     private val _audio = MutableStateFlow(CallAudioUiState())
     val audio: StateFlow<CallAudioUiState> = _audio.asStateFlow()
 
-    /**
-     * Fires when the last call disappears, but only if some call actually
-     * went off hook — a ring that was missed or declined must not close the
-     * app under the user.
-     */
-    private val _allCallsEnded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val allCallsEnded: SharedFlow<Unit> = _allCallsEnded.asSharedFlow()
-
     var audioController: InCallAudioController? = null
 
     @Synchronized
@@ -76,10 +65,6 @@ class CallController @Inject constructor() {
         pendingDtmfStop?.cancel(false)
         pendingDtmfStop = null
         publish()
-        if (handles.isEmpty() && sawOffHookCall) {
-            sawOffHookCall = false
-            _allCallsEnded.tryEmit(Unit)
-        }
     }
 
     @Synchronized
@@ -125,8 +110,6 @@ class CallController @Inject constructor() {
         _audio.value = CallAudioUiState(muted = muted, speakerOn = speakerOn, earpiece = earpiece)
     }
 
-    private var sawOffHookCall = false
-
     private fun infoOf(handle: CallHandle) = CallInfo(
         id = handle.id,
         number = handle.number,
@@ -139,6 +122,5 @@ class CallController @Inject constructor() {
 
     private fun publish() {
         _calls.value = handles.values.map(::infoOf)
-        if (_calls.value.any { it.status.isOffHook }) sawOffHookCall = true
     }
 }

@@ -131,11 +131,16 @@
             </intent-filter>
         </service>
 
+        <!-- The Google-dialer task model: the in-call screen lives alone in
+             its own recents-hidden task, so finishing it never touches the
+             main app and nothing outside can tear it down mid-dialog. -->
         <activity
             android:name=".ui.incall.InCallActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
-            android:launchMode="singleTask"
+            android:launchMode="singleInstance"
             android:showWhenLocked="true"
+            android:taskAffinity="org.jarsi.arkphone.incall"
             android:turnScreenOn="true"
             tools:ignore="UnusedAttribute" />
 
