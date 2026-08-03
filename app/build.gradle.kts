@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-val appVersionName = "1.23"
+val appVersionName = "1.24"
 
 // APKs build as ARK-phone-<version>-<variant>.apk so a downloaded file
 // always tells which version it is.
@@ -23,7 +23,7 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
+        versionCode = 11
         versionName = appVersionName
     }
 
