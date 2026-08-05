@@ -29,3 +29,6 @@ reference/
 
 # Local session notes
 .remember/
+
+# Nested backend repo (separate private repository)
+/worker/
