@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -5,9 +6,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val appVersionName = "1.25"
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
 
 // APKs build as ARK-phone-<version>-<variant>.apk so a downloaded file
 // always tells which version it is.
@@ -42,6 +49,20 @@ android {
     }
 
     buildTypes {
+        // The VoIP spike reaches the network only from debug builds; the
+        // worker URL and token come from local.properties, never the repo.
+        debug {
+            buildConfigField(
+                "String",
+                "VOIP_WORKER_URL",
+                "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: ""}\"",
+            )
+            buildConfigField(
+                "String",
+                "VOIP_AUTH_TOKEN",
+                "\"${localProps.getProperty("arkphone.voip.authToken") ?: ""}\"",
+            )
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -65,6 +86,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -97,6 +119,9 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+    debugImplementation(libs.okhttp)
+    debugImplementation(libs.kotlinx.serialization.json)
+    debugImplementation(libs.stream.webrtc)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
