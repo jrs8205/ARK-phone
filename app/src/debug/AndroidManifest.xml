@@ -14,5 +14,14 @@
             android:name=".voip.VoipForegroundService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <activity
+            android:name=".voip.ui.VoipTestActivity"
+            android:exported="true"
+            android:label="@string/voip_test_app_label">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
