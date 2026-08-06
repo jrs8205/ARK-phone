@@ -35,6 +35,12 @@ class WebRtcCallSession(
 
     private var adapterJob: Job? = null
 
+    // libwebrtc rejects addIceCandidate until the remote description is set, so
+    // candidates arriving before that (receiver: before Answer is pressed) are
+    // held here and flushed once the description lands.
+    private val pendingRemoteCandidates = mutableListOf<String>()
+    private var remoteDescriptionSet = false
+
     init {
         scope.launch {
             signaling.incoming.collect { message -> onSignal(message) }
@@ -63,6 +69,9 @@ class WebRtcCallSession(
         scope.launch {
             val adapter = openAdapter() ?: return@launch
             val answer = adapter.createAnswerSdp(ringing.offerSdp)
+            if (activeAdapter !== adapter) return@launch
+            remoteDescriptionSet = true
+            flushPendingCandidates(adapter)
             signaling.send(
                 SignalingMessage(
                     type = SignalingTypes.CALL_ANSWER,
@@ -125,12 +134,22 @@ class WebRtcCallSession(
             SignalingTypes.CALL_ANSWER -> {
                 val sdp = message.payload?.get("sdp")?.jsonPrimitive?.content ?: return
                 val adapter = activeAdapter ?: return
-                scope.launch { adapter.acceptAnswer(sdp) }
+                scope.launch {
+                    adapter.acceptAnswer(sdp)
+                    if (activeAdapter !== adapter) return@launch
+                    remoteDescriptionSet = true
+                    flushPendingCandidates(adapter)
+                }
             }
             SignalingTypes.ICE_CANDIDATE -> {
                 val candidate =
                     message.payload?.get("candidate")?.jsonPrimitive?.content ?: return
-                activeAdapter?.addRemoteIceCandidate(candidate)
+                when {
+                    _state.value == VoipCallState.Idle ||
+                        _state.value is VoipCallState.Ended -> Unit
+                    remoteDescriptionSet -> activeAdapter?.addRemoteIceCandidate(candidate)
+                    else -> pendingRemoteCandidates += candidate
+                }
             }
             SignalingTypes.CALL_REJECT ->
                 if (_state.value != VoipCallState.Idle) end("rejected", notifyPeer = false)
@@ -150,6 +169,13 @@ class WebRtcCallSession(
         adapterJob?.cancel()
         activeAdapter?.close()
         activeAdapter = null
+        pendingRemoteCandidates.clear()
+        remoteDescriptionSet = false
         _state.value = VoipCallState.Ended(reason)
+    }
+
+    private fun flushPendingCandidates(adapter: PeerConnectionAdapter) {
+        pendingRemoteCandidates.forEach(adapter::addRemoteIceCandidate)
+        pendingRemoteCandidates.clear()
     }
 }

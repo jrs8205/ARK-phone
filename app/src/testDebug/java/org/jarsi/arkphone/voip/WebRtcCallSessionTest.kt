@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.voip
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runCurrent
@@ -18,10 +19,14 @@ class WebRtcCallSessionTest {
         override val events = MutableSharedFlow<AdapterEvent>(extraBufferCapacity = 8)
         var closed = false
         var remoteAnswer: String? = null
+        var acceptAnswerGate: CompletableDeferred<Unit>? = null
         val remoteCandidates = mutableListOf<String>()
         override suspend fun createOfferSdp() = "offer-sdp"
         override suspend fun createAnswerSdp(remoteOfferSdp: String) = "answer-sdp"
-        override suspend fun acceptAnswer(remoteAnswerSdp: String) { remoteAnswer = remoteAnswerSdp }
+        override suspend fun acceptAnswer(remoteAnswerSdp: String) {
+            acceptAnswerGate?.await()
+            remoteAnswer = remoteAnswerSdp
+        }
         override fun addRemoteIceCandidate(candidateJson: String) { remoteCandidates.add(candidateJson) }
         override suspend fun stats(): StatsSnapshot? = null
         override fun close() { closed = true }
@@ -126,7 +131,7 @@ class WebRtcCallSessionTest {
     }
 
     @Test
-    fun `ice candidates flow both ways`() = runTest {
+    fun `ice candidates flow both ways once the answer is accepted`() = runTest {
         val h = Harness(backgroundScope)
         h.session.placeCall()
         runCurrent()
@@ -135,16 +140,102 @@ class WebRtcCallSessionTest {
         assertEquals(1, h.sentOfType(SignalingTypes.ICE_CANDIDATE).size)
         h.serverSends(
             SignalingMessage(
-                type = SignalingTypes.ICE_CANDIDATE,
+                type = SignalingTypes.CALL_ANSWER,
                 from = "phone-10pro",
-                payload = buildJsonObject { put("candidate", "cand-2") },
+                payload = buildJsonObject { put("sdp", "answer-sdp") },
             ),
         )
+        runCurrent()
+        h.serverSends(remoteCandidate("cand-2"))
         runCurrent()
         assertEquals(listOf("cand-2"), h.factory.created.single().remoteCandidates)
         h.session.hangUp()
         runCurrent()
     }
+
+    @Test
+    fun `candidates arriving while ringing are applied after answering`() = runTest {
+        val h = Harness(backgroundScope)
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_OFFER,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("sdp", "their-offer") },
+            ),
+        )
+        h.serverSends(remoteCandidate("early-1"))
+        h.serverSends(remoteCandidate("early-2"))
+        runCurrent()
+        assertTrue(h.factory.created.isEmpty())
+        h.session.answer()
+        runCurrent()
+        assertEquals(listOf("early-1", "early-2"), h.factory.created.single().remoteCandidates)
+        h.session.hangUp()
+        runCurrent()
+    }
+
+    @Test
+    fun `candidates arriving before the answer is accepted wait for acceptance`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        val adapter = h.factory.created.single()
+        val gate = CompletableDeferred<Unit>()
+        adapter.acceptAnswerGate = gate
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_ANSWER,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("sdp", "answer-sdp") },
+            ),
+        )
+        h.serverSends(remoteCandidate("early"))
+        runCurrent()
+        assertTrue(adapter.remoteCandidates.isEmpty())
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(listOf("early"), adapter.remoteCandidates)
+        h.session.hangUp()
+        runCurrent()
+    }
+
+    @Test
+    fun `rejecting a ringing call discards buffered candidates`() = runTest {
+        val h = Harness(backgroundScope)
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_OFFER,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("sdp", "their-offer") },
+            ),
+        )
+        h.serverSends(remoteCandidate("stale"))
+        runCurrent()
+        h.session.reject()
+        h.session.reset()
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_OFFER,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("sdp", "second-offer") },
+            ),
+        )
+        runCurrent()
+        h.session.answer()
+        runCurrent()
+        assertTrue(h.factory.created.single().remoteCandidates.isEmpty())
+        h.session.hangUp()
+        runCurrent()
+    }
+
+    private fun remoteCandidate(candidate: String) = SignalingMessage(
+        type = SignalingTypes.ICE_CANDIDATE,
+        from = "phone-10pro",
+        payload = buildJsonObject { put("candidate", candidate) },
+    )
 
     @Test
     fun `peer-offline error ends the call attempt`() = runTest {
