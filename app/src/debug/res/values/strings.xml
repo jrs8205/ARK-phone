@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="voip_test_app_label" translatable="false">ARK VoIP</string>
+    <string name="voip_notification_channel" translatable="false">VoIP test calls</string>
+    <string name="voip_notification_title" translatable="false">VoIP test call in progress</string>
 </resources>
