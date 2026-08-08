@@ -275,4 +275,11 @@
     <string name="ark_calls_share">Share code</string>
     <string name="ark_calls_share_text">My ARK code is %1$s</string>
     <string name="ark_calls_unavailable">ARK internet calls are not available in this build</string>
+    <string name="contact_card_ark_link">Link ARK code</string>
+    <string name="contact_card_ark_linked">ARK: %1$s</string>
+    <string name="contact_card_ark_unlink">Remove ARK link</string>
+    <string name="ark_link_hint">ARK-XXXX-XXXX</string>
+    <string name="ark_link_invalid">That is not a valid ARK code</string>
+    <string name="ark_link_not_found">No account with that code</string>
+    <string name="ark_link_confirm">Link %1$s</string>
 </resources>

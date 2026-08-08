@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Message
 import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.Place
@@ -46,7 +47,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -81,6 +85,7 @@ fun ContactCardScreen(
     onEdit: (ContactDetails) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showArkDialog by rememberSaveable { mutableStateOf(false) }
     ContactCardContent(
         uiState = uiState,
         onBack = onBack,
@@ -94,7 +99,23 @@ fun ContactCardScreen(
         onOpenAppAction = onOpenAppAction,
         onShare = { uiState.details?.let(onShare) },
         onToggleBlocked = viewModel::onToggleBlocked,
+        onArkLink = { showArkDialog = true },
+        onArkUnlink = viewModel::onArkUnlink,
     )
+    if (showArkDialog) {
+        ArkLinkDialog(
+            uiState = uiState,
+            onCodeEntered = viewModel::onArkCodeEntered,
+            onConfirm = {
+                viewModel.onArkLinkConfirmed()
+                showArkDialog = false
+            },
+            onDismiss = {
+                viewModel.onArkLinkDismissed()
+                showArkDialog = false
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,6 +133,8 @@ fun ContactCardContent(
     onOpenAppAction: (ContactAppAction) -> Unit = {},
     onShare: () -> Unit = {},
     onToggleBlocked: () -> Unit = {},
+    onArkLink: () -> Unit = {},
+    onArkUnlink: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -169,6 +192,8 @@ fun ContactCardContent(
                 details = uiState.details,
                 blocked = uiState.blocked,
                 canBlock = uiState.canBlock,
+                arkAvailable = uiState.arkAvailable,
+                arkNickname = uiState.arkLink?.nickname,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -182,6 +207,8 @@ fun ContactCardContent(
                 onOpenAppAction = onOpenAppAction,
                 onShare = onShare,
                 onToggleBlocked = onToggleBlocked,
+                onArkLink = onArkLink,
+                onArkUnlink = onArkUnlink,
             )
         }
     }
@@ -192,6 +219,8 @@ private fun ContactCardDetails(
     details: ContactDetails,
     blocked: Boolean,
     canBlock: Boolean,
+    arkAvailable: Boolean,
+    arkNickname: String?,
     modifier: Modifier,
     onCall: (String) -> Unit,
     onMessage: (String) -> Unit,
@@ -202,6 +231,8 @@ private fun ContactCardDetails(
     onOpenAppAction: (ContactAppAction) -> Unit,
     onShare: () -> Unit,
     onToggleBlocked: () -> Unit,
+    onArkLink: () -> Unit,
+    onArkUnlink: () -> Unit,
 ) {
     val haptics = rememberHaptics()
     val firstNumber = details.phones.firstOrNull()?.value
@@ -373,6 +404,29 @@ private fun ContactCardDetails(
                             tint = MaterialTheme.colorScheme.error,
                         )
                     },
+                )
+            }
+            if (arkAvailable) {
+                ListItem(
+                    modifier = Modifier.clickableListItem(
+                        if (arkNickname == null) onArkLink else onArkUnlink,
+                    ),
+                    colors = transparentListItemColors(),
+                    headlineContent = {
+                        Text(
+                            if (arkNickname == null) {
+                                stringResource(R.string.contact_card_ark_link)
+                            } else {
+                                stringResource(R.string.contact_card_ark_linked, arkNickname)
+                            },
+                        )
+                    },
+                    supportingContent = if (arkNickname == null) {
+                        null
+                    } else {
+                        { Text(stringResource(R.string.contact_card_ark_unlink)) }
+                    },
+                    leadingContent = { Icon(Icons.Outlined.Link, contentDescription = null) },
                 )
             }
             if (firstNumber != null) {

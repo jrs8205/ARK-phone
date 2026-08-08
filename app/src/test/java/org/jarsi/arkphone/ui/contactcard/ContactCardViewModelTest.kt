@@ -4,9 +4,11 @@ import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.model.ContactDetails
 import org.jarsi.arkphone.data.model.LabeledField
+import org.jarsi.arkphone.testing.FakeArkLinkRepository
 import org.jarsi.arkphone.testing.FakeBlockedNumbersRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
+import org.jarsi.arkphone.util.Clock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,7 +34,13 @@ class ContactCardViewModelTest {
     }
     private val blockedNumbers = FakeBlockedNumbersRepository()
 
-    private fun viewModel() = ContactCardViewModel(contacts, blockedNumbers)
+    private fun viewModel() = ContactCardViewModel(
+        contacts,
+        blockedNumbers,
+        FakeArkLinkRepository(),
+        java.util.Optional.empty(),
+        Clock { 0L },
+    )
 
     @Test
     fun loadReflectsTheBlockedState() = runTest {
@@ -67,7 +75,13 @@ class ContactCardViewModelTest {
             override suspend fun block(number: String): Boolean = false
             override suspend fun unblock(number: String): Boolean = false
         }
-        val viewModel = ContactCardViewModel(contacts, refusing)
+        val viewModel = ContactCardViewModel(
+            contacts,
+            refusing,
+            FakeArkLinkRepository(),
+            java.util.Optional.empty(),
+            Clock { 0L },
+        )
         viewModel.load(7)
         mainDispatcherRule.dispatcher.scheduler.runCurrent()
         viewModel.onToggleBlocked()

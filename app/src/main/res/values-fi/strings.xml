@@ -269,4 +269,11 @@
     <string name="ark_calls_share">Jaa koodi</string>
     <string name="ark_calls_share_text">ARK-koodini on %1$s</string>
     <string name="ark_calls_unavailable">ARK-nettipuhelut eivät ole käytössä tässä versiossa</string>
+    <string name="contact_card_ark_link">Linkitä ARK-koodi</string>
+    <string name="contact_card_ark_linked">ARK: %1$s</string>
+    <string name="contact_card_ark_unlink">Poista ARK-linkitys</string>
+    <string name="ark_link_hint">ARK-XXXX-XXXX</string>
+    <string name="ark_link_invalid">Tämä ei ole kelvollinen ARK-koodi</string>
+    <string name="ark_link_not_found">Koodilla ei löydy tiliä</string>
+    <string name="ark_link_confirm">Linkitä %1$s</string>
 </resources>
