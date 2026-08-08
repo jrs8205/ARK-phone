@@ -14,8 +14,14 @@ import org.jarsi.arkphone.voip.VoipCallState
 import org.jarsi.arkphone.voip.VoipMediaSession
 import org.jarsi.arkphone.voip.VoipMediaSessionFactory
 
-/** The reach-query budget before the call goes out over the carrier instead. */
-const val VOIP_REACH_TIMEOUT_MS: Long = 4_000L
+/**
+ * The reach-query budget before the call goes out over the carrier instead.
+ * Field-measured: an FCM wake, cold process start and socket handshake take
+ * 3–4 s on a locked phone, so 4 s lost the race by a hair; 7 s covers it and
+ * still beats a carrier call's own setup time. The worker's reach watcher
+ * (8 s) must outlive this.
+ */
+const val VOIP_REACH_TIMEOUT_MS: Long = 7_000L
 
 /** How long a VoIP attempt may sit unanswered before the carrier takes over. */
 const val VOIP_CONNECT_TIMEOUT_MS: Long = 15_000L
