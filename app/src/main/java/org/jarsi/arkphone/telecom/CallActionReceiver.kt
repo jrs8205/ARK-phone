@@ -10,7 +10,7 @@ import javax.inject.Inject
 class CallActionReceiver : BroadcastReceiver() {
 
     @Inject lateinit var callController: CallController
-    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var callRouter: CallRouter
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
     @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
 
@@ -24,7 +24,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 // lands; otherwise the calls stay new=1 and boot re-posts them.
                 val pending = goAsync()
                 missedCallNotifier.onCallLogSeen { pending.finish() }
-                intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(phoneCaller::placeCall)
+                intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(callRouter::placeCall)
             }
             MissedCallNotifier.ACTION_MISSED_DISMISSED -> {
                 val pending = goAsync()

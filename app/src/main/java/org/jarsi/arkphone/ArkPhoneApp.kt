@@ -8,6 +8,8 @@ import org.jarsi.arkphone.data.BlockedNumbersMigration
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.telecom.CallNotifications
+import org.jarsi.arkphone.voip.VoipStartup
+import java.util.Optional
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -25,6 +27,8 @@ class ArkPhoneApp : Application() {
 
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
+    @Inject lateinit var voipStartup: Optional<VoipStartup>
+
     override fun onCreate() {
         super.onCreate()
         // Also done when a call arrives, but doing it at start means a channel
@@ -32,5 +36,7 @@ class ArkPhoneApp : Application() {
         // call rather than during it.
         callNotifications.ensureChannels()
         appScope.launch { blockedNumbersMigration.migrate() }
+        // Empty in release: no engine, no socket, no push.
+        voipStartup.ifPresent(VoipStartup::onAppStart)
     }
 }

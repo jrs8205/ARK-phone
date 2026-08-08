@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.MainActivity
 import org.jarsi.arkphone.messaging.MessagingNavigator
-import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.telecom.WhatsAppCallLauncher
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
@@ -35,7 +35,7 @@ class CallDetailActivity : ComponentActivity() {
             Intent(context, CallDetailActivity::class.java).putExtra(EXTRA_NAME, name)
     }
 
-    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var callRouter: CallRouter
 
     @Inject lateinit var whatsAppCallLauncher: WhatsAppCallLauncher
 
@@ -65,7 +65,7 @@ class CallDetailActivity : ComponentActivity() {
                 CallDetailScreen(
                     viewModel = viewModel,
                     onBack = ::finish,
-                    onCall = { phoneCaller.placeCall(it) },
+                    onCall = { callRouter.placeCall(it) },
                     onMessage = ::openMessagingApp,
                     onEditBeforeCall = ::openKeypadPrefilled,
                     onDeleteHistory = ::deleteHistoryWithPermission,

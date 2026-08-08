@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.messaging.MmsDownloader
-import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.ui.contactcard.ContactCardActivity
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
@@ -39,7 +39,7 @@ class ConversationActivity : ComponentActivity() {
                 .putExtra(EXTRA_INITIAL_IMAGE, initialImage)
     }
 
-    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var callRouter: CallRouter
 
     @Inject lateinit var mmsDownloader: MmsDownloader
 
@@ -70,7 +70,7 @@ class ConversationActivity : ComponentActivity() {
                     viewModel = viewModel,
                     initialComposerText = intent.getStringExtra(EXTRA_INITIAL_BODY).orEmpty(),
                     onBack = ::finish,
-                    onCall = { phoneCaller.placeCall(it) },
+                    onCall = { callRouter.placeCall(it) },
                     onOpenContact = { contactId ->
                         startActivity(ContactCardActivity.intent(this, contactId))
                     },

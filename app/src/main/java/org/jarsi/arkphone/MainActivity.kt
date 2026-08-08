@@ -22,7 +22,7 @@ import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.telecom.BlockedCallNotifier
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.MissedCallNotifier
-import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.ui.conversation.ConversationActivity
 import org.jarsi.arkphone.ui.messages.NewMessageActivity
 import org.jarsi.arkphone.ui.navigation.MainScreen
@@ -33,7 +33,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var callRouter: CallRouter
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
     @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
@@ -94,8 +94,8 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     MainScreen(
-                        onCall = { number -> phoneCaller.placeCall(number) },
-                        onVoicemail = { phoneCaller.placeVoicemailCall() },
+                        onCall = { number -> callRouter.placeCall(number) },
+                        onVoicemail = { callRouter.placeVoicemailCall() },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.requestablePermissions()) },
                         showDefaultDialerBanner = !defaultDialer,
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },

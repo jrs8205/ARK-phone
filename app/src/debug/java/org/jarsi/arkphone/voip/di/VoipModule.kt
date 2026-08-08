@@ -27,8 +27,11 @@ import org.jarsi.arkphone.voip.VoipAccountGateway
 import org.jarsi.arkphone.voip.VoipCallGateway
 import org.jarsi.arkphone.voip.VoipConfig
 import org.jarsi.arkphone.voip.VoipEngine
+import org.jarsi.arkphone.voip.ArkVoipStartup
 import org.jarsi.arkphone.voip.VoipMediaSessionFactory
+import org.jarsi.arkphone.voip.VoipStartup
 import org.jarsi.arkphone.voip.WebRtcCallSession
+import org.jarsi.arkphone.voip.fcm.ArkFcmRegistration
 import org.jarsi.arkphone.voip.WebSocketConnector
 import org.jarsi.arkphone.voip.WorkerVoipAccountGateway
 import org.jarsi.arkphone.telecom.MissedCallNotifier
@@ -154,4 +157,18 @@ object VoipModule {
     @Provides
     @Singleton
     fun provideVoipCallGateway(impl: VoipCallCoordinator): VoipCallGateway = impl
+
+    @Provides
+    @Singleton
+    fun provideVoipStartup(
+        engine: VoipEngine,
+        coordinator: VoipCallCoordinator,
+        fcmRegistration: ArkFcmRegistration,
+        @ApplicationScope scope: CoroutineScope,
+    ): VoipStartup = ArkVoipStartup(
+        engine = engine,
+        onIncoming = coordinator::onIncoming,
+        fcmRefresh = fcmRegistration::refresh,
+        scope = scope,
+    )
 }

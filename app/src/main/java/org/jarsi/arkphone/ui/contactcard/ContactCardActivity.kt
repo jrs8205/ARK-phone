@@ -14,7 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
 import org.jarsi.arkphone.messaging.MessagingNavigator
-import org.jarsi.arkphone.telecom.PhoneCaller
+import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.ui.detail.CallDetailActivity
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import javax.inject.Inject
@@ -29,7 +29,7 @@ class ContactCardActivity : ComponentActivity() {
             Intent(context, ContactCardActivity::class.java).putExtra(EXTRA_CONTACT_ID, contactId)
     }
 
-    @Inject lateinit var phoneCaller: PhoneCaller
+    @Inject lateinit var callRouter: CallRouter
 
     @Inject lateinit var messagingNavigator: MessagingNavigator
 
@@ -57,7 +57,7 @@ class ContactCardActivity : ComponentActivity() {
                 ContactCardScreen(
                     viewModel = viewModel,
                     onBack = ::finish,
-                    onCall = { phoneCaller.placeCall(it) },
+                    onCall = { callRouter.placeCall(it) },
                     onMessage = { messagingNavigator.openConversation(this, it) },
                     onEmail = { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", it, null))) },
                     onOpenAddress = {

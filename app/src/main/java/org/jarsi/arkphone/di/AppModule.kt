@@ -47,6 +47,7 @@ import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.voip.ArkLinkRepository
 import org.jarsi.arkphone.voip.VoipAccountGateway
 import org.jarsi.arkphone.voip.VoipCallGateway
+import org.jarsi.arkphone.voip.VoipStartup
 import org.jarsi.arkphone.messaging.AndroidMessageNotifier
 import org.jarsi.arkphone.messaging.AndroidMessageSharer
 import org.jarsi.arkphone.messaging.AndroidMmsSender
@@ -187,6 +188,9 @@ abstract class AppModule {
 
     @BindsOptionalOf
     abstract fun optionalVoipCallGateway(): VoipCallGateway
+
+    @BindsOptionalOf
+    abstract fun optionalVoipStartup(): VoipStartup
 
     @Binds
     @Singleton
