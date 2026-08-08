@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import androidx.room.Room
 import org.jarsi.arkphone.data.AndroidBlockedNumbersRepository
+import org.jarsi.arkphone.data.ArkIdentityRepository
 import org.jarsi.arkphone.data.ArkLinkDao
+import org.jarsi.arkphone.data.DataStoreArkIdentityRepository
 import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.RoomArkLinkRepository
 import org.jarsi.arkphone.data.BlockedNumbersRepository
@@ -167,6 +169,12 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindArkLinkRepository(impl: RoomArkLinkRepository): ArkLinkRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindArkIdentityRepository(
+        impl: DataStoreArkIdentityRepository,
+    ): ArkIdentityRepository
 
     @Binds
     @Singleton
