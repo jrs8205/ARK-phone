@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import androidx.room.Room
 import org.jarsi.arkphone.data.AndroidBlockedNumbersRepository
+import org.jarsi.arkphone.data.ArkLinkDao
 import org.jarsi.arkphone.data.ArkPhoneDatabase
+import org.jarsi.arkphone.data.RoomArkLinkRepository
 import org.jarsi.arkphone.data.BlockedNumbersRepository
 import org.jarsi.arkphone.data.DataStoreBlockedNumbersRepository
 import org.jarsi.arkphone.data.SystemBlockedNumberList
@@ -39,6 +41,7 @@ import org.jarsi.arkphone.data.SystemMessagesRepository
 import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
+import org.jarsi.arkphone.voip.ArkLinkRepository
 import org.jarsi.arkphone.messaging.AndroidMessageNotifier
 import org.jarsi.arkphone.messaging.AndroidMessageSharer
 import org.jarsi.arkphone.messaging.AndroidMmsSender
@@ -163,6 +166,10 @@ abstract class AppModule {
 
     @Binds
     @Singleton
+    abstract fun bindArkLinkRepository(impl: RoomArkLinkRepository): ArkLinkRepository
+
+    @Binds
+    @Singleton
     abstract fun bindWhatsAppCallLauncher(impl: WhatsAppCaller): WhatsAppCallLauncher
 
     @Binds
@@ -248,10 +255,13 @@ abstract class AppModule {
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): ArkPhoneDatabase =
             Room.databaseBuilder(context, ArkPhoneDatabase::class.java, "arkphone.db")
-                .addMigrations(ArkPhoneDatabase.MIGRATION_1_2)
+                .addMigrations(ArkPhoneDatabase.MIGRATION_1_2, ArkPhoneDatabase.MIGRATION_2_3)
                 .build()
 
         @Provides
         fun provideWhatsAppCallDao(db: ArkPhoneDatabase): WhatsAppCallDao = db.whatsAppCallDao()
+
+        @Provides
+        fun provideArkLinkDao(db: ArkPhoneDatabase): ArkLinkDao = db.arkLinkDao()
     }
 }

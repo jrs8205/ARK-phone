@@ -9,22 +9,24 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-private const val DB_NAME = "migration-test.db"
+private const val DB_NAME = "ark-link-migration-test.db"
 
-private const val V1_TABLE =
+private const val V2_TABLE =
     "CREATE TABLE IF NOT EXISTS `whatsapp_calls` (" +
         "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
         "`callerName` TEXT, `callerNumber` TEXT, `type` TEXT NOT NULL, " +
         "`timestampMillis` INTEGER NOT NULL, `durationSeconds` INTEGER NOT NULL, " +
-        "`isVideo` INTEGER NOT NULL)"
+        "`isVideo` INTEGER NOT NULL, " +
+        "`sourcePackage` TEXT NOT NULL DEFAULT 'com.whatsapp')"
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35])
-class WhatsAppCallMigrationTest {
+class ArkLinkMigrationTest {
 
     private val context = ApplicationProvider.getApplicationContext<Application>()
     private val dbFile = context.getDatabasePath(DB_NAME)
@@ -34,58 +36,54 @@ class WhatsAppCallMigrationTest {
         SQLiteDatabase.deleteDatabase(dbFile)
     }
 
-    /** A database exactly as version 1 of the app left it, with one call. */
-    private fun createVersion1Database() {
+    private fun createVersion2Database() {
         dbFile.parentFile?.mkdirs()
         SQLiteDatabase.openOrCreateDatabase(dbFile, null).use { db ->
-            db.execSQL(V1_TABLE)
+            db.execSQL(V2_TABLE)
             db.execSQL(
                 "INSERT INTO whatsapp_calls " +
-                    "(callerName, callerNumber, type, timestampMillis, durationSeconds, isVideo) " +
-                    "VALUES ('Matti Meikäläinen', '+358 44 5552841', 'INCOMING', 1000, 30, 0)",
+                    "(callerName, callerNumber, type, timestampMillis, durationSeconds, " +
+                    "isVideo, sourcePackage) " +
+                    "VALUES ('Matti', '+358 44 5552841', 'INCOMING', 1000, 30, 0, 'com.whatsapp')",
             )
-            db.version = 1
+            db.version = 2
         }
     }
 
     @Test
-    fun migrationKeepsOldRowsWithThePersonalPackageDefault() = runTest {
-        createVersion1Database()
+    fun migrationKeepsWhatsAppRowsAndAddsAnEmptyLinkTable() = runTest {
+        createVersion2Database()
         val db = Room.databaseBuilder(context, ArkPhoneDatabase::class.java, DB_NAME)
             .addMigrations(ArkPhoneDatabase.MIGRATION_1_2, ArkPhoneDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {
-            val calls = db.whatsAppCallDao().calls().first()
-            assertEquals(1, calls.size)
-            assertEquals("Matti Meikäläinen", calls.single().callerName)
-            assertEquals("com.whatsapp", calls.single().sourcePackage)
+            assertEquals(1, db.whatsAppCallDao().calls().first().size)
+            assertTrue(db.arkLinkDao().links().first().isEmpty())
         } finally {
             db.close()
         }
     }
 
     @Test
-    fun migratedDatabaseAcceptsNewRowsWithABusinessPackage() = runTest {
-        createVersion1Database()
+    fun theMigratedDatabaseAcceptsLinkRows() = runTest {
+        createVersion2Database()
         val db = Room.databaseBuilder(context, ArkPhoneDatabase::class.java, DB_NAME)
             .addMigrations(ArkPhoneDatabase.MIGRATION_1_2, ArkPhoneDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {
-            db.whatsAppCallDao().insert(
-                WhatsAppCallEntity(
-                    callerName = "Muu",
-                    callerNumber = null,
-                    type = "OUTGOING",
-                    timestampMillis = 2_000,
-                    durationSeconds = 5,
-                    isVideo = false,
-                    sourcePackage = "com.whatsapp.w4b",
+            db.arkLinkDao().upsert(
+                ArkLinkEntity(
+                    numberKey = "445552841",
+                    number = "+358 44 5552841",
+                    code = "ARK-7K3M-Q2FP",
+                    nickname = "Jarsi",
+                    publicKey = "pk-test",
+                    linkedAtMillis = 1_000L,
                 ),
             )
-            val packages = db.whatsAppCallDao().calls().first().map { it.sourcePackage }
-            assertEquals(listOf("com.whatsapp.w4b", "com.whatsapp"), packages)
+            assertEquals("ARK-7K3M-Q2FP", db.arkLinkDao().links().first().single().code)
         } finally {
             db.close()
         }
