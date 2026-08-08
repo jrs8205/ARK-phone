@@ -26,6 +26,7 @@ class CallNotifications @Inject constructor(
         // dropped from HIGH to DEFAULT to stop the ringing notification from
         // bannering answer/decline buttons over ARK-phone's own call screen.
         const val CHANNEL_INCOMING = "incoming_calls_v2"
+        const val CHANNEL_INCOMING_ARK = "incoming_calls_ark"
         const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent_v2"
         private val REPLACED_CHANNELS = listOf("incoming_calls", "incoming_calls_silent")
         const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
@@ -65,6 +66,18 @@ class CallNotifications @Inject constructor(
             enableVibration(true)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
+        // ARK internet calls ring from a background process, where launching
+        // the call screen directly is blocked — their notification carries a
+        // full-screen intent instead, and that fires only from a HIGH channel.
+        val incomingArk = NotificationChannel(
+            CHANNEL_INCOMING_ARK,
+            context.getString(R.string.notification_channel_incoming_ark),
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            setSound(ringtone, audioAttributes)
+            enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
         // Voice-only announcement mode: the ringtone comes from the incoming
         // channel, so ringing silently means posting on this channel instead.
         val incomingSilent = NotificationChannel(
@@ -84,6 +97,7 @@ class CallNotifications @Inject constructor(
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(incoming)
+        notificationManager.createNotificationChannel(incomingArk)
         // User-silenced ring: DEFAULT importance so the re-posted notification
         // stays in the status bar instead of heads-upping over the call screen.
         val incomingSilenced = NotificationChannel(
@@ -119,12 +133,16 @@ class CallNotifications @Inject constructor(
         val channel = when {
             quiet -> CHANNEL_INCOMING_SILENCED
             silentRing -> CHANNEL_INCOMING_SILENT
+            info.viaArkCall -> CHANNEL_INCOMING_ARK
             else -> CHANNEL_INCOMING
         }
-        // No CallStyle and no full-screen intent: ARK-phone opens its own call
-        // screen for every ringing call, and either of those would make the
-        // system banner a second set of answer/decline buttons over it. The
-        // actions stay as plain ones so the shade and lock screen keep them.
+        // No CallStyle, and for carrier calls no full-screen intent either:
+        // ARK-phone opens its own call screen for every ringing carrier call,
+        // and either would make the system banner a second set of
+        // answer/decline buttons over it. An ARK internet call is the
+        // exception — it rings from a background process where launching the
+        // screen is blocked, so its notification carries the full-screen
+        // intent that IS the platform's way to ring a locked phone.
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(caller.name)
@@ -148,6 +166,9 @@ class CallNotifications @Inject constructor(
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setContentIntent(openCallScreen)
+            .apply {
+                if (info.viaArkCall && !quiet) setFullScreenIntent(openCallScreen, true)
+            }
             .build()
             .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }
     }

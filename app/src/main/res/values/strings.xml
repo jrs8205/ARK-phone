@@ -284,4 +284,5 @@
     <string name="ark_link_confirm">Link %1$s</string>
     <string name="incall_ark_call">ARK call</string>
     <string name="call_feature_ark">ARK</string>
+    <string name="notification_channel_incoming_ark">Incoming ARK calls</string>
 </resources>

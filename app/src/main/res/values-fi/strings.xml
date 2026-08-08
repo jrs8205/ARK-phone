@@ -278,4 +278,5 @@
     <string name="ark_link_confirm">Linkitä %1$s</string>
     <string name="incall_ark_call">ARK-puhelu</string>
     <string name="call_feature_ark">ARK</string>
+    <string name="notification_channel_incoming_ark">Saapuvat ARK-puhelut</string>
 </resources>
