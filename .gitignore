@@ -17,6 +17,9 @@ captures/
 *.jks
 *.keystore
 
+# Firebase project identity (public repo)
+app/google-services.json
+
 # Logs
 *.log
 

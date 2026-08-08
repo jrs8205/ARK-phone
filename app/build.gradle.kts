@@ -9,6 +9,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// google-services.json carries the Firebase project identity and is not in
+// this public repo. The plugin is applied only when the file is present, the
+// same way the release signing config exists only with ARKPHONE_STORE_FILE —
+// a checkout without it still builds, just without push wake-up.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val appVersionName = "1.25"
 
 val localProps = Properties().apply {
@@ -115,6 +123,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+    debugImplementation(libs.firebase.messaging)
     debugImplementation(libs.okhttp)
     debugImplementation(libs.kotlinx.serialization.json)
     debugImplementation(libs.stream.webrtc)
