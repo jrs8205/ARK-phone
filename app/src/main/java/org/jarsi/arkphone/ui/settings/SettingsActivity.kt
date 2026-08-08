@@ -28,17 +28,21 @@ class SettingsActivity : ComponentActivity() {
             ArkPhoneTheme {
                 var showSimInfo by rememberSaveable { mutableStateOf(false) }
                 var showBlocking by rememberSaveable { mutableStateOf(false) }
-                BackHandler(enabled = showSimInfo || showBlocking) {
+                var showArkCalls by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showSimInfo || showBlocking || showArkCalls) {
                     showSimInfo = false
                     showBlocking = false
+                    showArkCalls = false
                 }
                 when {
                     showSimInfo -> SimInfoScreen(onBack = { showSimInfo = false })
                     showBlocking -> BlockingScreen(onBack = { showBlocking = false })
+                    showArkCalls -> ArkCallsScreen(onBack = { showArkCalls = false })
                     else -> SettingsScreen(
                         onBack = ::finish,
                         onOpenSimInfo = { showSimInfo = true },
                         onOpenBlocking = { showBlocking = true },
+                        onOpenArkCalls = { showArkCalls = true },
                     )
                 }
             }

@@ -256,4 +256,17 @@
         <item quantity="one">Estetty puhelu</item>
         <item quantity="other">%d estettyä puhelua</item>
     </plurals>
+
+    <string name="settings_ark_calls_title">ARK-nettipuhelut</string>
+    <string name="settings_ark_calls_description">Oma ARK-koodi ja linkitetyt yhteystiedot</string>
+    <string name="ark_calls_switch">Käytä ARK-nettipuheluita</string>
+    <string name="ark_calls_switch_description">Puhelut linkitettyihin yhteystietoihin kulkevat internetin kautta, kun toinen puhelin on tavoitettavissa</string>
+    <string name="ark_calls_your_code">Oma ARK-koodi</string>
+    <string name="ark_calls_nickname">Nimimerkki</string>
+    <string name="ark_calls_register">Luo ARK-koodi</string>
+    <string name="ark_calls_registering">Luodaan…</string>
+    <string name="ark_calls_register_failed">ARK-koodin luonti epäonnistui. Yritä uudelleen.</string>
+    <string name="ark_calls_share">Jaa koodi</string>
+    <string name="ark_calls_share_text">ARK-koodini on %1$s</string>
+    <string name="ark_calls_unavailable">ARK-nettipuhelut eivät ole käytössä tässä versiossa</string>
 </resources>

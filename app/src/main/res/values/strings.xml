@@ -262,4 +262,17 @@
         <item quantity="one">Blocked call</item>
         <item quantity="other">%d blocked calls</item>
     </plurals>
+
+    <string name="settings_ark_calls_title">ARK internet calls</string>
+    <string name="settings_ark_calls_description">Your ARK code and linked contacts</string>
+    <string name="ark_calls_switch">Use ARK internet calls</string>
+    <string name="ark_calls_switch_description">Calls to linked contacts travel over the internet when the other phone is reachable</string>
+    <string name="ark_calls_your_code">Your ARK code</string>
+    <string name="ark_calls_nickname">Nickname</string>
+    <string name="ark_calls_register">Create ARK code</string>
+    <string name="ark_calls_registering">Creating…</string>
+    <string name="ark_calls_register_failed">Could not create an ARK code. Try again.</string>
+    <string name="ark_calls_share">Share code</string>
+    <string name="ark_calls_share_text">My ARK code is %1$s</string>
+    <string name="ark_calls_unavailable">ARK internet calls are not available in this build</string>
 </resources>
