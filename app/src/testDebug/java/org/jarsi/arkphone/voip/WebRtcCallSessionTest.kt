@@ -3,6 +3,7 @@ package org.jarsi.arkphone.voip
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
@@ -44,27 +45,19 @@ class WebRtcCallSessionTest {
         }
     }
 
-    private class RecordingConnector : WebSocketConnector {
-        var onText: ((String) -> Unit)? = null
-        val sent = mutableListOf<String>()
-        override fun connect(
-            url: String,
-            bearer: String,
-            onOpen: () -> Unit,
-            onText: (String) -> Unit,
-            onClosed: (Int, String) -> Unit,
-        ): WebSocketHandle {
-            this.onText = onText
-            return object : WebSocketHandle {
-                override fun send(text: String): Boolean { sent.add(text); return true }
-                override fun close() {}
-            }
+    private class FakeSignaling : CallSignaling {
+        val sent = mutableListOf<SignalingMessage>()
+        private val _incoming = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 32)
+        override val incoming: SharedFlow<SignalingMessage> = _incoming
+        override fun send(message: SignalingMessage): Boolean {
+            sent += message
+            return true
         }
+        fun serverSends(message: SignalingMessage) { _incoming.tryEmit(message) }
     }
 
     private class Harness(scope: kotlinx.coroutines.CoroutineScope) {
-        val connector = RecordingConnector()
-        val signaling = SignalingClient(connector, "https://w", "ARK-AAAA-AAAA", "token-abc", scope)
+        val signaling = FakeSignaling()
         val factory = FakeFactory()
         val session = WebRtcCallSession(
             signaling = signaling,
@@ -74,14 +67,11 @@ class WebRtcCallSessionTest {
             peerId = "phone-10pro",
         )
 
-        init { signaling.start() }
-
         fun serverSends(message: SignalingMessage) {
-            connector.onText!!(SignalingJson.encode(message))
+            signaling.serverSends(message)
         }
 
-        fun sentOfType(type: String) =
-            connector.sent.mapNotNull { SignalingJson.decode(it) }.filter { it.type == type }
+        fun sentOfType(type: String) = signaling.sent.filter { it.type == type }
     }
 
     @Test
@@ -287,26 +277,10 @@ class WebRtcCallSessionTest {
 
     @Test
     fun `failed turn fetch ends with no-turn`() = runTest {
-        val connector = object : WebSocketConnector {
-            override fun connect(
-                url: String,
-                bearer: String,
-                onOpen: () -> Unit,
-                onText: (String) -> Unit,
-                onClosed: (Int, String) -> Unit,
-            ) = object : WebSocketHandle {
-                override fun send(text: String) = true
-                override fun close() {}
-            }
-        }
-        val signaling =
-            SignalingClient(connector, "https://w", "ARK-AAAA-AAAA", "token-abc", backgroundScope)
-        signaling.start()
         val session =
-            WebRtcCallSession(signaling, FakeFactory(), { null }, backgroundScope, "phone-10pro")
+            WebRtcCallSession(FakeSignaling(), FakeFactory(), { null }, backgroundScope, "phone-10pro")
         session.placeCall()
         runCurrent()
         assertEquals(VoipCallState.Ended("no-turn"), session.state.value)
-        signaling.stop()
     }
 }

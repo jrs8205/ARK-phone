@@ -19,14 +19,15 @@ sealed interface VoipCallState {
 }
 
 class WebRtcCallSession(
-    private val signaling: SignalingClient,
+    private val signaling: CallSignaling,
     private val adapterFactory: PeerConnectionAdapterFactory,
     private val turnFetcher: suspend () -> List<IceServerConfig>?,
     private val scope: CoroutineScope,
     private val peerId: String,
-) {
+    initialOfferSdp: String? = null,
+) : VoipMediaSession {
     private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
-    val state: StateFlow<VoipCallState> = _state.asStateFlow()
+    override val state: StateFlow<VoipCallState> = _state.asStateFlow()
 
     var relayOnly: Boolean = false
 
@@ -42,12 +43,13 @@ class WebRtcCallSession(
     private var remoteDescriptionSet = false
 
     init {
+        if (initialOfferSdp != null) _state.value = VoipCallState.Ringing(initialOfferSdp)
         scope.launch {
             signaling.incoming.collect { message -> onSignal(message) }
         }
     }
 
-    fun placeCall() {
+    override fun placeCall() {
         if (_state.value != VoipCallState.Idle) return
         _state.value = VoipCallState.Connecting
         scope.launch {
@@ -63,7 +65,7 @@ class WebRtcCallSession(
         }
     }
 
-    fun answer() {
+    override fun answer() {
         val ringing = _state.value as? VoipCallState.Ringing ?: return
         _state.value = VoipCallState.Connecting
         scope.launch {
@@ -82,13 +84,13 @@ class WebRtcCallSession(
         }
     }
 
-    fun reject() {
+    override fun reject() {
         if (_state.value !is VoipCallState.Ringing) return
         signaling.send(SignalingMessage(type = SignalingTypes.CALL_REJECT, to = peerId))
         end("local-reject", notifyPeer = false)
     }
 
-    fun hangUp() {
+    override fun hangUp() {
         if (_state.value == VoipCallState.Idle || _state.value is VoipCallState.Ended) return
         signaling.send(SignalingMessage(type = SignalingTypes.CALL_END, to = peerId))
         end("local-hangup", notifyPeer = false)

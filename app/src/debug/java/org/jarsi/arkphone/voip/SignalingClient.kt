@@ -49,12 +49,12 @@ class SignalingClient(
     private val code: String,
     private val deviceToken: String,
     private val scope: CoroutineScope,
-) {
+) : CallSignaling {
     private val _connectionState = MutableStateFlow(SignalingConnectionState.DISCONNECTED)
     val connectionState: StateFlow<SignalingConnectionState> = _connectionState.asStateFlow()
 
     private val _incoming = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 64)
-    val incoming: SharedFlow<SignalingMessage> = _incoming.asSharedFlow()
+    override val incoming: SharedFlow<SignalingMessage> = _incoming.asSharedFlow()
 
     private val pendingReach = mutableMapOf<String, CompletableDeferred<Boolean>>()
 
@@ -79,7 +79,7 @@ class SignalingClient(
     }
 
     /** False when the frame could not be handed to a live socket. */
-    fun send(message: SignalingMessage): Boolean {
+    override fun send(message: SignalingMessage): Boolean {
         val sent = handle?.send(SignalingJson.encode(message)) ?: false
         if (!sent) onSendRefused()
         return sent
