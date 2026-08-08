@@ -1,28 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="voip_test_app_label" translatable="false">ARK VoIP</string>
-    <string name="voip_notification_channel" translatable="false">VoIP test calls</string>
-    <string name="voip_notification_title" translatable="false">VoIP test call in progress</string>
-    <string name="voip_pick_device" translatable="false">Which phone is this?</string>
-    <string name="voip_device_8a" translatable="false">Pixel 8a (phone-8a)</string>
-    <string name="voip_device_10pro" translatable="false">Pixel 10 Pro (phone-10pro)</string>
-    <string name="voip_this_device" translatable="false">This device: %1$s</string>
-    <string name="voip_peer_online" translatable="false">Peer is online</string>
-    <string name="voip_peer_offline" translatable="false">Peer is not online</string>
-    <string name="voip_connecting" translatable="false">Connecting to server…</string>
-    <string name="voip_disconnected" translatable="false">No server connection</string>
-    <string name="voip_relay_only" translatable="false">Force relay (TURN)</string>
-    <string name="voip_call" translatable="false">Call</string>
-    <string name="voip_call_connecting" translatable="false">Connecting call…</string>
-    <string name="voip_answer" translatable="false">Answer</string>
-    <string name="voip_reject" translatable="false">Reject</string>
-    <string name="voip_in_call" translatable="false">Call in progress</string>
-    <string name="voip_speaker_on" translatable="false">Speaker on</string>
-    <string name="voip_speaker_off" translatable="false">Speaker off</string>
-    <string name="voip_hang_up" translatable="false">Hang up</string>
-    <string name="voip_call_ended" translatable="false">Call ended: %1$s</string>
-    <string name="voip_ok" translatable="false">OK</string>
-    <string name="voip_stats" translatable="false">Path: %1$s · RTT %2$d ms · loss %3$d%%</string>
-    <string name="voip_path_relay" translatable="false">relay</string>
-    <string name="voip_path_direct" translatable="false">direct</string>
+    <string name="voip_notification_channel" translatable="false">ARK internet calls</string>
+    <string name="voip_notification_title" translatable="false">ARK call in progress</string>
 </resources>

@@ -49,18 +49,14 @@ android {
     }
 
     buildTypes {
-        // The VoIP spike reaches the network only from debug builds; the
-        // worker URL and token come from local.properties, never the repo.
+        // The VoIP engine reaches the network only from debug builds; the
+        // worker URL comes from local.properties, never the repo. Per-device
+        // bearer tokens are issued at registration and live in DataStore.
         debug {
             buildConfigField(
                 "String",
                 "VOIP_WORKER_URL",
                 "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: ""}\"",
-            )
-            buildConfigField(
-                "String",
-                "VOIP_AUTH_TOKEN",
-                "\"${localProps.getProperty("arkphone.voip.authToken") ?: ""}\"",
             )
         }
         release {
