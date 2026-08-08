@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOn
 import android.telephony.PhoneNumberUtils
 import kotlinx.coroutines.withContext
+import org.jarsi.arkphone.data.model.ARK_PHONE_ACCOUNT_ID
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
@@ -112,6 +113,7 @@ class SystemCallLogRepository @Inject constructor(
                         whatsAppPackage = whatsAppPackageFrom(cursor.getString(6)),
                         simAccountId = cursor.getString(7)?.takeIf { it.isNotBlank() },
                         wasWifiCall = isWifiCall(cursor.getInt(8)),
+                        viaArkCall = cursor.getString(7) == ARK_PHONE_ACCOUNT_ID,
                     )
                 }
             }

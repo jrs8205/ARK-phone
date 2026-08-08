@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMade
@@ -145,16 +147,29 @@ fun RecentsContent(
         uiState.entries.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.recents_empty), style = MaterialTheme.typography.bodyLarge)
         }
-        else -> LazyColumn(Modifier.fillMaxSize()) {
-            items(uiState.entries, key = { it.entry.id }) { grouped ->
-                RecentsRow(
-                    grouped = grouped,
-                    simAccounts = uiState.simAccounts,
-                    onCall = onCall,
-                    onOpenDetails = onOpenDetails,
-                    onOpenNameDetails = onOpenNameDetails,
-                    onWhatsAppCall = onWhatsAppCall,
-                )
+        else -> {
+            val listState = rememberLazyListState()
+            val newestId = uiState.entries.firstOrNull()?.entry?.id
+            // Keyed items anchor the viewport to the previously-first row, so
+            // a freshly logged call would land hidden above it. When the list
+            // sits at the top, keep it pinned to the newest call; a deeper
+            // scroll position is left alone.
+            LaunchedEffect(newestId) {
+                if (listState.firstVisibleItemIndex <= 1) {
+                    listState.scrollToItem(0)
+                }
+            }
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                items(uiState.entries, key = { it.entry.id }) { grouped ->
+                    RecentsRow(
+                        grouped = grouped,
+                        simAccounts = uiState.simAccounts,
+                        onCall = onCall,
+                        onOpenDetails = onOpenDetails,
+                        onOpenNameDetails = onOpenNameDetails,
+                        onWhatsAppCall = onWhatsAppCall,
+                    )
+                }
             }
         }
     }
@@ -203,6 +218,11 @@ private fun RecentsRowItem(
     } else {
         ""
     }
+    val arkSuffix = if (entry.viaArkCall) {
+        " · " + stringResource(R.string.call_feature_ark)
+    } else {
+        ""
+    }
     val simSuffix = simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -235,7 +255,7 @@ private fun RecentsRowItem(
             Text(
                 text = typeLabel + " · " +
                     DateUtils.getRelativeTimeSpanString(entry.timestampMillis) +
-                    sourceSuffix + wifiSuffix + simSuffix,
+                    sourceSuffix + wifiSuffix + arkSuffix + simSuffix,
                 color = if (entry.type == CallType.MISSED) {
                     MaterialTheme.colorScheme.error
                 } else {

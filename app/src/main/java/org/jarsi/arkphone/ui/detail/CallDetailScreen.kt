@@ -395,7 +395,12 @@ private fun HistoryRowItem(
             } else {
                 ""
             }
-            Text(time + duration + wifi + simLabel?.let { " · $it" }.orEmpty())
+            val ark = if (entry.viaArkCall) {
+                " · " + stringResource(R.string.call_feature_ark)
+            } else {
+                ""
+            }
+            Text(time + duration + wifi + ark + simLabel?.let { " · $it" }.orEmpty())
         },
         leadingContent = {
             val icon = when (entry.type) {

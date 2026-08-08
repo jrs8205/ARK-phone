@@ -6,11 +6,9 @@ import android.content.Context
 import android.provider.CallLog
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.jarsi.arkphone.data.model.ARK_PHONE_ACCOUNT_ID
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/** Marks a call-log row as one ARK carried over the internet. */
-const val ARK_PHONE_ACCOUNT_ID: String = "ark-voip"
 
 enum class ArkCallType { INCOMING, OUTGOING, MISSED }
 

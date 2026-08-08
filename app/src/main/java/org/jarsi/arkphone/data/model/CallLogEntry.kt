@@ -19,4 +19,9 @@ data class CallLogEntry(
     val simAccountId: String? = null,
     /** True when the call was carried over Wi-Fi (VoWiFi). */
     val wasWifiCall: Boolean = false,
+    /** True when the call went over the internet as an ARK call. */
+    val viaArkCall: Boolean = false,
 )
+
+/** The PHONE_ACCOUNT_ID marker ARK stamps on its own internet-call rows. */
+const val ARK_PHONE_ACCOUNT_ID: String = "ark-voip"
