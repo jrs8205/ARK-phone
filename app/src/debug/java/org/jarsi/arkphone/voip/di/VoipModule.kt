@@ -164,11 +164,13 @@ object VoipModule {
         engine: VoipEngine,
         coordinator: VoipCallCoordinator,
         fcmRegistration: ArkFcmRegistration,
+        identityRepository: ArkIdentityRepository,
         @ApplicationScope scope: CoroutineScope,
     ): VoipStartup = ArkVoipStartup(
         engine = engine,
         onIncoming = coordinator::onIncoming,
         fcmRefresh = fcmRegistration::refresh,
+        identities = identityRepository.identity,
         scope = scope,
     )
 }

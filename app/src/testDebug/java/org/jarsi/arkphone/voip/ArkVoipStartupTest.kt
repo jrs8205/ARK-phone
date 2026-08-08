@@ -1,6 +1,8 @@
 package org.jarsi.arkphone.voip
 
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -10,8 +12,12 @@ import org.jarsi.arkphone.data.ArkIdentity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [35])
 class ArkVoipStartupTest {
 
     private class StubHandle : WebSocketHandle {
@@ -39,16 +45,41 @@ class ArkVoipStartupTest {
     @Test
     fun startupRefreshesTheFcmTokenAndOpensTheInbox() = runTest {
         val connector = StartupConnector()
+        val identity = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
         val engine = VoipEngine(
-            identityRepository = TestArkIdentityRepository(ArkIdentity("ARK-AAAA-AAAA", "A", "t")),
+            identityRepository = TestArkIdentityRepository(identity),
             connector = connector,
             config = VoipConfig("https://w"),
             scope = backgroundScope,
         )
         var refreshed = false
-        ArkVoipStartup(engine, { }, { refreshed = true }, backgroundScope).onAppStart()
+        ArkVoipStartup(
+            engine,
+            { },
+            { refreshed = true },
+            MutableStateFlow<ArkIdentity?>(identity),
+            backgroundScope,
+        ).onAppStart()
         runCurrent()
         assertTrue(refreshed)
+        assertEquals(1, connector.handles.size)
+    }
+
+    @Test
+    fun theInboxOpensTheMomentRegistrationCompletes() = runTest {
+        val connector = StartupConnector()
+        val repository = TestArkIdentityRepository(null)
+        val engine = VoipEngine(
+            identityRepository = repository,
+            connector = connector,
+            config = VoipConfig("https://w"),
+            scope = backgroundScope,
+        )
+        ArkVoipStartup(engine, { }, { }, repository.state, backgroundScope).onAppStart()
+        runCurrent()
+        assertEquals(0, connector.handles.size)
+        repository.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
+        runCurrent()
         assertEquals(1, connector.handles.size)
     }
 
@@ -62,7 +93,13 @@ class ArkVoipStartupTest {
             scope = backgroundScope,
         )
         val received = mutableListOf<IncomingArkCall>()
-        ArkVoipStartup(engine, { received += it }, { }, backgroundScope).onAppStart()
+        ArkVoipStartup(
+            engine,
+            { received += it },
+            { },
+            MutableStateFlow<ArkIdentity?>(ArkIdentity("ARK-AAAA-AAAA", "A", "t")),
+            backgroundScope,
+        ).onAppStart()
         runCurrent()
         connector.lastOnOpen!!()
         runCurrent()
@@ -89,7 +126,13 @@ class ArkVoipStartupTest {
             config = VoipConfig("https://w"),
             scope = backgroundScope,
         )
-        val startup = ArkVoipStartup(engine, { }, { }, backgroundScope)
+        val startup = ArkVoipStartup(
+            engine,
+            { },
+            { },
+            MutableStateFlow<ArkIdentity?>(ArkIdentity("ARK-AAAA-AAAA", "A", "t")),
+            backgroundScope,
+        )
         startup.onAppStart()
         startup.onAppStart()
         runCurrent()

@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.voip
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -105,12 +106,25 @@ class VoipEngine @Inject constructor(
             drained.clear()
             draining = false
             batch.forEach { _signals.tryEmit(it) }
-            reconcileFlush(batch)?.let { _incomingCalls.tryEmit(it) }
+            val call = reconcileFlush(batch)
+            if (batch.isNotEmpty() || call != null) {
+                Log.i(TAG, "ARK flush drained=${batch.size} ring=${call?.fromCode}")
+            }
+            call?.let { ring(it) }
         }
     }
 
     private fun dispatch(message: SignalingMessage) {
         _signals.tryEmit(message)
-        reconcileFlush(listOf(message))?.let { _incomingCalls.tryEmit(it) }
+        reconcileFlush(listOf(message))?.let { ring(it) }
+    }
+
+    private fun ring(call: IncomingArkCall) {
+        val emitted = _incomingCalls.tryEmit(call)
+        Log.i(TAG, "ARK ring from=${call.fromCode} emitted=$emitted")
+    }
+
+    private companion object {
+        const val TAG = "ArkPhone"
     }
 }

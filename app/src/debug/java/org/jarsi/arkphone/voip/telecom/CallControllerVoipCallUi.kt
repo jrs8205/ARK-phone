@@ -31,8 +31,9 @@ class CallControllerVoipCallUi @Inject constructor(
     override fun removed(id: String) = callController.onCallRemoved(id)
 
     override fun showIncoming(handle: VoipCallHandle) {
-        callController.calls.value.firstOrNull { it.id == handle.id }
-            ?.let(callNotifications::showIncomingCall)
+        val info = callController.calls.value.firstOrNull { it.id == handle.id }
+        android.util.Log.i("ArkPhone", "ARK showIncoming id=${handle.id} found=${info != null}")
+        info?.let(callNotifications::showIncomingCall)
     }
 
     override fun showOngoing(handle: VoipCallHandle) {

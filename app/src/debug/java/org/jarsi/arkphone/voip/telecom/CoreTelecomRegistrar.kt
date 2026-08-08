@@ -54,10 +54,12 @@ class CoreTelecomRegistrar @Inject constructor(
             callCapabilities = CallAttributesCompat.SUPPORTS_SET_INACTIVE,
         )
         currentId = handle.id
+        Log.i(TAG, "ARK telecom add id=${handle.id}")
         sessionJob = scope.launch {
             try {
                 // addCall suspends for the whole session, so this job stays
                 // alive until the call ends or remove() cancels it.
+                Log.i(TAG, "ARK addCall begins id=${handle.id}")
                 callsManager.addCall(
                     callAttributes = attributes,
                     onAnswer = { onSystemAnswer() },
@@ -66,7 +68,9 @@ class CoreTelecomRegistrar @Inject constructor(
                     onSetInactive = { onSystemDisconnect() },
                 ) {
                     controlScope = this
+                    Log.i(TAG, "ARK addCall session open id=${handle.id}")
                 }
+                Log.i(TAG, "ARK addCall ended id=${handle.id}")
             } catch (e: Exception) {
                 Log.w(TAG, "Telecom refused the ARK call", e)
             }

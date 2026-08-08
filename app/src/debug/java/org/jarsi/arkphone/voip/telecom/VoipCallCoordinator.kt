@@ -1,7 +1,9 @@
 package org.jarsi.arkphone.voip.telecom
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.util.Clock
@@ -42,16 +44,22 @@ class VoipCallCoordinator(
         val handle: VoipCallHandle,
         val direction: VoipCallDirection,
         val session: VoipMediaSession,
+        val sessionScope: CoroutineScope,
         val onFallbackToCarrier: (() -> Unit)?,
         var stateJob: Job? = null,
         var timeoutJob: Job? = null,
         var answered: Boolean = false,
     )
 
+    /** Each call gets a child scope so a dead session cannot keep collecting. */
+    private fun newSessionScope() = CoroutineScope(scope.coroutineContext + Job())
+
     override fun startCall(link: ArkLink, onFallbackToCarrier: () -> Unit): Boolean {
+        Log.i(TAG, "ARK startCall to=${link.code} active=${active != null}")
         if (active != null) return false
         val id = "voip-out-${link.code}"
-        val session = sessionFactory.create(link.code, null, scope)
+        val sessionScope = newSessionScope()
+        val session = sessionFactory.create(link.code, null, sessionScope)
         val handle = VoipCallHandle(
             id = id,
             number = link.number,
@@ -61,9 +69,12 @@ class VoipCallCoordinator(
             clock = clock,
         )
         if (!telecom.add(handle, onSystemAnswer = { session.answer() }, onSystemDisconnect = { session.hangUp() })) {
+            Log.i(TAG, "ARK startCall telecom refused")
+            sessionScope.cancel()
             return false
         }
-        val call = ActiveCall(handle, VoipCallDirection.OUTGOING, session, onFallbackToCarrier)
+        val call =
+            ActiveCall(handle, VoipCallDirection.OUTGOING, session, sessionScope, onFallbackToCarrier)
         active = call
         ui.added(handle)
         ui.openCallScreen()
@@ -85,9 +96,11 @@ class VoipCallCoordinator(
 
     /** A call reconciled out of the inbox flush. */
     fun onIncoming(call: IncomingArkCall) {
+        Log.i(TAG, "ARK onIncoming from=${call.fromCode} active=${active != null}")
         if (active != null) return
         val id = "voip-in-${call.fromCode}"
-        val session = sessionFactory.create(call.fromCode, call.offerSdp, scope)
+        val sessionScope = newSessionScope()
+        val session = sessionFactory.create(call.fromCode, call.offerSdp, sessionScope)
         val handle = VoipCallHandle(
             id = id,
             number = numberForCode(call.fromCode),
@@ -97,13 +110,21 @@ class VoipCallCoordinator(
             clock = clock,
         )
         if (!telecom.add(handle, onSystemAnswer = { session.answer() }, onSystemDisconnect = { session.hangUp() })) {
+            Log.i(TAG, "ARK onIncoming telecom refused")
+            sessionScope.cancel()
             return
         }
-        val activeCall =
-            ActiveCall(handle, VoipCallDirection.INCOMING, session, onFallbackToCarrier = null)
+        val activeCall = ActiveCall(
+            handle,
+            VoipCallDirection.INCOMING,
+            session,
+            sessionScope,
+            onFallbackToCarrier = null,
+        )
         active = activeCall
         ui.added(handle)
         ui.showIncoming(handle)
+        Log.i(TAG, "ARK incoming ringing id=$id")
         observe(activeCall)
         armConnectTimeout(activeCall)
     }
@@ -156,6 +177,7 @@ class VoipCallCoordinator(
         active = null
         call.timeoutJob?.cancel()
         call.stateJob?.cancel()
+        call.sessionScope.cancel()
         telecom.remove(call.handle.id)
         ui.clearNotification()
         ui.stopCallService()
@@ -171,5 +193,9 @@ class VoipCallCoordinator(
         )
         callLog.record(record)
         if (record.type == ArkCallType.MISSED) missedCalls(record)
+    }
+
+    private companion object {
+        const val TAG = "ArkPhone"
     }
 }
