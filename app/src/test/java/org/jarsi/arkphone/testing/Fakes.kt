@@ -313,3 +313,67 @@ class FakeMessagesRepository : MessagesRepository {
     override suspend fun threadIdsMatchingBody(query: String): Set<Long> =
         bodyMatches[query] ?: emptySet()
 }
+
+class FakeArkIdentityRepository : org.jarsi.arkphone.data.ArkIdentityRepository {
+    val state = MutableStateFlow<org.jarsi.arkphone.data.ArkIdentity?>(null)
+    val fcmState = MutableStateFlow<String?>(null)
+    override val identity: Flow<org.jarsi.arkphone.data.ArkIdentity?> = state
+    override suspend fun save(identity: org.jarsi.arkphone.data.ArkIdentity) {
+        state.value = identity
+    }
+    override val syncedFcmToken: Flow<String?> = fcmState
+    override suspend fun setSyncedFcmToken(token: String) {
+        fcmState.value = token
+    }
+}
+
+class FakeArkLinkRepository : org.jarsi.arkphone.voip.ArkLinkRepository {
+    val state = MutableStateFlow<List<org.jarsi.arkphone.voip.ArkLink>>(emptyList())
+    override val links: Flow<List<org.jarsi.arkphone.voip.ArkLink>> = state
+    override suspend fun link(
+        number: String,
+        code: String,
+        nickname: String,
+        publicKey: String,
+        atMillis: Long,
+    ) {
+        val key = org.jarsi.arkphone.voip.arkLinkKey(number)
+        state.value = state.value.filterNot { it.numberKey == key } +
+            org.jarsi.arkphone.voip.ArkLink(key, number, code, nickname, publicKey, atMillis)
+    }
+    override suspend fun unlink(number: String) {
+        val key = org.jarsi.arkphone.voip.arkLinkKey(number)
+        state.value = state.value.filterNot { it.numberKey == key }
+    }
+}
+
+class FakeVoipAccountGateway : org.jarsi.arkphone.voip.VoipAccountGateway {
+    var registration: org.jarsi.arkphone.voip.ArkRegistration? = null
+    var account: org.jarsi.arkphone.voip.ArkAccount? = null
+    val registerCalls = mutableListOf<String>()
+    val lookUpCalls = mutableListOf<String>()
+    override suspend fun register(nickname: String): org.jarsi.arkphone.voip.ArkRegistration? {
+        registerCalls += nickname
+        return registration
+    }
+    override suspend fun lookUp(code: String): org.jarsi.arkphone.voip.ArkAccount? {
+        lookUpCalls += code
+        return account
+    }
+}
+
+class FakeVoipCallGateway(var accept: Boolean = true) :
+    org.jarsi.arkphone.voip.VoipCallGateway {
+    val started = mutableListOf<org.jarsi.arkphone.voip.ArkLink>()
+    var lastFallback: (() -> Unit)? = null
+    var throwOnStart = false
+    override fun startCall(
+        link: org.jarsi.arkphone.voip.ArkLink,
+        onFallbackToCarrier: () -> Unit,
+    ): Boolean {
+        if (throwOnStart) throw IllegalStateException("engine down")
+        started += link
+        lastFallback = onFallbackToCarrier
+        return accept
+    }
+}

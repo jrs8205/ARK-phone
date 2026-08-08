@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import dagger.Binds
+import dagger.BindsOptionalOf
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -44,6 +45,8 @@ import org.jarsi.arkphone.data.SystemSimRepository
 import org.jarsi.arkphone.data.WhatsAppCallDao
 import org.jarsi.arkphone.data.WhatsAppCallLogRepository
 import org.jarsi.arkphone.voip.ArkLinkRepository
+import org.jarsi.arkphone.voip.VoipAccountGateway
+import org.jarsi.arkphone.voip.VoipCallGateway
 import org.jarsi.arkphone.messaging.AndroidMessageNotifier
 import org.jarsi.arkphone.messaging.AndroidMessageSharer
 import org.jarsi.arkphone.messaging.AndroidMmsSender
@@ -175,6 +178,15 @@ abstract class AppModule {
     abstract fun bindArkIdentityRepository(
         impl: DataStoreArkIdentityRepository,
     ): ArkIdentityRepository
+
+    // The VoIP engine only exists in builds that carry libwebrtc and Firebase.
+    // An optional binding keeps the main tree final while release resolves
+    // Optional.empty(), so release gains no dependency and shows nothing.
+    @BindsOptionalOf
+    abstract fun optionalVoipAccountGateway(): VoipAccountGateway
+
+    @BindsOptionalOf
+    abstract fun optionalVoipCallGateway(): VoipCallGateway
 
     @Binds
     @Singleton
