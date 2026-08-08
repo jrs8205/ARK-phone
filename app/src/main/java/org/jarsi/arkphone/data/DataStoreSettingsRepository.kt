@@ -42,6 +42,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val CALL_SIM_ACCOUNT = stringPreferencesKey("call_sim_account_id")
         val BLOCKING_SIM_ACCOUNT = stringPreferencesKey("blocking_sim_account_id")
         val BLOCKED_CALL_ACTION = stringPreferencesKey("blocked_call_action")
+        val ARK_INTERNET_CALLS = booleanPreferencesKey("ark_internet_calls_enabled")
     }
 
     override val settings: Flow<Settings> = dataStore.data
@@ -89,6 +90,7 @@ class DataStoreSettingsRepository @Inject constructor(
                 blockedCallAction = preferences[Keys.BLOCKED_CALL_ACTION]
                     ?.let { stored -> BlockedCallAction.entries.firstOrNull { it.name == stored } }
                     ?: BlockedCallAction.REJECT,
+                arkInternetCallsEnabled = preferences[Keys.ARK_INTERNET_CALLS] ?: true,
             )
         }
 
@@ -98,6 +100,10 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setBlockedCallAction(action: BlockedCallAction) {
         dataStore.edit { it[Keys.BLOCKED_CALL_ACTION] = action.name }
+    }
+
+    override suspend fun setArkInternetCallsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.ARK_INTERNET_CALLS] = enabled }
     }
 
     override suspend fun setAnnounceIntervalSeconds(seconds: Int) {

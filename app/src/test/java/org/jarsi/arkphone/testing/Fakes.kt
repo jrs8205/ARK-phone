@@ -111,6 +111,9 @@ class FakeSettingsRepository(initial: Settings = Settings()) : SettingsRepositor
     override suspend fun setBlockedCallAction(action: BlockedCallAction) {
         state.value = state.value.copy(blockedCallAction = action)
     }
+    override suspend fun setArkInternetCallsEnabled(enabled: Boolean) {
+        state.value = state.value.copy(arkInternetCallsEnabled = enabled)
+    }
     override suspend fun setAnnounceIntervalSeconds(seconds: Int) {
         state.value = state.value.copy(announceIntervalSeconds = seconds)
     }

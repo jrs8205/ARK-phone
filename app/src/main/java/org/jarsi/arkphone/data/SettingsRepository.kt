@@ -44,4 +44,7 @@ interface SettingsRepository {
     suspend fun setBlockingScheduleEnabled(enabled: Boolean)
 
     suspend fun setBlockingSchedule(startMinutes: Int, endMinutes: Int)
+
+    /** Turns internet call routing off globally without removing any link. */
+    suspend fun setArkInternetCallsEnabled(enabled: Boolean)
 }

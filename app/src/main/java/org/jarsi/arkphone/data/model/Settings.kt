@@ -31,6 +31,8 @@ data class Settings(
     /** Phone account the blocking rules are limited to; null means every SIM. */
     val blockingSimAccountId: String? = null,
     val blockedCallAction: BlockedCallAction = BlockedCallAction.REJECT,
+    /** Master switch for ARK internet calls; links survive it being off. */
+    val arkInternetCallsEnabled: Boolean = true,
 ) {
     companion object {
         const val MIN_ANNOUNCE_INTERVAL_SECONDS = 4

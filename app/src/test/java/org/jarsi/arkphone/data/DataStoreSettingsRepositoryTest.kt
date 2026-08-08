@@ -16,6 +16,8 @@ import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.Settings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -127,5 +129,18 @@ class DataStoreSettingsRepositoryTest {
         }
         val repository = DataStoreSettingsRepository(dataStore)
         assertEquals(AnnounceMode.OFF, repository.settings.first().announceMode)
+    }
+
+    @Test
+    fun arkInternetCallsAreOnUntilTheUserTurnsThemOff() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        assertTrue(repository.settings.first().arkInternetCallsEnabled)
+    }
+
+    @Test
+    fun turningArkInternetCallsOffPersists() = runTest {
+        val repository = DataStoreSettingsRepository(createDataStore())
+        repository.setArkInternetCallsEnabled(false)
+        assertFalse(repository.settings.first().arkInternetCallsEnabled)
     }
 }
