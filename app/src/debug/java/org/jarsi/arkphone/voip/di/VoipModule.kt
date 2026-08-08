@@ -1,21 +1,41 @@
 package org.jarsi.arkphone.voip.di
 
+import android.content.Context
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.jarsi.arkphone.BuildConfig
+import org.jarsi.arkphone.data.ArkIdentityRepository
+import org.jarsi.arkphone.di.ApplicationScope
+import org.jarsi.arkphone.util.Clock
 import org.jarsi.arkphone.voip.AndroidKeystoreArkKeyPairSource
 import org.jarsi.arkphone.voip.ArkAccountClient
 import org.jarsi.arkphone.voip.ArkHttp
 import org.jarsi.arkphone.voip.ArkKeyPairSource
+import org.jarsi.arkphone.voip.ArkLinkCache
+import org.jarsi.arkphone.voip.EngineSignaling
 import org.jarsi.arkphone.voip.OkHttpArkHttp
 import org.jarsi.arkphone.voip.OkHttpWebSocketConnector
+import org.jarsi.arkphone.voip.PeerConnectionFactoryProvider
+import org.jarsi.arkphone.voip.StreamPeerConnectionAdapterFactory
 import org.jarsi.arkphone.voip.VoipAccountGateway
+import org.jarsi.arkphone.voip.VoipCallGateway
 import org.jarsi.arkphone.voip.VoipConfig
+import org.jarsi.arkphone.voip.VoipEngine
+import org.jarsi.arkphone.voip.VoipMediaSessionFactory
+import org.jarsi.arkphone.voip.WebRtcCallSession
 import org.jarsi.arkphone.voip.WebSocketConnector
 import org.jarsi.arkphone.voip.WorkerVoipAccountGateway
+import org.jarsi.arkphone.voip.telecom.CallControllerVoipCallUi
+import org.jarsi.arkphone.voip.telecom.CoreTelecomRegistrar
+import org.jarsi.arkphone.voip.telecom.VoipCallCoordinator
+import org.jarsi.arkphone.voip.telecom.VoipCallUi
+import org.jarsi.arkphone.voip.telecom.VoipTelecom
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -59,4 +79,66 @@ object VoipModule {
     @Provides
     @Singleton
     fun provideVoipAccountGateway(impl: WorkerVoipAccountGateway): VoipAccountGateway = impl
+
+    @Provides
+    @Singleton
+    fun provideVoipTelecom(impl: CoreTelecomRegistrar): VoipTelecom = impl
+
+    @Provides
+    @Singleton
+    fun provideVoipCallUi(impl: CallControllerVoipCallUi): VoipCallUi = impl
+
+    @Provides
+    @Singleton
+    fun providePeerConnectionFactoryProvider(
+        @ApplicationContext context: Context,
+    ): PeerConnectionFactoryProvider = PeerConnectionFactoryProvider(context)
+
+    @Provides
+    @Singleton
+    fun provideVoipMediaSessionFactory(
+        engine: VoipEngine,
+        accountClient: ArkAccountClient,
+        identityRepository: ArkIdentityRepository,
+        provider: PeerConnectionFactoryProvider,
+    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, scope ->
+        WebRtcCallSession(
+            signaling = EngineSignaling(engine),
+            adapterFactory = StreamPeerConnectionAdapterFactory(provider),
+            turnFetcher = {
+                val identity = identityRepository.identity.first()
+                identity?.let {
+                    accountClient.turnCredentials("${it.code}.${it.deviceToken}")
+                }
+            },
+            scope = scope,
+            peerId = peerCode,
+            initialOfferSdp = offerSdp,
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideVoipCallCoordinator(
+        engine: VoipEngine,
+        sessionFactory: VoipMediaSessionFactory,
+        telecom: VoipTelecom,
+        ui: VoipCallUi,
+        linkCache: ArkLinkCache,
+        clock: Clock,
+        @ApplicationScope scope: CoroutineScope,
+    ): VoipCallCoordinator = VoipCallCoordinator(
+        reachCheck = { code, timeoutMs -> engine.reach(code, timeoutMs) },
+        sessionFactory = sessionFactory,
+        telecom = telecom,
+        ui = ui,
+        nicknameForCode = { code -> linkCache.current.values.firstOrNull { it.code == code }?.nickname },
+        numberForCode = { code -> linkCache.current.values.firstOrNull { it.code == code }?.number },
+        clock = clock,
+        scope = scope,
+    )
+
+    @Provides
+    @Singleton
+    fun provideVoipCallGateway(impl: VoipCallCoordinator): VoipCallGateway = impl
 }

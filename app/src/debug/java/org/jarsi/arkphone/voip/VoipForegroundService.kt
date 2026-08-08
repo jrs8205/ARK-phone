@@ -12,7 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import org.jarsi.arkphone.R
 
-/** Keeps the mic and the WebRTC connection alive while a test call is active. */
+/** Keeps the mic and the WebRTC connection alive while an ARK call is active. */
 class VoipForegroundService : Service() {
 
     override fun onCreate() {
@@ -37,11 +37,14 @@ class VoipForegroundService : Service() {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        // Telecom owns routing for a registered call, but the communication
+        // mode is what makes the earpiece and the mic behave like a call.
         getSystemService(AudioManager::class.java).mode = AudioManager.MODE_IN_COMMUNICATION
         return START_NOT_STICKY
     }
@@ -54,7 +57,7 @@ class VoipForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        private const val CHANNEL_ID = "voip_test"
+        private const val CHANNEL_ID = "voip_calls"
         private const val NOTIFICATION_ID = 4001
 
         fun start(context: Context) {
