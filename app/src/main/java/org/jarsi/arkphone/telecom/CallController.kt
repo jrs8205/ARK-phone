@@ -118,6 +118,7 @@ class CallController @Inject constructor() {
         connectedAtMillis = handle.connectTimeMillis.takeIf { it > 0 },
         simAccountId = handle.simAccountId,
         disconnectError = handle.disconnectError,
+        viaArkCall = handle.viaArkCall,
     )
 
     private fun publish() {

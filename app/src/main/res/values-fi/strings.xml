@@ -276,4 +276,5 @@
     <string name="ark_link_invalid">Tämä ei ole kelvollinen ARK-koodi</string>
     <string name="ark_link_not_found">Koodilla ei löydy tiliä</string>
     <string name="ark_link_confirm">Linkitä %1$s</string>
+    <string name="incall_ark_call">ARK-puhelu</string>
 </resources>

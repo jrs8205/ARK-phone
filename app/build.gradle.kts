@@ -123,6 +123,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+    debugImplementation(libs.androidx.core.telecom)
     debugImplementation(libs.firebase.messaging)
     debugImplementation(libs.okhttp)
     debugImplementation(libs.kotlinx.serialization.json)

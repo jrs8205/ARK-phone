@@ -217,4 +217,27 @@ class CallControllerTest {
         assertEquals(2, handle.dtmfStops)
     }
 
+    @Test
+    fun anArkCallIsPublishedAsOne() {
+        val controller = CallController()
+        controller.onCallAdded(
+            object : CallHandle {
+                override val id = "voip-1"
+                override val number = "+358 44 5552841"
+                override val displayName = "Jarsi"
+                override val telecomState = Call.STATE_ACTIVE
+                override val connectTimeMillis = 1_000L
+                override val simAccountId: String? = null
+                override val viaArkCall = true
+                override fun answer() = Unit
+                override fun reject() = Unit
+                override fun disconnect() = Unit
+                override fun hold() = Unit
+                override fun unhold() = Unit
+                override fun playDtmf(digit: Char) = Unit
+                override fun stopDtmf() = Unit
+            },
+        )
+        assertTrue(controller.calls.value.single().viaArkCall)
+    }
 }

@@ -121,6 +121,14 @@ fun CallScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+                if (call?.viaArkCall == true) {
+                    Text(
+                        text = stringResource(R.string.incall_ark_call),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 if (call?.status == CallStatus.RINGING) {
                     if (!uiState.knownCaller && callerName == null) {
                         Text(

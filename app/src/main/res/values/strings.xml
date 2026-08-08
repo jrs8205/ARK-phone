@@ -282,4 +282,5 @@
     <string name="ark_link_invalid">That is not a valid ARK code</string>
     <string name="ark_link_not_found">No account with that code</string>
     <string name="ark_link_confirm">Link %1$s</string>
+    <string name="incall_ark_call">ARK call</string>
 </resources>

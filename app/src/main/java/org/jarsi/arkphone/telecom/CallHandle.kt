@@ -30,6 +30,9 @@ interface CallHandle {
 
     /** Why a failed call ended, from the platform; null for normal ends. */
     val disconnectError: DisconnectError? get() = null
+
+    /** True for a call carried over the internet rather than the carrier. */
+    val viaArkCall: Boolean get() = false
     fun answer()
     fun reject()
     fun disconnect()
@@ -47,6 +50,7 @@ data class CallInfo(
     val connectedAtMillis: Long?,
     val simAccountId: String? = null,
     val disconnectError: DisconnectError? = null,
+    val viaArkCall: Boolean = false,
 )
 
 data class CallAudioUiState(
