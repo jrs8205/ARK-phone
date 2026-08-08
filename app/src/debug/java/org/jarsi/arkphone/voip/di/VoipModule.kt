@@ -31,8 +31,11 @@ import org.jarsi.arkphone.voip.VoipMediaSessionFactory
 import org.jarsi.arkphone.voip.WebRtcCallSession
 import org.jarsi.arkphone.voip.WebSocketConnector
 import org.jarsi.arkphone.voip.WorkerVoipAccountGateway
+import org.jarsi.arkphone.telecom.MissedCallNotifier
+import org.jarsi.arkphone.voip.telecom.ArkCallLog
 import org.jarsi.arkphone.voip.telecom.CallControllerVoipCallUi
 import org.jarsi.arkphone.voip.telecom.CoreTelecomRegistrar
+import org.jarsi.arkphone.voip.telecom.SystemArkCallLog
 import org.jarsi.arkphone.voip.telecom.VoipCallCoordinator
 import org.jarsi.arkphone.voip.telecom.VoipCallUi
 import org.jarsi.arkphone.voip.telecom.VoipTelecom
@@ -119,12 +122,18 @@ object VoipModule {
 
     @Provides
     @Singleton
+    fun provideArkCallLog(impl: SystemArkCallLog): ArkCallLog = impl
+
+    @Provides
+    @Singleton
     fun provideVoipCallCoordinator(
         engine: VoipEngine,
         sessionFactory: VoipMediaSessionFactory,
         telecom: VoipTelecom,
         ui: VoipCallUi,
         linkCache: ArkLinkCache,
+        callLog: ArkCallLog,
+        missedCallNotifier: MissedCallNotifier,
         clock: Clock,
         @ApplicationScope scope: CoroutineScope,
     ): VoipCallCoordinator = VoipCallCoordinator(
@@ -134,6 +143,10 @@ object VoipModule {
         ui = ui,
         nicknameForCode = { code -> linkCache.current.values.firstOrNull { it.code == code }?.nickname },
         numberForCode = { code -> linkCache.current.values.firstOrNull { it.code == code }?.number },
+        callLog = callLog,
+        missedCalls = { record ->
+            missedCallNotifier.onMissedCallsChanged(count = 1, number = record.number)
+        },
         clock = clock,
         scope = scope,
     )

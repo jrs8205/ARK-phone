@@ -30,6 +30,8 @@ class VoipCallCoordinator(
     private val ui: VoipCallUi,
     private val nicknameForCode: (String) -> String?,
     private val numberForCode: (String) -> String?,
+    private val callLog: ArkCallLog,
+    private val missedCalls: (ArkCallRecord) -> Unit,
     private val clock: Clock,
     private val scope: CoroutineScope,
 ) : VoipCallGateway {
@@ -38,6 +40,7 @@ class VoipCallCoordinator(
 
     private class ActiveCall(
         val handle: VoipCallHandle,
+        val direction: VoipCallDirection,
         val session: VoipMediaSession,
         val onFallbackToCarrier: (() -> Unit)?,
         var stateJob: Job? = null,
@@ -60,7 +63,7 @@ class VoipCallCoordinator(
         if (!telecom.add(handle, onSystemAnswer = { session.answer() }, onSystemDisconnect = { session.hangUp() })) {
             return false
         }
-        val call = ActiveCall(handle, session, onFallbackToCarrier)
+        val call = ActiveCall(handle, VoipCallDirection.OUTGOING, session, onFallbackToCarrier)
         active = call
         ui.added(handle)
         ui.openCallScreen()
@@ -96,7 +99,8 @@ class VoipCallCoordinator(
         if (!telecom.add(handle, onSystemAnswer = { session.answer() }, onSystemDisconnect = { session.hangUp() })) {
             return
         }
-        val activeCall = ActiveCall(handle, session, onFallbackToCarrier = null)
+        val activeCall =
+            ActiveCall(handle, VoipCallDirection.INCOMING, session, onFallbackToCarrier = null)
         active = activeCall
         ui.added(handle)
         ui.showIncoming(handle)
@@ -156,5 +160,16 @@ class VoipCallCoordinator(
         ui.clearNotification()
         ui.stopCallService()
         ui.removed(call.handle.id)
+        val ended = call.handle.state as? VoipCallState.Ended ?: return
+        // A carrier fallback is one call from the user's point of view; only a
+        // VoIP attempt that actually reached the peer leaves a row.
+        val record = arkCallRecordOf(
+            handle = call.handle,
+            direction = call.direction,
+            endReason = ended.reason,
+            endedAtMillis = clock.nowMillis(),
+        )
+        callLog.record(record)
+        if (record.type == ArkCallType.MISSED) missedCalls(record)
     }
 }

@@ -64,6 +64,11 @@ class VoipCallCoordinatorTest {
         override fun stopCallService() { events += "stopCallService" }
     }
 
+    private class FakeCallLog : ArkCallLog {
+        val records = mutableListOf<ArkCallRecord>()
+        override fun record(record: ArkCallRecord) { records += record }
+    }
+
     private class FakeReach(var reachable: Boolean) {
         val queries = mutableListOf<String>()
         suspend fun reach(code: String, timeoutMs: Long): Boolean {
@@ -75,6 +80,8 @@ class VoipCallCoordinatorTest {
     private val session = FakeSession()
     private val telecom = FakeTelecom()
     private val ui = FakeUi()
+    private val callLog = FakeCallLog()
+    private val missed = mutableListOf<ArkCallRecord>()
 
     private val link = ArkLink(
         numberKey = "445552841",
@@ -97,6 +104,8 @@ class VoipCallCoordinatorTest {
         ui = ui,
         nicknameForCode = nicknameFor,
         numberForCode = numberFor,
+        callLog = callLog,
+        missedCalls = { missed += it },
         clock = Clock { 1_000L },
         scope = scope,
     )
@@ -185,6 +194,38 @@ class VoipCallCoordinatorTest {
         coordinator.startCall(link) { }
         runCurrent()
         assertFalse(coordinator.startCall(link) { })
+    }
+
+    @Test
+    fun anAnsweredCallIsWrittenToTheCallLog() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { }
+        runCurrent()
+        session.moveTo(VoipCallState.InCall)
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        assertEquals(ArkCallType.OUTGOING, callLog.records.single().type)
+        assertTrue(missed.isEmpty())
+    }
+
+    @Test
+    fun anUnansweredIncomingCallLeavesAMissedCall() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("no-answer"))
+        runCurrent()
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+        assertEquals(1, missed.size)
+    }
+
+    @Test
+    fun aCarrierFallbackIsNotLoggedAsAnArkCall() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = false))
+        coordinator.startCall(link) { }
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
     }
 
     @Test
