@@ -190,6 +190,7 @@ class VoipCallCoordinatorTest {
         runCurrent()
         assertTrue(ui.events.contains("showIncoming"))
         assertTrue(ui.events.contains("added"))
+        assertTrue(ui.events.contains("openCallScreen"))
         assertEquals(listOf("voip-in-ARK-BBBB-BBBB"), telecom.added)
     }
 

@@ -124,6 +124,9 @@ class VoipCallCoordinator(
         active = activeCall
         ui.added(handle)
         ui.showIncoming(handle)
+        // Same surface as a ringing carrier call: the notification alone is
+        // easy to miss, so the call screen opens with it (field feedback).
+        ui.openCallScreen()
         Log.i(TAG, "ARK incoming ringing id=$id")
         observe(activeCall)
         armConnectTimeout(activeCall)
