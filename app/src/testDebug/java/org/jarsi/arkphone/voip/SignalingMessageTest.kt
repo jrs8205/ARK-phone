@@ -32,8 +32,8 @@ class SignalingMessageTest {
 
     @Test
     fun `ignores unknown fields from newer server versions`() {
-        val decoded = SignalingJson.decode("""{"type":"presence","payload":{"online":false},"v":2}""")
-        assertEquals(SignalingTypes.PRESENCE, decoded!!.type)
+        val decoded = SignalingJson.decode("""{"type":"reach-reply","payload":{"online":false},"v":2}""")
+        assertEquals(SignalingTypes.REACH_REPLY, decoded!!.type)
     }
 
     @Test
@@ -43,7 +43,7 @@ class SignalingMessageTest {
 
     @Test
     fun `omits null fields when encoding`() {
-        val text = SignalingJson.encode(SignalingMessage(type = SignalingTypes.HELLO))
+        val text = SignalingJson.encode(SignalingMessage(type = SignalingTypes.REACH_QUERY))
         assertFalse(text.contains("to"))
     }
 }

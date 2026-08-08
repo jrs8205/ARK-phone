@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.voip
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -10,15 +11,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 
 /** Boundary that hides OkHttp so the client logic is unit-testable. */
 interface WebSocketConnector {
-    /** Opens a socket; [onText] receives frames, [onClosed] fires once on any terminal close/failure. */
-    fun connect(url: String, onText: (String) -> Unit, onClosed: () -> Unit): WebSocketHandle
+    /**
+     * Opens a socket. [onOpen] fires on the successful handshake, [onText] on
+     * every text frame, [onClosed] once with the close code and reason on any
+     * terminal close or failure.
+     */
+    fun connect(
+        url: String,
+        bearer: String,
+        onOpen: () -> Unit,
+        onText: (String) -> Unit,
+        onClosed: (code: Int, reason: String) -> Unit,
+    ): WebSocketHandle
 }
 
 interface WebSocketHandle {
@@ -28,25 +38,28 @@ interface WebSocketHandle {
 
 enum class SignalingConnectionState { DISCONNECTED, CONNECTING, CONNECTED }
 
+/**
+ * The device's inbox socket. One instance per process: it opens
+ * `/connect/<own code>` with the per-device bearer and stays open while the
+ * app has anything to do.
+ */
 class SignalingClient(
     private val connector: WebSocketConnector,
     private val workerUrl: String,
-    private val deviceId: String,
-    private val peerId: String,
+    private val code: String,
+    private val deviceToken: String,
     private val scope: CoroutineScope,
 ) {
     private val _connectionState = MutableStateFlow(SignalingConnectionState.DISCONNECTED)
     val connectionState: StateFlow<SignalingConnectionState> = _connectionState.asStateFlow()
 
-    private val _peerOnline = MutableStateFlow(false)
-    val peerOnline: StateFlow<Boolean> = _peerOnline.asStateFlow()
-
-    private val _incoming = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 16)
+    private val _incoming = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 64)
     val incoming: SharedFlow<SignalingMessage> = _incoming.asSharedFlow()
+
+    private val pendingReach = mutableMapOf<String, CompletableDeferred<Boolean>>()
 
     private var handle: WebSocketHandle? = null
     private var reconnectJob: Job? = null
-    private var presenceJob: Job? = null
     private var reconnectDelayMs = 1_000L
     private var running = false
 
@@ -59,61 +72,104 @@ class SignalingClient(
     fun stop() {
         running = false
         reconnectJob?.cancel()
-        presenceJob?.cancel()
+        reconnectJob = null
         handle?.close()
         handle = null
         _connectionState.value = SignalingConnectionState.DISCONNECTED
     }
 
-    fun send(message: SignalingMessage) {
-        handle?.send(SignalingJson.encode(message))
+    /** False when the frame could not be handed to a live socket. */
+    fun send(message: SignalingMessage): Boolean {
+        val sent = handle?.send(SignalingJson.encode(message)) ?: false
+        if (!sent) onSendRefused()
+        return sent
+    }
+
+    /**
+     * The routing pre-check. Returns true only on `online: true`, which is
+     * terminal; a `waking` reply is not an answer, so the query keeps waiting
+     * until [timeoutMs]. A reply for a peer with no pending query is ignored.
+     */
+    suspend fun reach(peer: String, timeoutMs: Long): Boolean {
+        val pending = CompletableDeferred<Boolean>()
+        synchronized(pendingReach) { pendingReach[peer] = pending }
+        try {
+            if (!send(SignalingMessage(type = SignalingTypes.REACH_QUERY, to = peer))) return false
+            return withTimeoutOrNull(timeoutMs) { pending.await() } ?: false
+        } finally {
+            synchronized(pendingReach) { pendingReach.remove(peer) }
+        }
     }
 
     private fun open() {
         _connectionState.value = SignalingConnectionState.CONNECTING
         handle = connector.connect(
-            url = "$workerUrl/connect/$deviceId",
+            url = "$workerUrl/connect/$code",
+            bearer = "$code.$deviceToken",
+            onOpen = ::onOpen,
             onText = ::onText,
             onClosed = ::onClosed,
         )
-        _connectionState.value = SignalingConnectionState.CONNECTED
+    }
+
+    private fun onOpen() {
         reconnectDelayMs = 1_000L
-        send(
-            SignalingMessage(
-                type = SignalingTypes.HELLO,
-                payload = buildJsonObject { put("peer", peerId) },
-            ),
-        )
-        presenceJob?.cancel()
-        presenceJob = scope.launch {
-            while (true) {
-                delay(10_000)
-                send(SignalingMessage(type = SignalingTypes.PRESENCE_QUERY, to = peerId))
-            }
-        }
+        _connectionState.value = SignalingConnectionState.CONNECTED
     }
 
     private fun onText(text: String) {
+        // The keepalive answer is the bare string "pong", not JSON.
+        if (text == PONG) return
         val message = SignalingJson.decode(text) ?: return
-        when (message.type) {
-            SignalingTypes.HELLO_ACK, SignalingTypes.PRESENCE -> {
-                _peerOnline.value =
-                    message.payload?.get("online")?.jsonPrimitive?.booleanOrNull ?: false
-            }
-            else -> _incoming.tryEmit(message)
+        if (message.type == SignalingTypes.REACH_REPLY) {
+            onReachReply(message)
+            return
+        }
+        _incoming.tryEmit(message)
+    }
+
+    private fun onReachReply(message: SignalingMessage) {
+        val peer = message.from ?: return
+        val online = message.payload?.get("online")?.jsonPrimitive?.booleanOrNull ?: return
+        if (!online) return
+        synchronized(pendingReach) { pendingReach[peer] }?.complete(true)
+    }
+
+    private fun onClosed(closeCode: Int, reason: String) {
+        // A 1000/"superseded" close means this device opened a newer socket.
+        // Reconnecting here would supersede the socket that just replaced this
+        // one, and the loop would repeat forever.
+        if (closeCode == NORMAL_CLOSE && reason == SUPERSEDED_REASON) return
+        if (!running) return
+        handle = null
+        _connectionState.value = SignalingConnectionState.DISCONNECTED
+        scheduleReconnect()
+    }
+
+    /** A send into a half-dead socket is silently lost, so drop and reopen. */
+    private fun onSendRefused() {
+        if (!running) return
+        val lost = handle ?: return
+        lost.close()
+        handle = null
+        _connectionState.value = SignalingConnectionState.DISCONNECTED
+        scheduleReconnect()
+    }
+
+    private fun scheduleReconnect() {
+        reconnectJob?.cancel()
+        val delayMs = reconnectDelayMs
+        reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(MAX_RECONNECT_DELAY_MS)
+        reconnectJob = scope.launch {
+            delay(delayMs)
+            if (running) open()
         }
     }
 
-    private fun onClosed() {
-        if (!running) return
-        presenceJob?.cancel()
-        handle = null
-        _connectionState.value = SignalingConnectionState.DISCONNECTED
-        _peerOnline.value = false
-        reconnectJob = scope.launch {
-            delay(reconnectDelayMs)
-            reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(30_000L)
-            if (running) open()
-        }
+    companion object {
+        const val SUPERSEDED_REASON = "superseded"
+        private const val NORMAL_CLOSE = 1000
+        private const val PONG = "pong"
+        private const val MAX_RECONNECT_DELAY_MS = 30_000L
     }
 }

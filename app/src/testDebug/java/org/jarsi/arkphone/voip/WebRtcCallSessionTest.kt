@@ -49,8 +49,10 @@ class WebRtcCallSessionTest {
         val sent = mutableListOf<String>()
         override fun connect(
             url: String,
+            bearer: String,
+            onOpen: () -> Unit,
             onText: (String) -> Unit,
-            onClosed: () -> Unit,
+            onClosed: (Int, String) -> Unit,
         ): WebSocketHandle {
             this.onText = onText
             return object : WebSocketHandle {
@@ -62,7 +64,7 @@ class WebRtcCallSessionTest {
 
     private class Harness(scope: kotlinx.coroutines.CoroutineScope) {
         val connector = RecordingConnector()
-        val signaling = SignalingClient(connector, "https://w", "phone-8a", "phone-10pro", scope)
+        val signaling = SignalingClient(connector, "https://w", "ARK-AAAA-AAAA", "token-abc", scope)
         val factory = FakeFactory()
         val session = WebRtcCallSession(
             signaling = signaling,
@@ -288,15 +290,17 @@ class WebRtcCallSessionTest {
         val connector = object : WebSocketConnector {
             override fun connect(
                 url: String,
+                bearer: String,
+                onOpen: () -> Unit,
                 onText: (String) -> Unit,
-                onClosed: () -> Unit,
+                onClosed: (Int, String) -> Unit,
             ) = object : WebSocketHandle {
                 override fun send(text: String) = true
                 override fun close() {}
             }
         }
         val signaling =
-            SignalingClient(connector, "https://w", "phone-8a", "phone-10pro", backgroundScope)
+            SignalingClient(connector, "https://w", "ARK-AAAA-AAAA", "token-abc", backgroundScope)
         signaling.start()
         val session =
             WebRtcCallSession(signaling, FakeFactory(), { null }, backgroundScope, "phone-10pro")

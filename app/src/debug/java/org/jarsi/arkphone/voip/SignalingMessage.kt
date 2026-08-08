@@ -14,10 +14,8 @@ data class SignalingMessage(
 )
 
 object SignalingTypes {
-    const val HELLO = "hello"
-    const val HELLO_ACK = "hello-ack"
-    const val PRESENCE_QUERY = "presence-query"
-    const val PRESENCE = "presence"
+    const val REACH_QUERY = "reach-query"
+    const val REACH_REPLY = "reach-reply"
     const val CALL_OFFER = "call-offer"
     const val CALL_ANSWER = "call-answer"
     const val CALL_REJECT = "call-reject"
