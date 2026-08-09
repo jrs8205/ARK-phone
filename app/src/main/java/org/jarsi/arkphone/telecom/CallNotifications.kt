@@ -29,10 +29,19 @@ class CallNotifications @Inject constructor(
         // dropped from HIGH to DEFAULT to stop the ringing notification from
         // bannering answer/decline buttons over ARK-phone's own call screen.
         const val CHANNEL_INCOMING = "incoming_calls_v2"
-        const val CHANNEL_INCOMING_ARK = "incoming_calls_ark"
-        const val CHANNEL_INCOMING_ARK_SILENT = "incoming_calls_ark_silent"
+        // v2: bypassDnd added — a channel's settings are frozen at creation,
+        // so the flag needed new ids. An ARK call must ring through Do Not
+        // Disturb the way a carrier call does, or a bedtime-mode phone
+        // silently misses every internet call.
+        const val CHANNEL_INCOMING_ARK = "incoming_calls_ark_v2"
+        const val CHANNEL_INCOMING_ARK_SILENT = "incoming_calls_ark_silent_v2"
         const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent_v2"
-        private val REPLACED_CHANNELS = listOf("incoming_calls", "incoming_calls_silent")
+        private val REPLACED_CHANNELS = listOf(
+            "incoming_calls",
+            "incoming_calls_silent",
+            "incoming_calls_ark",
+            "incoming_calls_ark_silent",
+        )
         const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
         const val CHANNEL_ONGOING = "ongoing_calls"
         const val NOTIFICATION_ID = 1
@@ -103,6 +112,10 @@ class CallNotifications @Inject constructor(
             setSound(ringtone, audioAttributes)
             enableVibration(true)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            // A carrier call rings through Do Not Disturb via the system's
+            // call exception; an ARK call rings as a notification and needs
+            // the channel-level bypass for the same behavior.
+            setBypassDnd(true)
         }
         // Voice-only announcement mode: the ringtone comes from the incoming
         // channel, so ringing silently means posting on this channel instead.
@@ -139,6 +152,7 @@ class CallNotifications @Inject constructor(
                     setSound(null, null)
                     enableVibration(true)
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setBypassDnd(true)
                 },
             )
         } else {
