@@ -118,6 +118,28 @@ Retest at 17:05 on the fixed build: ARK attempt for 7 s, then a clean
 hand-over to the carrier (Moi) with no error. Fallback matrix's core case
 is green.
 
+## Rounds 8–9 — network switch mid-call (17:07, 17:09)
+
+**Losing the network (Wi-Fi off mid-call, 17:07): PASS as designed.** The
+established Wi-Fi↔Wi-Fi call dropped cleanly ~10 s after the caller's
+Wi-Fi went off — libwebrtc's disconnected→failed detection — and both
+ends tore down with the new "Internet call connection lost" notice
+(`disconnectError` mapping seen in the field). The log also shows
+`ARK telecom answer result=CallControlResult(Success)`: the Telecom
+answer fix is live. Faster detection or a seamless ICE restart stays
+future work.
+
+**Gaining a network (Wi-Fi on mid-call over mobile, 17:09): PASS,
+seamlessly.** The call continued without a break — Android keeps the
+mobile path up until Wi-Fi is ready, so the TURN relay never broke.
+
+The same round surfaced a UI regression: with the callee's screen awake
+and unlocked, the HIGH ARK channel heads-upped a second answer/decline
+banner over the opening call screen (the v1.24 duplicate-buttons problem
+reborn). Fixed in `fae5b92`: the ring channel is chosen from the screen
+state — locked rings HIGH + full-screen intent, awake rings on the
+ordinary channel with no banner. Awaiting a screen-on verification call.
+
 ## Remaining protocol (stage C)
 
 - [x] Doze test (14:12): rang on the locked screen; socket survived forced
@@ -127,7 +149,9 @@ is green.
       failure no longer reproduces on the hardened build
 - [x] Fallback matrix, core case (17:05): airplane-mode peer → clean
       carrier hand-over at 7 s (after the round-7 race fix)
-- [ ] Superseded / network-switch during a call
+- [x] Network switch mid-call (17:07, 17:09): losing Wi-Fi → clean ~10 s
+      drop with the connection-lost notice; gaining Wi-Fi → seamless
+- [ ] Awake-screen ring re-verify (after `fae5b92`): no duplicate banner
 - [ ] Mobile ↔ mobile
 - [ ] Master switch off → carrier
 - [ ] Soak: several calls over a day, both directions
