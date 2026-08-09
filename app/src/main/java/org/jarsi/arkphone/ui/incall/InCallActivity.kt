@@ -33,6 +33,18 @@ class InCallActivity : ComponentActivity() {
 
     @Inject lateinit var callController: CallController
 
+    override fun onResume() {
+        super.onResume()
+        callController.onInCallUiVisibility(true)
+    }
+
+    override fun onPause() {
+        // Leaving this screen mid-call means the user is USING the display;
+        // the proximity screen-off must let go of it.
+        callController.onInCallUiVisibility(false)
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

@@ -40,6 +40,15 @@ class CallController @Inject constructor() {
 
     var audioController: InCallAudioController? = null
 
+    private val _inCallUiVisible = MutableStateFlow(false)
+
+    /** True while InCallActivity is resumed; arms the proximity screen-off. */
+    val inCallUiVisible: StateFlow<Boolean> = _inCallUiVisible.asStateFlow()
+
+    fun onInCallUiVisibility(visible: Boolean) {
+        _inCallUiVisible.value = visible
+    }
+
     @Synchronized
     fun onCallAdded(handle: CallHandle) {
         handles[handle.id] = handle

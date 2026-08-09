@@ -45,32 +45,77 @@ class ProximityControllerTest {
 
     @Test
     fun holdsForActiveCallOnEarpiece() {
-        assertTrue(shouldHoldProximityLock(listOf(CallStatus.ACTIVE), earpieceRoute = true))
+        assertTrue(
+            shouldHoldProximityLock(
+                listOf(CallStatus.ACTIVE),
+                earpieceRoute = true,
+                inCallUiVisible = true,
+            ),
+        )
     }
 
     @Test
     fun holdsForDialingCallOnEarpiece() {
-        assertTrue(shouldHoldProximityLock(listOf(CallStatus.DIALING), earpieceRoute = true))
+        assertTrue(
+            shouldHoldProximityLock(
+                listOf(CallStatus.DIALING),
+                earpieceRoute = true,
+                inCallUiVisible = true,
+            ),
+        )
     }
 
     @Test
     fun holdsForHeldCallOnEarpiece() {
-        assertTrue(shouldHoldProximityLock(listOf(CallStatus.HOLDING), earpieceRoute = true))
+        assertTrue(
+            shouldHoldProximityLock(
+                listOf(CallStatus.HOLDING),
+                earpieceRoute = true,
+                inCallUiVisible = true,
+            ),
+        )
     }
 
     @Test
     fun ignoresRingingCall() {
-        assertFalse(shouldHoldProximityLock(listOf(CallStatus.RINGING), earpieceRoute = true))
+        assertFalse(
+            shouldHoldProximityLock(
+                listOf(CallStatus.RINGING),
+                earpieceRoute = true,
+                inCallUiVisible = true,
+            ),
+        )
     }
 
     @Test
     fun ignoresNonEarpieceRoutes() {
-        assertFalse(shouldHoldProximityLock(listOf(CallStatus.ACTIVE), earpieceRoute = false))
+        assertFalse(
+            shouldHoldProximityLock(
+                listOf(CallStatus.ACTIVE),
+                earpieceRoute = false,
+                inCallUiVisible = true,
+            ),
+        )
     }
 
     @Test
     fun ignoresWhenNoCalls() {
-        assertFalse(shouldHoldProximityLock(emptyList(), earpieceRoute = true))
+        assertFalse(
+            shouldHoldProximityLock(emptyList(), earpieceRoute = true, inCallUiVisible = true),
+        )
+    }
+
+    @Test
+    fun releasesTheScreenToAUserWhoLeftTheCallUi() {
+        // Another app on top mid-call means the user is USING the display;
+        // an armed sensor there blacks it on every reach for the status bar.
+        assertFalse(
+            shouldHoldProximityLock(
+                listOf(CallStatus.ACTIVE),
+                earpieceRoute = true,
+                inCallUiVisible = false,
+            ),
+        )
     }
 
     // The controller wiring: call and audio changes drive the lock. The
@@ -95,6 +140,7 @@ class ProximityControllerTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun acquiresWhenCallActiveOnEarpiece() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
         controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
         controller.onCallAdded(ProximityFakeCallHandle())
         advanceUntilIdle()
@@ -103,7 +149,21 @@ class ProximityControllerTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
+    fun releasesWhenTheUserLeavesTheCallScreen() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
+        controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
+        controller.onCallAdded(ProximityFakeCallHandle())
+        advanceUntilIdle()
+        assertTrue(lock.held)
+        controller.onInCallUiVisibility(false)
+        advanceUntilIdle()
+        assertFalse(lock.held)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
     fun releasesWhenRouteLeavesEarpiece() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
         controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
         controller.onCallAdded(ProximityFakeCallHandle())
         advanceUntilIdle()
@@ -116,6 +176,7 @@ class ProximityControllerTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun releasesWhenCallEnds() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
         controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
         val handle = ProximityFakeCallHandle()
         controller.onCallAdded(handle)
@@ -129,6 +190,7 @@ class ProximityControllerTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun neverAcquiresForRingingOnlyCall() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
         controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
         controller.onCallAdded(ProximityFakeCallHandle(telecomState = Call.STATE_RINGING))
         advanceUntilIdle()

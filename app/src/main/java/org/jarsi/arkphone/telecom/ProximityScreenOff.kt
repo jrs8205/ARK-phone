@@ -21,16 +21,20 @@ interface ProximityLock {
 
 /**
  * The screen is given to the proximity sensor only while call audio plays
- * through the earpiece: on speaker, Bluetooth or a wired headset the user is
- * looking at the phone, and during ring the screen must stay usable for
- * answering.
+ * through the earpiece AND the in-call screen is what the user left on top:
+ * on speaker, Bluetooth or a wired headset the user is looking at the phone,
+ * during ring the screen must stay usable for answering, and a user who has
+ * switched to another app mid-call is USING the screen — an armed sensor
+ * there blacked the display on every reach toward the status bar and locked
+ * the user out of their own call (field-hit 2026-08-09 19:35).
  */
 internal fun shouldHoldProximityLock(
     statuses: List<CallStatus>,
     earpieceRoute: Boolean,
-): Boolean = earpieceRoute && statuses.any { it.isOffHook }
+    inCallUiVisible: Boolean,
+): Boolean = earpieceRoute && inCallUiVisible && statuses.any { it.isOffHook }
 
-/** Applies [shouldHoldProximityLock] to every call and audio-route change. */
+/** Applies [shouldHoldProximityLock] to every call, route and UI change. */
 @Singleton
 class ProximityController @Inject constructor(
     callController: CallController,
@@ -39,8 +43,12 @@ class ProximityController @Inject constructor(
 ) {
     init {
         scope.launch {
-            combine(callController.calls, callController.audio) { calls, audio ->
-                shouldHoldProximityLock(calls.map { it.status }, audio.earpiece)
+            combine(
+                callController.calls,
+                callController.audio,
+                callController.inCallUiVisible,
+            ) { calls, audio, uiVisible ->
+                shouldHoldProximityLock(calls.map { it.status }, audio.earpiece, uiVisible)
             }
                 .distinctUntilChanged()
                 .collect { hold -> if (hold) proximityLock.acquire() else proximityLock.release() }
