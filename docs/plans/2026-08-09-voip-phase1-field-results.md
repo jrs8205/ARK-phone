@@ -91,11 +91,27 @@ shown as the caller on both phones, ringtone silenced on answer. The round 4
 TURN stall did not reproduce; if it ever does, the new logs will show which
 side of the fetch died.
 
+## Round 6 — second-fix-wave sanity + mobile→Wi-Fi (16:49)
+
+On the build with all 28 second-review fixes (app `b72f942`, worker
+`477d9aec`): a foreground sanity call passed, and a **mobile→Wi-Fi call
+passed** — the 8a with Wi-Fi disabled entirely (mobile data only) calling
+the 10 Pro rang and completed correctly.
+
+Mobile→Wi-Fi was the original unresolved field failure from 2026-08-06
+("connects, shows peer, but NO RING"). The prime suspect then was an offer
+swallowed by a stale server-side socket; the liveness rework (zombie
+sockets no longer count as online; stale delivery queues + wakes), the
+refused-frame resend, and the socket-generation guard all sit on exactly
+that path, and the scenario now passes.
+
 ## Remaining protocol (stage C)
 
 - [x] Doze test (14:12): rang on the locked screen; socket survived forced
       idle via the listener exemption, so the wake was correctly not needed
 - [x] Forced FCM chain (14:20 fail → fixes → 14:31 full pass, see above)
+- [x] Mobile→Wi-Fi (16:49): rings and completes — the 2026-08-06 R1
+      failure no longer reproduces on the hardened build
 - [ ] Fallback matrix: airplane-mode peer → carrier call after ~7 s
 - [ ] Superseded / network-switch during a call
 - [ ] Mobile ↔ mobile
