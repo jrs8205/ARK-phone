@@ -151,7 +151,9 @@ ordinary channel with no banner. Awaiting a screen-on verification call.
       carrier hand-over at 7 s (after the round-7 race fix)
 - [x] Network switch mid-call (17:07, 17:09): losing Wi-Fi → clean ~10 s
       drop with the connection-lost notice; gaining Wi-Fi → seamless
-- [ ] Awake-screen ring re-verify (after `fae5b92`): no duplicate banner
+- [x] Awake-screen ring re-verify (17:23, on `fae5b92`): call-screen
+      buttons only, no heads-up banner; the tray keeps a quiet entry with
+      an answer action as the secondary surface, like a carrier call
 - [ ] Mobile ↔ mobile
 - [ ] Master switch off → carrier
 - [ ] Soak: several calls over a day, both directions
