@@ -62,7 +62,7 @@ class CallControllerVoipCallUi @Inject constructor(
     // buttons act on null or on a stale carrier controller.
     override fun attachAudioControls(controller: org.jarsi.arkphone.telecom.InCallAudioController) {
         callController.audioController = controller
-        callController.onAudioStateChanged(muted = false, speakerOn = false)
+        callController.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
     }
 
     override fun detachAudioControls() {
@@ -70,6 +70,13 @@ class CallControllerVoipCallUi @Inject constructor(
     }
 
     override fun audioStateChanged(muted: Boolean, speakerOn: Boolean) {
-        callController.onAudioStateChanged(muted = muted, speakerOn = speakerOn)
+        // Off speaker, an ARK call plays through the earpiece — and the
+        // earpiece flag is what arms the proximity screen-off. Left false, the
+        // screen stayed lit against the ear (field-hit 2026-08-09 17:27).
+        callController.onAudioStateChanged(
+            muted = muted,
+            speakerOn = speakerOn,
+            earpiece = !speakerOn,
+        )
     }
 }
