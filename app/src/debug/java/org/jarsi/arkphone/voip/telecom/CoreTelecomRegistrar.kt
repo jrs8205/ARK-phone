@@ -35,6 +35,9 @@ class CoreTelecomRegistrar @Inject constructor(
     private var controlScope: CallControlScope? = null
     private var currentId: String? = null
 
+    /** An answer that arrived before addCall handed its scope back. */
+    private var pendingAnswer = false
+
     /** The endpoints Telecom last advertised for the live call. */
     private var endpoints: List<CallEndpointCompat> = emptyList()
 
@@ -80,6 +83,12 @@ class CoreTelecomRegistrar @Inject constructor(
                     endpointJob = scope.launch {
                         availableEndpoints.collect { endpoints = it }
                     }
+                    if (pendingAnswer) {
+                        // The user answered faster than Telecom set up: the
+                        // answer must not be dropped on the floor.
+                        pendingAnswer = false
+                        answered(handle.id)
+                    }
                     Log.i(TAG, "ARK addCall session open id=${handle.id}")
                 }
                 Log.i(TAG, "ARK addCall ended id=${handle.id}")
@@ -102,9 +111,15 @@ class CoreTelecomRegistrar @Inject constructor(
 
     override fun answered(id: String) {
         if (currentId != id) return
-        val control = controlScope ?: return
+        val control = controlScope
+        if (control == null) {
+            pendingAnswer = true
+            return
+        }
         scope.launch {
             runCatching { control.answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL) }
+                .onSuccess { result -> Log.i(TAG, "ARK telecom answer result=$result") }
+                .onFailure { e -> Log.w(TAG, "ARK telecom answer failed", e) }
         }
     }
 
@@ -133,6 +148,7 @@ class CoreTelecomRegistrar @Inject constructor(
         val control = controlScope
         currentId = null
         controlScope = null
+        pendingAnswer = false
         endpointJob?.cancel()
         endpointJob = null
         endpoints = emptyList()

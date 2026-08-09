@@ -57,7 +57,7 @@ class WebRtcCallSession(
         if (_state.value != VoipCallState.Idle) return
         _state.value = VoipCallState.Connecting
         scope.launch {
-            val adapter = openAdapter() ?: return@launch
+            val adapter = openAdapter(notifyPeer = false) ?: return@launch
             val offer = media { adapter.createOfferSdp() }
             if (offer == null) {
                 // The peer knows nothing yet; die quietly and let the
@@ -79,7 +79,7 @@ class WebRtcCallSession(
         val ringing = _state.value as? VoipCallState.Ringing ?: return
         _state.value = VoipCallState.Connecting
         scope.launch {
-            val adapter = openAdapter() ?: return@launch
+            val adapter = openAdapter(notifyPeer = true) ?: return@launch
             val answer = media { adapter.createAnswerSdp(ringing.offerSdp) }
             if (answer == null) {
                 // A malformed remote offer must end the call, not the process.
@@ -129,7 +129,12 @@ class WebRtcCallSession(
         }
     }
 
+    // Remembered so a mute pressed during reach or TURN setup — before any
+    // adapter exists — still lands on the track the moment it is created.
+    private var micEnabled = true
+
     override fun setMicEnabled(enabled: Boolean) {
+        micEnabled = enabled
         activeAdapter?.setMicEnabled(enabled)
     }
 
@@ -137,13 +142,20 @@ class WebRtcCallSession(
         if (_state.value is VoipCallState.Ended) _state.value = VoipCallState.Idle
     }
 
-    private suspend fun openAdapter(): PeerConnectionAdapter? {
+    private suspend fun openAdapter(notifyPeer: Boolean): PeerConnectionAdapter? {
         val iceServers = turnFetcher()
         if (iceServers == null) {
-            end("no-turn", notifyPeer = false)
+            end("no-turn", notifyPeer = notifyPeer)
             return null
         }
-        val adapter = adapterFactory.create(iceServers, relayOnly)
+        // Factory failure (native init, resource exhaustion) is a media
+        // failure like any other — it must end the call, not the process.
+        val adapter = media { adapterFactory.create(iceServers, relayOnly) }
+        if (adapter == null) {
+            end("media-error", notifyPeer = notifyPeer)
+            return null
+        }
+        adapter.setMicEnabled(micEnabled)
         activeAdapter = adapter
         adapterJob = scope.launch {
             adapter.events.collect { event ->

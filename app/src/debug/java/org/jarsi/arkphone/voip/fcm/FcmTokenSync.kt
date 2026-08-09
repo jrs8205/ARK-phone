@@ -1,5 +1,8 @@
 package org.jarsi.arkphone.voip.fcm
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import org.jarsi.arkphone.data.ArkIdentityRepository
 import org.jarsi.arkphone.voip.ArkAccountClient
@@ -16,14 +19,21 @@ class FcmTokenSync @Inject constructor(
     private val identityRepository: ArkIdentityRepository,
     private val accountClient: ArkAccountClient,
 ) {
+    private val pending = MutableStateFlow<String?>(null)
+
+    /** A token seen before registration, for the registration call to carry. */
+    val pendingToken: StateFlow<String?> = pending.asStateFlow()
+
     /** True when the worker holds [token]. */
     suspend fun sync(token: String): Boolean {
         if (token.isBlank()) return false
         val identity = identityRepository.identity.first()
         if (identity == null) {
-            // Registration has not happened yet; remember the token so the
-            // registration call itself can carry it.
-            identityRepository.setSyncedFcmToken(token)
+            // NOT the synced marker: writing it there once raced an in-flight
+            // registration that had already read a null token — the marker
+            // then said "worker has it" about a token the worker never saw,
+            // and the phone stayed unwakeable.
+            pending.value = token
             return false
         }
         if (identityRepository.syncedFcmToken.first() == token) return true

@@ -24,7 +24,12 @@ class CallActionReceiver : BroadcastReceiver() {
                 // lands; otherwise the calls stay new=1 and boot re-posts them.
                 val pending = goAsync()
                 missedCallNotifier.onCallLogSeen { pending.finish() }
-                intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let(callRouter::placeCall)
+                intent.getStringExtra(MissedCallNotifier.EXTRA_NUMBER)?.let { number ->
+                    // Android 12+ blocks a receiver from launching the call
+                    // screen (notification trampoline), so a linked number
+                    // goes over the carrier here rather than headless VoIP.
+                    callRouter.placeCall(number, viaInternetAllowed = false)
+                }
             }
             MissedCallNotifier.ACTION_MISSED_DISMISSED -> {
                 val pending = goAsync()

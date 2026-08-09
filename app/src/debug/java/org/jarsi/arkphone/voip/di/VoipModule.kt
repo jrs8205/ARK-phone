@@ -8,9 +8,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import org.jarsi.arkphone.BuildConfig
 import org.jarsi.arkphone.data.ArkIdentityRepository
+import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.util.Clock
 import org.jarsi.arkphone.voip.AndroidKeystoreArkKeyPairSource
@@ -70,7 +72,12 @@ object VoipModule {
 
     @Provides
     @Singleton
-    fun provideArkHttp(client: OkHttpClient): ArkHttp = OkHttpArkHttp(client)
+    fun provideArkHttp(client: OkHttpClient): ArkHttp = OkHttpArkHttp(
+        // Same pools, but a hard total deadline for the plain HTTP calls: a
+        // stalled DNS or route probe must not outlive the caller — the
+        // websocket client stays unbounded, its calls are long-lived by design.
+        client.newBuilder().callTimeout(10, TimeUnit.SECONDS).build(),
+    )
 
     @Provides
     @Singleton
@@ -111,9 +118,14 @@ object VoipModule {
         accountClient: ArkAccountClient,
         identityRepository: ArkIdentityRepository,
         provider: PeerConnectionFactoryProvider,
-    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, remoteCandidates, scope ->
+    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, remoteCandidates, sinceSeq, scope ->
         WebRtcCallSession(
-            signaling = EngineSignaling(engine),
+            // Negative horizon = an outgoing call: nothing before this moment
+            // may replay into it.
+            signaling = EngineSignaling(
+                engine,
+                if (sinceSeq >= 0) sinceSeq else engine.currentSignalSeq(),
+            ),
             adapterFactory = StreamPeerConnectionAdapterFactory(provider),
             turnFetcher = {
                 // Bracketing logs: a 2026-08-09 cold-start call stalled inside
@@ -147,6 +159,7 @@ object VoipModule {
         telecom: VoipTelecom,
         ui: VoipCallUi,
         linkCache: ArkLinkCache,
+        settingsCache: SettingsCache,
         callLog: ArkCallLog,
         missedCallNotifier: MissedCallNotifier,
         callRuleEvaluator: CallRuleEvaluator,
@@ -186,6 +199,10 @@ object VoipModule {
                 else -> null
             }
         },
+        // Bounded: a wedged DataStore must degrade to "unlinked" (safe by
+        // carrier fallback), not hold the ring forever.
+        awaitLinkCache = { withTimeoutOrNull(2_000L) { linkCache.await() } },
+        arkCallsEnabled = { settingsCache.current.arkInternetCallsEnabled },
     )
 
     @Provides

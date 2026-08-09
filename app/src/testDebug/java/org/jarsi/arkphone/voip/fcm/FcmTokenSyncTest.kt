@@ -19,9 +19,22 @@ class FcmTokenSyncTest {
     private val sync = FcmTokenSync(identities, ArkAccountClient(http, "https://w"))
 
     @Test
-    fun anUnregisteredDeviceOnlyRemembersTheTokenLocally() = runTest {
+    fun anUnregisteredDeviceOnlyRemembersTheTokenAsPending() = runTest {
         assertFalse(sync.sync("fcm-1"))
         assertTrue(http.calls.isEmpty())
+        assertEquals("fcm-1", sync.pendingToken.value)
+        // NOT the synced marker: that once made a racing registration believe
+        // the worker already held a token it had never seen.
+        assertNull(identities.fcm.value)
+    }
+
+    @Test
+    fun aPendingTokenIsStillPostedAfterRegistration() = runTest {
+        assertFalse(sync.sync("fcm-1"))
+        identities.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "tok")
+        http.response = ArkHttpResponse(204, "")
+        assertTrue(sync.sync("fcm-1"))
+        assertEquals("https://w/account/fcm-token", http.calls.single().url)
         assertEquals("fcm-1", identities.fcm.value)
     }
 

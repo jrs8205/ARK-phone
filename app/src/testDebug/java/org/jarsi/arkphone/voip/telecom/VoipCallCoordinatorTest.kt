@@ -131,9 +131,10 @@ class VoipCallCoordinatorTest {
         numberFor: (String) -> String? = { "+358 44 5552841" },
         blockCheck: suspend (String?) -> Boolean = { false },
         hasMic: () -> Boolean = { true },
+        arkEnabled: () -> Boolean = { true },
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
-        sessionFactory = { _, _, _, _ -> session },
+        sessionFactory = { _, _, _, _, _ -> session },
         telecom = telecom,
         ui = ui,
         nicknameForCode = nicknameFor,
@@ -144,6 +145,7 @@ class VoipCallCoordinatorTest {
         scope = scope,
         blockCheck = blockCheck,
         hasMicPermission = hasMic,
+        arkCallsEnabled = arkEnabled,
     )
 
     @Test
@@ -161,7 +163,7 @@ class VoipCallCoordinatorTest {
         assertTrue(coordinator.startCall(link) { fellBack = true })
         runCurrent()
         assertTrue(fellBack)
-        assertTrue(session.calls.isEmpty())
+        assertFalse(session.calls.contains("placeCall"))
         assertEquals(listOf("voip-out-ARK-BBBB-BBBB"), telecom.removed)
     }
 
@@ -321,6 +323,42 @@ class VoipCallCoordinatorTest {
         runCurrent()
         assertTrue(fellBack)
         assertTrue(ui.events.contains("removed"))
+        // One call from the user's point of view: the carrier row is the row.
+        assertTrue(callLog.records.isEmpty())
+    }
+
+    @Test
+    fun aTelecomWithdrawalEndsTheSessionBeforeTheCarrierDials() = runTest {
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        telecom.lastFailed!!()
+        runCurrent()
+        assertTrue(fellBack)
+        // The peer must stop ringing and the adapter must close — cancelling
+        // the scope alone does neither.
+        assertTrue(session.calls.contains("hangUp"))
+    }
+
+    @Test
+    fun aDisabledMasterSwitchDropsIncomingArkCalls() = runTest {
+        val coordinator =
+            coordinator(backgroundScope, FakeReach(reachable = true), arkEnabled = { false })
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertTrue(telecom.added.isEmpty())
+        assertTrue(ui.events.isEmpty())
+    }
+
+    @Test
+    fun anIncomingCallWithoutMicPermissionNeverRings() = runTest {
+        val coordinator =
+            coordinator(backgroundScope, FakeReach(reachable = true), hasMic = { false })
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertTrue(telecom.added.isEmpty())
+        assertTrue(ui.events.isEmpty())
     }
 
     @Test

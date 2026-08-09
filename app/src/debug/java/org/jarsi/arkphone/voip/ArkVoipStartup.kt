@@ -35,6 +35,9 @@ class ArkVoipStartup(
             // must open its inbox without waiting for a restart or a call.
             identities.map { it != null }.distinctUntilChanged().collect { registered ->
                 if (registered) {
+                    // A token that arrived pre-registration is only pending;
+                    // this refresh is what actually posts it to the worker.
+                    fcmRefresh()
                     val connected = engine.connect()
                     Log.i(TAG, "ARK inbox connect=$connected")
                 }

@@ -32,6 +32,7 @@ class SettingsViewModelTest {
         },
         simAccounts,
         { SpeechStatus.READY },
+        java.util.Optional.empty(),
     )
 
     @Test

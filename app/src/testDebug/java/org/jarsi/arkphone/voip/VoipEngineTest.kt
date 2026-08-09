@@ -102,7 +102,9 @@ class VoipEngineTest {
             expectNoEvents()
             advanceTimeBy(FLUSH_DRAIN_MS + 100)
             runCurrent()
-            assertEquals(IncomingArkCall("ARK-CCCC-CCCC", "v=0 c"), awaitItem())
+            val call = awaitItem()
+            assertEquals("ARK-CCCC-CCCC", call.fromCode)
+            assertEquals("v=0 c", call.offerSdp)
         }
     }
 
@@ -118,8 +120,59 @@ class VoipEngineTest {
         runCurrent()
         engine.incomingCalls.test {
             connector.serverSends(offer("ARK-BBBB-BBBB", "v=0 late"))
-            assertEquals(IncomingArkCall("ARK-BBBB-BBBB", "v=0 late"), awaitItem())
+            val call = awaitItem()
+            assertEquals("ARK-BBBB-BBBB", call.fromCode)
+            assertEquals("v=0 late", call.offerSdp)
         }
+    }
+
+    @Test
+    fun framesEmittedBeforeTheSessionSubscribesAreReplayedToIt() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        val connecting = async { engine.connect() }
+        runCurrent()
+        connector.opens()
+        connecting.await()
+        advanceTimeBy(FLUSH_DRAIN_MS + 100)
+        runCurrent()
+        engine.incomingCalls.test {
+            connector.serverSends(offer("ARK-BBBB-BBBB", "v=0"))
+            val call = awaitItem()
+            // A candidate lands BEFORE anything subscribes with the call's
+            // horizon — the ring-to-session gap this replay exists for.
+            connector.serverSends(
+                SignalingMessage(
+                    type = SignalingTypes.ICE_CANDIDATE,
+                    from = "ARK-BBBB-BBBB",
+                    payload = buildJsonObject { put("candidate", "late-c") },
+                ),
+            )
+            runCurrent()
+            val signaling = EngineSignaling(engine, call.sinceSeq)
+            signaling.incoming.test {
+                assertEquals(SignalingTypes.ICE_CANDIDATE, awaitItem().type)
+            }
+        }
+    }
+
+    @Test
+    fun aWakeForcesAFreshSocketEvenWhenTheOldOneClaimsConnected() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        val connecting = async { engine.connect() }
+        runCurrent()
+        connector.opens()
+        connecting.await()
+        // The worker only wakes us when it no longer trusts our socket, and
+        // only a NEW connection flushes the queued offer.
+        val wake = async { engine.awaitWake() }
+        runCurrent()
+        assertEquals(2, connector.handles.size)
+        connector.opens()
+        advanceTimeBy(FLUSH_DRAIN_MS + 600)
+        runCurrent()
+        assertTrue(wake.isCompleted)
     }
 
     @Test

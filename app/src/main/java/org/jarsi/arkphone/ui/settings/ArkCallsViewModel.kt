@@ -27,6 +27,7 @@ data class ArkCallsUiState(
     val registerFailed: Boolean = false,
     val micPermissionMissing: Boolean = false,
     val fullScreenIntentMissing: Boolean = false,
+    val notificationsPermissionMissing: Boolean = false,
 )
 
 @HiltViewModel
@@ -59,12 +60,19 @@ class ArkCallsViewModel @Inject constructor(
         }
     }
 
-    /** Re-checked on every resume: both grants happen outside this screen. */
+    /** Re-checked on every resume: the grants all happen outside this screen. */
     fun refreshPermissions() {
         if (!_uiState.value.available) return
+        // Without POST_NOTIFICATIONS the incoming notification — and the
+        // full-screen intent riding on it — never appears: a locked-phone
+        // ARK call would silently time out to the carrier.
+        val notificationsMissing =
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+                !permissionChecker.has(Manifest.permission.POST_NOTIFICATIONS)
         _uiState.value = _uiState.value.copy(
             micPermissionMissing = !permissionChecker.has(Manifest.permission.RECORD_AUDIO),
             fullScreenIntentMissing = !fullScreenIntentPermission.allowed(),
+            notificationsPermissionMissing = notificationsMissing,
         )
     }
 

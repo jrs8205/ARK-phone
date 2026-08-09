@@ -277,6 +277,8 @@
     <string name="ark_calls_unavailable">ARK internet calls are not available in this build</string>
     <string name="ark_calls_mic_permission">Internet calls need the microphone. Without it every call falls back to the mobile network.</string>
     <string name="ark_calls_mic_permission_button">Allow microphone</string>
+    <string name="ark_calls_notifications_permission">Without notification permission an incoming internet call cannot ring at all.</string>
+    <string name="ark_calls_notifications_permission_button">Allow notifications</string>
     <string name="ark_calls_fsi_permission">To ring on a locked screen, ARK-phone needs the full-screen notification permission.</string>
     <string name="ark_calls_fsi_permission_button">Open settings</string>
     <string name="ark_call_end_rejected">Call declined</string>

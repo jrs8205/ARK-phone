@@ -2,11 +2,20 @@ package org.jarsi.arkphone.voip
 
 import kotlinx.serialization.json.jsonPrimitive
 
-/** A call that should ring on this device. */
+/** One signaling frame with its emission order stamped on. */
+data class StampedSignal(val seq: Long, val message: SignalingMessage)
+
+/**
+ * A call that should ring on this device. [sinceSeq] is the signal-stream
+ * position of this call's offer: the session it creates replays only frames
+ * newer than that, so it hears the gap between ring and subscribe without
+ * ever replaying another call's leftovers.
+ */
 data class IncomingArkCall(
     val fromCode: String,
     val offerSdp: String,
     val iceCandidates: List<String> = emptyList(),
+    val sinceSeq: Long = 0L,
 )
 
 /**

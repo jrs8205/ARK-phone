@@ -61,6 +61,9 @@ fun ArkCallsScreen(
     val micLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { viewModel.refreshPermissions() }
+    val notificationsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { viewModel.refreshPermissions() }
     ArkCallsContent(
         uiState = uiState,
         onBack = onBack,
@@ -76,6 +79,11 @@ fun ArkCallsScreen(
             }
         },
         onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+        onRequestNotifications = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        },
         onRequestFullScreenIntent = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
@@ -96,6 +104,7 @@ fun ArkCallsContent(
     onEnabledChanged: (Boolean) -> Unit = {},
     onShare: (String) -> Unit = {},
     onRequestMic: () -> Unit = {},
+    onRequestNotifications: () -> Unit = {},
     onRequestFullScreenIntent: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
@@ -162,6 +171,13 @@ fun ArkCallsContent(
                     text = stringResource(R.string.ark_calls_mic_permission),
                     buttonText = stringResource(R.string.ark_calls_mic_permission_button),
                     onClick = onRequestMic,
+                )
+            }
+            if (uiState.notificationsPermissionMissing) {
+                PermissionBanner(
+                    text = stringResource(R.string.ark_calls_notifications_permission),
+                    buttonText = stringResource(R.string.ark_calls_notifications_permission_button),
+                    onClick = onRequestNotifications,
                 )
             }
             if (uiState.fullScreenIntentMissing) {

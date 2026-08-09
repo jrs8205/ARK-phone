@@ -47,8 +47,16 @@ class VoipEngine @Inject constructor(
     private val _incomingCalls = MutableSharedFlow<IncomingArkCall>(extraBufferCapacity = 8)
     val incomingCalls: SharedFlow<IncomingArkCall> = _incomingCalls.asSharedFlow()
 
-    private val _signals = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 64)
-    val signals: SharedFlow<SignalingMessage> = _signals.asSharedFlow()
+    // Replayed with sequence stamps: a ringing session is created a few
+    // dispatches AFTER its offer was emitted, and without replay every frame
+    // in that gap (candidates, even the call-end that cancels the ring) was
+    // gone before the session could subscribe. The stamp lets each session
+    // skip everything older than its own call.
+    private val _signals = MutableSharedFlow<StampedSignal>(replay = 64, extraBufferCapacity = 64)
+    val signals: SharedFlow<StampedSignal> = _signals.asSharedFlow()
+    private var signalSeq = 0L
+
+    fun currentSignalSeq(): Long = signalSeq
 
     /**
      * The FCM wake path. Returns only once the inbox is connected and the
@@ -58,11 +66,18 @@ class VoipEngine @Inject constructor(
      * dozing phone.
      */
     suspend fun awaitWake() {
+        // A wake means the worker no longer trusts our socket, and only a NEW
+        // connection flushes the queued offer — a half-open socket still
+        // cached as CONNECTED would strand the call.
+        client?.forceReconnect()
         if (connect()) delay(FLUSH_DRAIN_MS + WAKE_RING_MARGIN_MS)
     }
 
     /** True once the inbox socket is open. False when this device has no identity. */
     suspend fun connect(): Boolean {
+        // A checkout without arkphone.voip.workerUrl must be a silent no-op,
+        // not a crash inside OkHttp's URL parser.
+        if (config.workerUrl.isBlank()) return false
         val active = connectMutex.withLock {
             val identity = identityRepository.identity.first() ?: return false
             client ?: SignalingClient(
@@ -120,8 +135,10 @@ class VoipEngine @Inject constructor(
             val batch = drained.toList()
             drained.clear()
             draining = false
-            batch.forEach { _signals.tryEmit(it) }
-            val call = reconcileFlush(batch)
+            batch.forEach { _signals.tryEmit(StampedSignal(++signalSeq, it)) }
+            // The in-batch candidates ride in iceCandidates; the replay filter
+            // starts right after the batch, so nothing arrives twice.
+            val call = reconcileFlush(batch)?.copy(sinceSeq = signalSeq)
             if (batch.isNotEmpty() || call != null) {
                 Log.i(TAG, "ARK flush drained=${batch.size} ring=${call?.fromCode}")
             }
@@ -130,8 +147,11 @@ class VoipEngine @Inject constructor(
     }
 
     private fun dispatch(message: SignalingMessage) {
-        _signals.tryEmit(message)
-        reconcileFlush(listOf(message))?.let { ring(it) }
+        val seq = ++signalSeq
+        _signals.tryEmit(StampedSignal(seq, message))
+        // sinceSeq is the offer's own stamp: the session seeds the offer via
+        // the ring, and replay hands it every frame that came after.
+        reconcileFlush(listOf(message))?.let { ring(it.copy(sinceSeq = seq)) }
     }
 
     private fun ring(call: IncomingArkCall) {

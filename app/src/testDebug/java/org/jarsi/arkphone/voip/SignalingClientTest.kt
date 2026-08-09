@@ -287,6 +287,63 @@ class SignalingClientTest {
     }
 
     @Test
+    fun `a stale socket's late close cannot disturb its replacement`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        val staleClose = connector.lastOnClosed!!
+        staleClose(1006, "")
+        advanceTimeBy(1_100)
+        runCurrent()
+        connector.opens()
+        assertEquals(SignalingConnectionState.CONNECTED, client.connectionState.value)
+        // The dead socket's second, delayed callback arrives after the
+        // replacement opened; it must be ignored, not tear the new socket down.
+        staleClose(1006, "late")
+        runCurrent()
+        assertEquals(SignalingConnectionState.CONNECTED, client.connectionState.value)
+        assertEquals(2, connector.handles.size)
+        advanceTimeBy(SignalingClient.PING_INTERVAL_MS + 100)
+        runCurrent()
+        assertEquals(listOf("ping"), connector.handles[1].sent)
+        client.stop()
+    }
+
+    @Test
+    fun `a refused frame is resent on the next socket`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        assertFalse(
+            client.send(SignalingMessage(type = SignalingTypes.CALL_END, to = "ARK-BBBB-BBBB")),
+        )
+        advanceTimeBy(1_100)
+        runCurrent()
+        connector.opens()
+        val resent = connector.handles[1].sent.mapNotNull { SignalingJson.decode(it) }
+        assertEquals(listOf(SignalingTypes.CALL_END), resent.map { it.type })
+        assertEquals("ARK-BBBB-BBBB", resent.single().to)
+        client.stop()
+    }
+
+    @Test
+    fun `forceReconnect dials a fresh socket immediately`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        client.forceReconnect()
+        runCurrent()
+        assertEquals(2, connector.handles.size)
+        connector.opens()
+        assertEquals(SignalingConnectionState.CONNECTED, client.connectionState.value)
+        client.stop()
+    }
+
+    @Test
     fun `stop closes the socket and stops reconnecting`() = runTest {
         val connector = FakeConnector()
         val client = client(connector, backgroundScope)

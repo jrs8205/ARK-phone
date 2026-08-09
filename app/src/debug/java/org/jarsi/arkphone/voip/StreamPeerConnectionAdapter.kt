@@ -89,10 +89,8 @@ class StreamPeerConnectionAdapter(
         observer,
     ) ?: error("PeerConnection creation failed")
 
-    private val audioTrack = factory.createAudioTrack(
-        "audio0",
-        factory.createAudioSource(MediaConstraints()),
-    )
+    private val audioSource = factory.createAudioSource(MediaConstraints())
+    private val audioTrack = factory.createAudioTrack("audio0", audioSource)
 
     init {
         connection.addTrack(audioTrack, listOf("stream0"))
@@ -178,7 +176,12 @@ class StreamPeerConnectionAdapter(
     }
 
     override fun close() {
-        connection.close()
+        // These are native-backed objects: close() alone leaves the media
+        // stack allocated, and a soak of calls runs the process out of it.
+        runCatching { connection.close() }
+        runCatching { connection.dispose() }
+        runCatching { audioTrack.dispose() }
+        runCatching { audioSource.dispose() }
     }
 
     private suspend fun suspendSdp(

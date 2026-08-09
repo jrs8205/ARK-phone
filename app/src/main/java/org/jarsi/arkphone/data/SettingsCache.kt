@@ -56,6 +56,9 @@ class SettingsCache @Inject constructor(
 
     val current: Settings get() = state.value
 
+    /** False until the first DataStore emission; [current] is defaults then. */
+    val ready: Boolean get() = firstLoad.isCompleted
+
     suspend fun await(): Settings {
         firstLoad.await()
         return state.value

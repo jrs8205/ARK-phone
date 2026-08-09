@@ -114,7 +114,8 @@ class ArkVoipStartupTest {
         )
         advanceTimeBy(FLUSH_DRAIN_MS + 100)
         runCurrent()
-        assertEquals(listOf(IncomingArkCall("ARK-BBBB-BBBB", "v=0")), received)
+        assertEquals("ARK-BBBB-BBBB", received.single().fromCode)
+        assertEquals("v=0", received.single().offerSdp)
     }
 
     @Test

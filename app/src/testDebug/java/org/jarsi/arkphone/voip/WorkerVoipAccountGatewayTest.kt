@@ -29,11 +29,15 @@ class WorkerVoipAccountGatewayTest {
     private val http = FakeArkHttp()
     private val identities = TestArkIdentityRepository()
 
-    private fun gateway(key: String? = "pk-test") = WorkerVoipAccountGateway(
-        accountClient = ArkAccountClient(http, "https://w"),
-        identityRepository = identities,
-        keyPairSource = TestArkKeyPairSource(key),
-    )
+    private fun gateway(key: String? = "pk-test"): WorkerVoipAccountGateway {
+        val client = ArkAccountClient(http, "https://w")
+        return WorkerVoipAccountGateway(
+            accountClient = client,
+            identityRepository = identities,
+            keyPairSource = TestArkKeyPairSource(key),
+            tokenSync = org.jarsi.arkphone.voip.fcm.FcmTokenSync(identities, client),
+        )
+    }
 
     @Test
     fun registrationSendsTheDevicePublicKey() = runTest {

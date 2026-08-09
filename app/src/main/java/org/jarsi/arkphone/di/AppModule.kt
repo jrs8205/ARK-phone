@@ -2,6 +2,7 @@ package org.jarsi.arkphone.di
 
 import android.content.Context
 import android.os.Build
+import android.telephony.PhoneNumberUtils
 import android.telephony.TelephonyManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -306,14 +307,18 @@ abstract class AppModule {
             EmergencyNumbers { number ->
                 // Telephony may be unavailable or throw; routing then proceeds
                 // normally and the carrier stack still applies its own rules.
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                    false
-                } else {
-                    runCatching {
+                runCatching {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        // The deprecated check is the only one that exists
+                        // before Q — returning false there would route a
+                        // linked 112 through VoIP.
+                        @Suppress("DEPRECATION")
+                        PhoneNumberUtils.isEmergencyNumber(number)
+                    } else {
                         context.getSystemService(TelephonyManager::class.java)
                             ?.isEmergencyNumber(number) == true
-                    }.getOrDefault(false)
-                }
+                    }
+                }.getOrDefault(false)
             }
     }
 }

@@ -20,6 +20,9 @@ import javax.inject.Singleton
 @Singleton
 class CallNotifications @Inject constructor(
     @ApplicationContext private val context: Context,
+    // Provider breaks the cycle: the VoIP side depends on this class for its
+    // notifications, and this class only needs a build-variant yes/no.
+    private val voipCallGateway: javax.inject.Provider<java.util.Optional<org.jarsi.arkphone.voip.VoipCallGateway>>,
 ) {
     companion object {
         // Bumped ids: a channel's importance is fixed once created, and these
@@ -110,7 +113,13 @@ class CallNotifications @Inject constructor(
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(incoming)
-        notificationManager.createNotificationChannel(incomingArk)
+        // The ARK channel belongs only to builds that can receive ARK calls;
+        // a release install must neither show nor keep it in system settings.
+        if (voipCallGateway.get().isPresent) {
+            notificationManager.createNotificationChannel(incomingArk)
+        } else {
+            notificationManager.deleteNotificationChannel(CHANNEL_INCOMING_ARK)
+        }
         // User-silenced ring: DEFAULT importance so the re-posted notification
         // stays in the status bar instead of heads-upping over the call screen.
         val incomingSilenced = NotificationChannel(

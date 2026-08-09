@@ -122,6 +122,7 @@ fun SettingsScreen(
         onOpenSimInfo = onOpenSimInfo,
         onOpenBlocking = onOpenBlocking,
         onOpenArkCalls = onOpenArkCalls,
+        arkCallsAvailable = viewModel.arkCallsAvailable,
         onOpenCallSettings = {
             runCatching {
                 context.startActivity(
@@ -163,6 +164,7 @@ fun SettingsContent(
     onBack: () -> Unit,
     onOpenBlocking: () -> Unit = {},
     onOpenArkCalls: () -> Unit = {},
+    arkCallsAvailable: Boolean = true,
     hasNotificationAccess: Boolean = true,
     onAnnounceWhatsAppChanged: (Boolean) -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
@@ -341,14 +343,16 @@ fun SettingsContent(
                     onOpenBlocking()
                 },
             )
-            SettingsLinkRow(
-                title = stringResource(R.string.settings_ark_calls_title),
-                description = stringResource(R.string.settings_ark_calls_description),
-                onClick = {
-                    haptics.click()
-                    onOpenArkCalls()
-                },
-            )
+            if (arkCallsAvailable) {
+                SettingsLinkRow(
+                    title = stringResource(R.string.settings_ark_calls_title),
+                    description = stringResource(R.string.settings_ark_calls_description),
+                    onClick = {
+                        haptics.click()
+                        onOpenArkCalls()
+                    },
+                )
+            }
             SettingsLinkRow(
                 title = stringResource(R.string.sim_cards_title),
                 description = stringResource(R.string.sim_cards_description),

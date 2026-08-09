@@ -58,11 +58,21 @@ class SignalingClient(
 
     private val pendingReach = mutableMapOf<String, CompletableDeferred<Boolean>>()
 
+    // Frames refused by a dying socket, replayed on the next one: a lost
+    // call-answer strands the caller, a lost call-end strands the peer. The
+    // protocol tolerates the duplicates a retry can produce.
+    private val resendQueue = ArrayDeque<SignalingMessage>()
+
     private var handle: WebSocketHandle? = null
     private var reconnectJob: Job? = null
     private var pingJob: Job? = null
     private var reconnectDelayMs = 1_000L
     private var running = false
+
+    // Callbacks belong to the socket generation that registered them. A dying
+    // socket's late close once cancelled its replacement's ping loop and
+    // spawned a third connection — network switches turned into thrashing.
+    private var generation = 0
 
     fun start() {
         if (running) return
@@ -72,6 +82,7 @@ class SignalingClient(
 
     fun stop() {
         running = false
+        generation++
         reconnectJob?.cancel()
         reconnectJob = null
         pingJob?.cancel()
@@ -81,11 +92,38 @@ class SignalingClient(
         _connectionState.value = SignalingConnectionState.DISCONNECTED
     }
 
+    /**
+     * Drops the current socket and dials a fresh one at once. The wake path
+     * uses this: an FCM wake means the worker no longer trusts our socket,
+     * and only a NEW connection flushes the queued offer — a cached
+     * CONNECTED state must not be believed then.
+     */
+    fun forceReconnect() {
+        if (!running) return
+        pingJob?.cancel()
+        reconnectJob?.cancel()
+        handle?.close()
+        handle = null
+        _connectionState.value = SignalingConnectionState.DISCONNECTED
+        open()
+    }
+
     /** False when the frame could not be handed to a live socket. */
     override fun send(message: SignalingMessage): Boolean {
         val sent = handle?.send(SignalingJson.encode(message)) ?: false
-        if (!sent) onSendRefused()
+        if (!sent) {
+            stashForResend(message)
+            onSendRefused()
+        }
         return sent
+    }
+
+    private fun stashForResend(message: SignalingMessage) {
+        if (message.type !in RESEND_TYPES) return
+        synchronized(resendQueue) {
+            resendQueue += message
+            while (resendQueue.size > MAX_RESEND) resendQueue.removeFirst()
+        }
     }
 
     /**
@@ -105,20 +143,36 @@ class SignalingClient(
     }
 
     private fun open() {
+        val gen = ++generation
         _connectionState.value = SignalingConnectionState.CONNECTING
         handle = connector.connect(
             url = "$workerUrl/connect/$code",
             bearer = "$code.$deviceToken",
-            onOpen = ::onOpen,
-            onText = ::onText,
-            onClosed = ::onClosed,
+            onOpen = { ifCurrent(gen) { onOpen() } },
+            onText = { text -> ifCurrent(gen) { onText(text) } },
+            onClosed = { closeCode, reason -> ifCurrent(gen) { onClosed(closeCode, reason) } },
         )
+    }
+
+    private inline fun ifCurrent(gen: Int, block: () -> Unit) {
+        if (gen == generation) block()
     }
 
     private fun onOpen() {
         reconnectDelayMs = 1_000L
         _connectionState.value = SignalingConnectionState.CONNECTED
         startPinging()
+        flushResendQueue()
+    }
+
+    private fun flushResendQueue() {
+        val stashed = synchronized(resendQueue) {
+            val copy = resendQueue.toList()
+            resendQueue.clear()
+            copy
+        }
+        val current = handle ?: return
+        for (message in stashed) current.send(SignalingJson.encode(message))
     }
 
     /**
@@ -199,5 +253,13 @@ class SignalingClient(
         private const val PING = "ping"
         private const val PONG = "pong"
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
+        private const val MAX_RESEND = 32
+        private val RESEND_TYPES = setOf(
+            SignalingTypes.CALL_OFFER,
+            SignalingTypes.CALL_ANSWER,
+            SignalingTypes.CALL_REJECT,
+            SignalingTypes.ICE_CANDIDATE,
+            SignalingTypes.CALL_END,
+        )
     }
 }

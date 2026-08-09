@@ -28,7 +28,11 @@ class SettingsViewModel @Inject constructor(
     private val callScreeningRole: CallScreeningRole,
     private val simAccountRepository: SimAccountRepository,
     private val speechAvailability: SpeechAvailability,
+    voipAccountGateway: java.util.Optional<org.jarsi.arkphone.voip.VoipAccountGateway>,
 ) : ViewModel() {
+
+    /** False in builds without the VoIP engine: the ARK settings row hides. */
+    val arkCallsAvailable: Boolean = voipAccountGateway.isPresent
 
     private val _speechStatus = MutableStateFlow(SpeechStatus.READY)
     val speechStatus: StateFlow<SpeechStatus> = _speechStatus.asStateFlow()

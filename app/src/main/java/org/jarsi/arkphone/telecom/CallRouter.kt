@@ -22,8 +22,13 @@ class CallRouter @Inject constructor(
     private val voipCallGateway: Optional<VoipCallGateway>,
     private val emergencyNumbers: EmergencyNumbers,
 ) {
-    /** Returns false only when the call could not be placed at all. */
-    fun placeCall(number: String): Boolean {
+    /**
+     * Returns false only when the call could not be placed at all.
+     * [viaInternetAllowed] is false for callers that cannot host the VoIP
+     * surfaces — a notification's BroadcastReceiver above all, where the
+     * coordinator's startActivity would be a blocked trampoline.
+     */
+    fun placeCall(number: String, viaInternetAllowed: Boolean = true): Boolean {
         if (number.isBlank()) return false
         // The contract in the class doc, made real: an emergency call or a
         // USSD/MMI string (* or # anywhere) never waits on the internet path,
@@ -31,7 +36,11 @@ class CallRouter @Inject constructor(
         if (number.any { it == '*' || it == '#' } || emergencyNumbers.isEmergency(number)) {
             return phoneCaller.placeCall(number)
         }
+        if (!viaInternetAllowed) return phoneCaller.placeCall(number)
         val gateway = voipCallGateway.orElse(null) ?: return phoneCaller.placeCall(number)
+        // Until DataStore's first emission, current is the DEFAULTS — which
+        // say enabled. A user-persisted OFF must win over a cold-start call.
+        if (!settingsCache.ready) return phoneCaller.placeCall(number)
         if (!settingsCache.current.arkInternetCallsEnabled) return phoneCaller.placeCall(number)
         val link = linkCache.linkFor(number) ?: return phoneCaller.placeCall(number)
         // A bug anywhere in the engine must still leave the user with a call.

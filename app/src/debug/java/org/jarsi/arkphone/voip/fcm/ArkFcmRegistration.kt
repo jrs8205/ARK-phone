@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
@@ -28,13 +29,32 @@ class ArkFcmRegistration @Inject constructor(
             return
         }
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            val token = task.result
-            if (!task.isSuccessful || token.isNullOrBlank()) {
+            // getResult() throws on a failed task, so success is checked first.
+            if (!task.isSuccessful) {
                 Log.w(TAG, "FCM token unavailable", task.exception)
                 return@addOnCompleteListener
             }
-            scope.launch { tokenSync.sync(token) }
+            val token = task.result
+            if (token.isNullOrBlank()) {
+                Log.w(TAG, "FCM token blank")
+                return@addOnCompleteListener
+            }
+            scope.launch { syncWithRetry(token) }
         }
+    }
+
+    /**
+     * A transiently failed post would otherwise leave the worker holding a
+     * dead token until the next manual app open — unwakeable in the meantime.
+     */
+    private suspend fun syncWithRetry(token: String) {
+        var delayMs = 5_000L
+        repeat(4) {
+            if (tokenSync.sync(token)) return
+            delay(delayMs)
+            delayMs *= 4
+        }
+        Log.w(TAG, "FCM token sync kept failing; next refresh retries")
     }
 
     private companion object {

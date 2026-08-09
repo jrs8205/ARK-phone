@@ -43,10 +43,12 @@ class WebRtcCallSessionTest {
         val created = mutableListOf<FakeAdapter>()
         var lastRelayOnly = false
         var throwOnAnswer = false
+        var throwOnCreate = false
         override fun create(
             iceServers: List<IceServerConfig>,
             relayOnly: Boolean,
         ): PeerConnectionAdapter {
+            if (throwOnCreate) throw IllegalStateException("factory exhausted")
             lastRelayOnly = relayOnly
             return FakeAdapter().also {
                 it.throwOnAnswer = throwOnAnswer
@@ -335,6 +337,26 @@ class WebRtcCallSessionTest {
         h.session.answer()
         runCurrent()
         assertEquals(listOf("flush-1", "flush-2"), h.factory.created.single().remoteCandidates)
+        h.session.hangUp()
+        runCurrent()
+    }
+
+    @Test
+    fun `a throwing adapter factory ends the call instead of crashing`() = runTest {
+        val h = Harness(backgroundScope)
+        h.factory.throwOnCreate = true
+        h.session.placeCall()
+        runCurrent()
+        assertEquals(VoipCallState.Ended("media-error"), h.session.state.value)
+    }
+
+    @Test
+    fun `muting before the adapter exists lands on the created track`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.setMicEnabled(false)
+        h.session.placeCall()
+        runCurrent()
+        assertEquals(false, h.factory.created.single().micOn)
         h.session.hangUp()
         runCurrent()
     }

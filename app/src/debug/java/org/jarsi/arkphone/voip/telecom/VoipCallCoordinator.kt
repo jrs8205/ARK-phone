@@ -51,6 +51,8 @@ class VoipCallCoordinator(
     private val blockCheck: suspend (number: String?) -> Boolean = { false },
     private val hasMicPermission: () -> Boolean = { true },
     private val disconnectErrorFor: (reason: String) -> DisconnectError? = { null },
+    private val awaitLinkCache: suspend () -> Unit = {},
+    private val arkCallsEnabled: () -> Boolean = { true },
 ) : VoipCallGateway {
 
     private var active: ActiveCall? = null
@@ -106,7 +108,7 @@ class VoipCallCoordinator(
         }
         val id = "voip-out-${link.code}"
         val sessionScope = newSessionScope()
-        val session = sessionFactory.create(link.code, null, emptyList(), sessionScope)
+        val session = sessionFactory.create(link.code, null, emptyList(), -1L, sessionScope)
         val actions = SessionActions(session)
         val handle = VoipCallHandle(
             id = id,
@@ -120,12 +122,16 @@ class VoipCallCoordinator(
         val call =
             ActiveCall(handle, VoipCallDirection.OUTGOING, session, sessionScope, onFallbackToCarrier)
         actions.call = call
+        // Installed BEFORE Telecom: addCall runs on an immediate dispatcher,
+        // so an inline refusal can reach onTelecomFailed before this method
+        // resumes — the callback must find the call it is failing.
+        active = call
         if (!addToTelecom(call)) {
             Log.i(TAG, "ARK startCall telecom refused")
+            active = null
             sessionScope.cancel()
             return false
         }
-        active = call
         ui.added(handle)
         attachAudio(call)
         ui.openCallScreen()
@@ -145,19 +151,37 @@ class VoipCallCoordinator(
         return true
     }
 
-    /** A call reconciled out of the inbox flush. */
+    /**
+     * A call reconciled out of the inbox flush. Every dropped offer here is
+     * safe by fallback: the caller's connect timeout hands the same call to
+     * the carrier, so this phone still rings — just not over ARK.
+     */
     fun onIncoming(call: IncomingArkCall) {
         Log.i(TAG, "ARK onIncoming from=${call.fromCode} active=${active != null}")
         if (active != null) return
-        val number = numberForCode(call.fromCode)
-        val nickname = nicknameForCode(call.fromCode)
-        if (number == null && nickname == null) {
-            // Knowing the code is not an invitation: without a local link this
-            // account has no business ringing this phone.
-            Log.i(TAG, "ARK onIncoming dropped: no local link")
-            return
-        }
         scope.launch {
+            // A cold-start flush can beat Room's first link emission, and an
+            // unlinked verdict off an empty cache would drop a legitimate
+            // call the worker has already dequeued.
+            awaitLinkCache()
+            if (!arkCallsEnabled()) {
+                Log.i(TAG, "ARK onIncoming dropped: internet calls disabled")
+                return@launch
+            }
+            // Without the mic, answering would start a mic-typed foreground
+            // service Android 14+ kills with a SecurityException.
+            if (!hasMicPermission()) {
+                Log.i(TAG, "ARK onIncoming dropped: no mic permission")
+                return@launch
+            }
+            val number = numberForCode(call.fromCode)
+            val nickname = nicknameForCode(call.fromCode)
+            if (number == null && nickname == null) {
+                // Knowing the code is not an invitation: without a local link
+                // this account has no business ringing this phone.
+                Log.i(TAG, "ARK onIncoming dropped: no local link")
+                return@launch
+            }
             // The same rules a carrier call answers to; an evaluator fault
             // must not silence a linked caller.
             val blocked = runCatching { blockCheck(number) }.getOrDefault(false)
@@ -173,8 +197,13 @@ class VoipCallCoordinator(
     private fun ring(call: IncomingArkCall, number: String?, nickname: String?) {
         val id = "voip-in-${call.fromCode}"
         val sessionScope = newSessionScope()
-        val session =
-            sessionFactory.create(call.fromCode, call.offerSdp, call.iceCandidates, sessionScope)
+        val session = sessionFactory.create(
+            call.fromCode,
+            call.offerSdp,
+            call.iceCandidates,
+            call.sinceSeq,
+            sessionScope,
+        )
         val actions = SessionActions(session)
         val handle = VoipCallHandle(
             id = id,
@@ -193,12 +222,13 @@ class VoipCallCoordinator(
             onFallbackToCarrier = null,
         )
         actions.call = activeCall
+        active = activeCall
         if (!addToTelecom(activeCall)) {
             Log.i(TAG, "ARK onIncoming telecom refused")
+            active = null
             sessionScope.cancel()
             return
         }
-        active = activeCall
         ui.added(handle)
         attachAudio(activeCall)
         ui.showIncoming(handle)
@@ -301,12 +331,18 @@ class VoipCallCoordinator(
 
     /** Tears the VoIP attempt down and hands the call to the carrier. */
     private fun fallBack(call: ActiveCall) {
+        // The session must die BEFORE the carrier dials: cancelling the scope
+        // alone closes nothing, so the peer would keep ringing an attempt the
+        // adapter of which stays live under the carrier call.
+        call.session.hangUp()
         val carrier = call.onFallbackToCarrier
-        finish(call)
+        // A carrier fallback is one call from the user's point of view — the
+        // carrier call makes the only history row.
+        finish(call, recordRow = false)
         carrier?.invoke()
     }
 
-    private fun finish(call: ActiveCall) {
+    private fun finish(call: ActiveCall, recordRow: Boolean = true) {
         if (active !== call) return
         active = null
         call.timeoutJob?.cancel()
@@ -317,9 +353,8 @@ class VoipCallCoordinator(
         ui.clearNotification()
         ui.stopCallService()
         ui.removed(call.handle.id)
+        if (!recordRow) return
         val ended = call.handle.state as? VoipCallState.Ended ?: return
-        // A carrier fallback is one call from the user's point of view; only a
-        // VoIP attempt that actually reached the peer leaves a row.
         val record = arkCallRecordOf(
             handle = call.handle,
             direction = call.direction,

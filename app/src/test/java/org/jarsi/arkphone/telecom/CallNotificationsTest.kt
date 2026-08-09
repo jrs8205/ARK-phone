@@ -38,7 +38,7 @@ class CallNotificationsTest {
         // stack a second set of answer/decline buttons on top of it. A
         // CallStyle notification demands a full-screen intent, and both of
         // those are what make the system draw the banner.
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         assertEquals(NotificationCompat.CATEGORY_CALL, notification.category)
         assertNull(notification.fullScreenIntent)
         assertEquals(0, notification.extras.getInt(NotificationCompat.EXTRA_CALL_TYPE))
@@ -46,19 +46,19 @@ class CallNotificationsTest {
 
     @Test
     fun theRingingNotificationKeepsAnswerAndDeclineInTheShade() {
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         assertEquals(2, notification.actions.size)
     }
 
     @Test
     fun theRingingNotificationStillRingsInsistently() {
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         assertEquals(Notification.FLAG_INSISTENT, notification.flags and Notification.FLAG_INSISTENT)
     }
 
     @Test
     fun theRingingChannelsAreQuietEnoughToNotBanner() {
-        val notifications = CallNotifications(context)
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
         notifications.ensureChannels()
         val manager = context.getSystemService(NotificationManager::class.java)
         listOf(CallNotifications.CHANNEL_INCOMING, CallNotifications.CHANNEL_INCOMING_SILENT)
@@ -72,13 +72,13 @@ class CallNotificationsTest {
 
     @Test
     fun incomingNotificationIsFullyVisibleOnTheLockScreen() {
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         assertEquals(NotificationCompat.VISIBILITY_PUBLIC, notification.visibility)
     }
 
     @Test
     fun answerActionOpensInCallActivityWithAnswerAction() {
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         val activityIntents = notification.actions.mapNotNull { action ->
             shadowOf(action.actionIntent).savedIntent
         }.filter { it.component == ComponentName(context, InCallActivity::class.java) }
@@ -90,7 +90,7 @@ class CallNotificationsTest {
 
     @Test
     fun declineActionStaysABroadcastToCallActionReceiver() {
-        val notification = CallNotifications(context).buildIncomingCall(incomingCall())
+        val notification = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         val broadcastIntents = notification.actions.mapNotNull { action ->
             shadowOf(action.actionIntent).savedIntent
         }.filter { it.component == ComponentName(context, CallActionReceiver::class.java) }
@@ -102,13 +102,13 @@ class CallNotificationsTest {
 
     @Test
     fun callerNameFallsBackToNumberThenUnknown() {
-        val named = CallNotifications(context).buildIncomingCall(incomingCall())
+        val named = CallNotifications(context) { java.util.Optional.empty() }.buildIncomingCall(incomingCall())
         assertTrue(named.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.contains("Alice") == true)
     }
 
     @Test
     fun silencedRingHasNoHeadsUpAndNoInsistentRing() {
-        val notification = CallNotifications(context)
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
             .buildIncomingCall(incomingCall(), silentRing = true, quiet = true)
         assertEquals(CallNotifications.CHANNEL_INCOMING_SILENCED, notification.channelId)
         assertNull(notification.fullScreenIntent)
@@ -120,14 +120,14 @@ class CallNotificationsTest {
 
     @Test
     fun incomingNotificationsAreUsableByDefault() {
-        val notifications = CallNotifications(context)
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
         notifications.ensureChannels()
         assertTrue(notifications.incomingNotificationsUsable())
     }
 
     @Test
     fun globallyDisabledNotificationsAreReportedUnusable() {
-        val notifications = CallNotifications(context)
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
         notifications.ensureChannels()
         val manager = context.getSystemService(NotificationManager::class.java)
         shadowOf(manager).setNotificationsEnabled(false)
@@ -136,7 +136,7 @@ class CallNotificationsTest {
 
     @Test
     fun aDisabledIncomingChannelIsReportedUnusable() {
-        val notifications = CallNotifications(context)
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
@@ -150,7 +150,7 @@ class CallNotificationsTest {
 
     @Test
     fun voiceOnlyModePostsOnTheSilentChannel() {
-        val notifications = CallNotifications(context)
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
         assertEquals(
             CallNotifications.CHANNEL_INCOMING,
             notifications.buildIncomingCall(incomingCall()).channelId,
