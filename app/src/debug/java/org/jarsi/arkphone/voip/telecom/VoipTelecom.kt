@@ -28,7 +28,13 @@ interface VoipTelecom {
     /** Routes audio to the speaker or back to the earpiece via Telecom. */
     fun requestSpeaker(id: String, speakerOn: Boolean)
 
-    fun remove(id: String)
+    /**
+     * [onReleased] fires once the platform has actually let go of the call —
+     * always exactly once, even when [id] is not the current call. A carrier
+     * fallback dialed before that point is rejected as a second concurrent
+     * call (field-hit 2026-08-09 16:56).
+     */
+    fun remove(id: String, onReleased: () -> Unit = {})
 }
 
 /** What the coordinator needs from ARK's existing call surfaces. */

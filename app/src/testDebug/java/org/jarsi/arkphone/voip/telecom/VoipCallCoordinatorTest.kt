@@ -63,8 +63,17 @@ class VoipCallCoordinatorTest {
         override fun requestSpeaker(id: String, speakerOn: Boolean) {
             speakerRequests += id to speakerOn
         }
-        override fun remove(id: String) { removed += id }
+        override fun remove(id: String, onReleased: () -> Unit) {
+            removed += id
+            if (holdRelease) pendingRelease = onReleased else onReleased()
+        }
+        fun releaseNow() {
+            pendingRelease?.invoke()
+            pendingRelease = null
+        }
         val speakerRequests = mutableListOf<Pair<String, Boolean>>()
+        var holdRelease = false
+        var pendingRelease: (() -> Unit)? = null
     }
 
     private class FakeUi : VoipCallUi {
@@ -339,6 +348,20 @@ class VoipCallCoordinatorTest {
         // The peer must stop ringing and the adapter must close — cancelling
         // the scope alone does neither.
         assertTrue(session.calls.contains("hangUp"))
+    }
+
+    @Test
+    fun theCarrierDialsOnlyAfterTelecomReleasedTheArkCall() = runTest {
+        // Field-hit 2026-08-09 16:56: the fallback raced the asynchronous
+        // Telecom disconnect and was rejected as a second concurrent call.
+        telecom.holdRelease = true
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = false))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        assertFalse(fellBack)
+        telecom.releaseNow()
+        assertTrue(fellBack)
     }
 
     @Test

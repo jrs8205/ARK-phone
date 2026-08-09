@@ -335,20 +335,27 @@ class VoipCallCoordinator(
         // alone closes nothing, so the peer would keep ringing an attempt the
         // adapter of which stays live under the carrier call.
         call.session.hangUp()
-        val carrier = call.onFallbackToCarrier
         // A carrier fallback is one call from the user's point of view — the
-        // carrier call makes the only history row.
-        finish(call, recordRow = false)
-        carrier?.invoke()
+        // carrier call makes the only history row. Dialing waits for Telecom
+        // to release the ARK call, or the platform rejects the fallback as a
+        // second concurrent call.
+        finish(call, recordRow = false, afterTelecomReleased = call.onFallbackToCarrier)
     }
 
-    private fun finish(call: ActiveCall, recordRow: Boolean = true) {
-        if (active !== call) return
+    private fun finish(
+        call: ActiveCall,
+        recordRow: Boolean = true,
+        afterTelecomReleased: (() -> Unit)? = null,
+    ) {
+        if (active !== call) {
+            afterTelecomReleased?.invoke()
+            return
+        }
         active = null
         call.timeoutJob?.cancel()
         call.stateJob?.cancel()
         call.sessionScope.cancel()
-        telecom.remove(call.handle.id)
+        telecom.remove(call.handle.id) { afterTelecomReleased?.invoke() }
         ui.detachAudioControls()
         ui.clearNotification()
         ui.stopCallService()

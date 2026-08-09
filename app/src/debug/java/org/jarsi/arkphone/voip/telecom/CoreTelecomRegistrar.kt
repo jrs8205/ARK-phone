@@ -143,8 +143,11 @@ class CoreTelecomRegistrar @Inject constructor(
         }
     }
 
-    override fun remove(id: String) {
-        if (currentId != id) return
+    override fun remove(id: String, onReleased: () -> Unit) {
+        if (currentId != id) {
+            onReleased()
+            return
+        }
         val control = controlScope
         currentId = null
         controlScope = null
@@ -157,6 +160,7 @@ class CoreTelecomRegistrar @Inject constructor(
         scope.launch {
             runCatching { control?.disconnect(DisconnectCause(DisconnectCause.LOCAL)) }
             job?.cancel()
+            onReleased()
         }
     }
 
