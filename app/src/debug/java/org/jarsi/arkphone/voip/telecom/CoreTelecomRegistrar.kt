@@ -83,6 +83,10 @@ class CoreTelecomRegistrar @Inject constructor(
                     Log.i(TAG, "ARK addCall session open id=${handle.id}")
                 }
                 Log.i(TAG, "ARK addCall ended id=${handle.id}")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // remove() cancelling the session job is the normal teardown,
+                // not a refusal.
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Telecom refused the ARK call", e)
                 // add() already returned true; without this the coordinator
