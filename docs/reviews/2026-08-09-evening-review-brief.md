@@ -126,14 +126,24 @@ the most suspicious read:
    Compare against the carrier contract in `ArkInCallService` — what did
    the ARK path not copy (rule-evaluated ring decisions, announce-WhatsApp
    flag, settings await timing on cold start)?
-3. **Proximity gating** (`dab497e` + `fe0e57a`): the ARK audio glue
-   reports `earpiece = !speakerOn`; the lock additionally requires
-   `CallController.inCallUiVisible`, set from `InCallActivity`
-   onResume/onPause. Scrutinize the lifecycle: does a proximity-darkened
-   display pause the activity on any supported API (which would release
-   the lock and flicker), what happens on rotation, on `setTurnScreenOn`
-   wake-ups, and when the activity is finished by `InCallFinishGuard`
-   while a call continues?
+3. **Proximity gating** (`dab497e` + `fe0e57a`) — **CONTAINS A LIVE,
+   UNRESOLVED DEFECT: on an ARK internet call the screen still stays on at
+   the ear** (field-observed 2026-08-09 20:15 on a build carrying both
+   commits; on carrier calls the screen-off works). Trace the WHOLE chain
+   for the ARK case and name where it breaks:
+   `AndroidProximityLock.acquire()` and its wake-lock level support;
+   whether `ProximityController` is instantiated at all in the DI graph
+   (who requests the singleton?); the `combine(calls, audio,
+   inCallUiVisible)` emission chain; who sets and who might overwrite the
+   audio state's `earpiece` flag during an ARK call
+   (`attachAudioControls` sets it true once — does anything reset it, and
+   does `CallAudioUiState`'s default matter?); the ARK handle's
+   `telecomState`→`CallStatus` mapping being off-hook at the ear; and
+   `InCallActivity` visibility timing. Also scrutinize the general
+   lifecycle: does a proximity-darkened display pause the activity on any
+   supported API (which would release the lock and flicker), what happens
+   on rotation, on `setTurnScreenOn` wake-ups, and when the activity is
+   finished by `InCallFinishGuard` while a call continues?
 4. **ArkPackageEventReceiver** (`fe0e57a`, debug sourceset):
    MY_PACKAGE_REPLACED + BOOT_COMPLETED start `VoipStartup.onAppStart`.
    Verify Hilt injection in a manifest receiver at boot time, the
