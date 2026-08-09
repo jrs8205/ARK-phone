@@ -105,6 +105,19 @@ sockets no longer count as online; stale delivery queues + wakes), the
 refused-frame resend, and the socket-generation guard all sit on exactly
 that path, and the scenario now passes.
 
+## Round 7 — airplane-mode fallback (16:56 fail → fix → 17:05 pass)
+
+First attempt FAILED usefully: the reach timed out at 7 s as designed, but
+the carrier call was rejected — "another call is being dialed". The
+fallback had raced Telecom's asynchronous disconnect of the ARK call (the
+round-4 pass had won the same race by luck). Fixed in `489c4a1`:
+`VoipTelecom.remove` now reports the platform's release and the fallback
+dials only then, with a regression test pinning the race.
+
+Retest at 17:05 on the fixed build: ARK attempt for 7 s, then a clean
+hand-over to the carrier (Moi) with no error. Fallback matrix's core case
+is green.
+
 ## Remaining protocol (stage C)
 
 - [x] Doze test (14:12): rang on the locked screen; socket survived forced
@@ -112,7 +125,8 @@ that path, and the scenario now passes.
 - [x] Forced FCM chain (14:20 fail → fixes → 14:31 full pass, see above)
 - [x] Mobile→Wi-Fi (16:49): rings and completes — the 2026-08-06 R1
       failure no longer reproduces on the hardened build
-- [ ] Fallback matrix: airplane-mode peer → carrier call after ~7 s
+- [x] Fallback matrix, core case (17:05): airplane-mode peer → clean
+      carrier hand-over at 7 s (after the round-7 race fix)
 - [ ] Superseded / network-switch during a call
 - [ ] Mobile ↔ mobile
 - [ ] Master switch off → carrier
