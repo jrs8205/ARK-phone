@@ -262,6 +262,11 @@ worker 399b9c8) except for the items below, which need a design conversation:
       real track and Telecom endpoints, but the button state is optimistic —
       collecting CallControlScope's currentCallEndpoint/isMuted flows would
       reflect Bluetooth and system-initiated changes too.
+- [ ] "Return to call" affordance on the app's home surface (field ask
+      2026-08-09 19:35): the call screen is deliberately absent from recents,
+      so the only way back mid-call is the ongoing notification. A chip or
+      banner on MainActivity while a call is off-hook would give a second,
+      more discoverable path.
 - [ ] Editing the ARK nickname after registration (field ask 2026-08-09):
       the worker has no update route — needs an authed POST /account/nickname
       + RegistryDO.updateNickname + an edit affordance on the ARK settings
