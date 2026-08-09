@@ -33,6 +33,27 @@ class CallNotificationsTest {
     )
 
     @Test
+    fun anArkRingOnAnAwakeUnlockedScreenStaysOffTheHeadsUpChannel() {
+        // Robolectric default: screen on, keyguard unlocked. The call screen
+        // opens, so the notification must not banner a second button set —
+        // the awake ring uses the ordinary channel with no full-screen intent.
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(viaArkCall = true))
+        assertEquals(CallNotifications.CHANNEL_INCOMING, notification.channelId)
+        assertNull(notification.fullScreenIntent)
+    }
+
+    @Test
+    fun anArkRingOnALockedScreenCarriesTheFullScreenIntent() {
+        shadowOf(context.getSystemService(android.app.KeyguardManager::class.java))
+            .setKeyguardLocked(true)
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(viaArkCall = true))
+        assertEquals(CallNotifications.CHANNEL_INCOMING_ARK, notification.channelId)
+        assertNotNull(notification.fullScreenIntent)
+    }
+
+    @Test
     fun theRingingNotificationNeverHeadsUpOverTheCallScreen() {
         // ARK-phone always opens its own call screen, so a heads-up would
         // stack a second set of answer/decline buttons on top of it. A

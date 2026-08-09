@@ -54,6 +54,15 @@ class CallNotifications @Inject constructor(
         }
     }
 
+    private fun screenLockedOrOff(): Boolean {
+        val interactive =
+            context.getSystemService(android.os.PowerManager::class.java)?.isInteractive != false
+        val keyguardLocked =
+            context.getSystemService(android.app.KeyguardManager::class.java)
+                ?.isKeyguardLocked == true
+        return !interactive || keyguardLocked
+    }
+
     /**
      * API 34+ gates full-screen intents behind a special app op that a
      * sideloaded build starts WITHOUT. When this is false, the ARK incoming
@@ -152,19 +161,26 @@ class CallNotifications @Inject constructor(
             .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setImportant(true)
             .build()
+        // The HIGH channel and its full-screen intent exist to light a LOCKED
+        // phone; on an unlocked, awake screen the same channel heads-ups a
+        // second set of answer/decline buttons over the opening call screen
+        // (field-hit 2026-08-09 17:09). An awake ARK ring therefore uses the
+        // ordinary incoming channel — full ringtone, no banner.
+        val arkLockedRing = info.viaArkCall && screenLockedOrOff()
         val channel = when {
             quiet -> CHANNEL_INCOMING_SILENCED
             silentRing -> CHANNEL_INCOMING_SILENT
-            info.viaArkCall -> CHANNEL_INCOMING_ARK
+            arkLockedRing -> CHANNEL_INCOMING_ARK
             else -> CHANNEL_INCOMING
         }
         // No CallStyle, and for carrier calls no full-screen intent either:
         // ARK-phone opens its own call screen for every ringing carrier call,
         // and either would make the system banner a second set of
-        // answer/decline buttons over it. An ARK internet call is the
-        // exception — it rings from a background process where launching the
-        // screen is blocked, so its notification carries the full-screen
-        // intent that IS the platform's way to ring a locked phone.
+        // answer/decline buttons over it. A locked-screen ARK internet call
+        // is the exception — it rings from a background process where
+        // launching the screen is blocked, so its notification carries the
+        // full-screen intent that IS the platform's way to ring a locked
+        // phone.
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(caller.name)
@@ -189,7 +205,7 @@ class CallNotifications @Inject constructor(
             .setOngoing(true)
             .setContentIntent(openCallScreen)
             .apply {
-                if (info.viaArkCall && !quiet) setFullScreenIntent(openCallScreen, true)
+                if (arkLockedRing && !quiet) setFullScreenIntent(openCallScreen, true)
             }
             .build()
             .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }
