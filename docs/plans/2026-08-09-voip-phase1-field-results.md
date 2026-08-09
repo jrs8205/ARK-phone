@@ -65,11 +65,37 @@ pings never stopped and the worker correctly kept treating it as online.
   conditions are genuinely hard to produce on these devices. To force it:
   temporarily disable the app's notification access, `am stop-app`, call.
 
+## Round 4 — forced FCM chain (14:20): chain PASS, media FAIL, fallback PASS
+
+Notification access revoked (`cmd notification disallow_listener`) so nothing
+could resurrect the process; `am stop-app`; verified dead 20 s. The call
+exercised the full wake chain for the first time: reach `online=false` →
+durable budget approved (`allowWake`) → FCM sent 14:20:52 → **cold start**
+(`Start proc … FirebaseInstanceIdReceiver` 14:20:53) → connect 0.7 s → flush
+→ ringing at ~2.5 s from the push, watcher flipped the caller's reach inside
+3 s. The user answered — then two defects surfaced: the insistent ringtone
+kept playing over the answered call (the notification was only replaced on
+InCall), and the callee's TURN fetch stalled with no trace, so no answer was
+ever signaled; the caller's 15 s timeout fired and the call **fell back to
+the carrier and completed over Moi** — the fallback covenant held.
+
+Fixed in `d2714dd`: answering silences the ring through the carrier path's
+quiet re-post, and the TURN fetch is bracketed with logs.
+
+## Round 5 — forced FCM chain again (14:31): full PASS
+
+Same setup, new build. Cold start 14:31:27, push → ring 2.4 s, wake-hold
+covered the window, answer at +4.8 s, TURN fetch 0.66 s (`identity=true`,
+`servers=2`), answer signaled, media connected, **audio both ways**, "ARK"
+shown as the caller on both phones, ringtone silenced on answer. The round 4
+TURN stall did not reproduce; if it ever does, the new logs will show which
+side of the fetch died.
+
 ## Remaining protocol (stage C)
 
 - [x] Doze test (14:12): rang on the locked screen; socket survived forced
       idle via the listener exemption, so the wake was correctly not needed
-- [ ] Optional: forced FCM chain (notification access off + am stop-app)
+- [x] Forced FCM chain (14:20 fail → fixes → 14:31 full pass, see above)
 - [ ] Fallback matrix: airplane-mode peer → carrier call after ~7 s
 - [ ] Superseded / network-switch during a call
 - [ ] Mobile ↔ mobile
