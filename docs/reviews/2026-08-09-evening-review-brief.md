@@ -150,7 +150,16 @@ the most suspicious read:
    idempotence of `onAppStart` when the app later starts normally, that
    the receiver's process has time to matter (no `goAsync`), and whether
    BOOT_COMPLETED without the identity registered does anything wasteful.
-5. **Beta build type** (`fd7e143`, `app/build.gradle.kts`): the debug
+5. **Single ongoing notification** (`ea39ad8`): `VoipForegroundService`
+   now posts `CallNotifications.buildOngoingCall` under the SHARED
+   `NOTIFICATION_ID` as its mandatory foreground notice — one entry whose
+   tap returns to the call, replacing the former service-private
+   notification and channel (deleted on sight). Verify the id sharing
+   across the ring → silence → foreground-start → InCall-update →
+   teardown sequence: can any ordering leave the foreground service
+   noticeless, cancel the foreground notification mid-call
+   (`clear()` runs in `finish`), or strand a stale entry?
+6. **Beta build type** (`fd7e143`, `app/build.gradle.kts`): the debug
    sourceset compiled into a release-signed, unminified variant
    (`java`+`kotlin` srcDirs, res, manifest overlay, `betaImplementation`
    dependency copies, `matchingFallbacks`). Look for variant drift: any
