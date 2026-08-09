@@ -78,6 +78,7 @@ class VoipCallCoordinatorTest {
         override fun removed(id: String) { events += "removed" }
         override fun showIncoming(handle: VoipCallHandle) { events += "showIncoming" }
         override fun showOngoing(handle: VoipCallHandle) { events += "showOngoing" }
+        override fun silenceRinging(handle: VoipCallHandle) { events += "silenceRinging" }
         override fun clearNotification() { events += "clearNotification" }
         override fun openCallScreen() { events += "openCallScreen" }
         override fun startCallService() { events += "startCallService" }
@@ -341,6 +342,8 @@ class VoipCallCoordinatorTest {
         ui.lastHandle!!.answer()
         assertEquals(listOf("voip-in-ARK-BBBB-BBBB"), telecom.answered)
         assertEquals(listOf("answer"), session.calls)
+        // The ringtone dies with the answer, not with the media connecting.
+        assertTrue(ui.events.contains("silenceRinging"))
     }
 
     @Test

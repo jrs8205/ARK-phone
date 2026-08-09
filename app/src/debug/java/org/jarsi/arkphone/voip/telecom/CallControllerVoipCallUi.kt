@@ -42,6 +42,11 @@ class CallControllerVoipCallUi @Inject constructor(
             ?.let(callNotifications::showOngoingCall)
     }
 
+    override fun silenceRinging(handle: VoipCallHandle) {
+        callController.calls.value.firstOrNull { it.id == handle.id }
+            ?.let(callNotifications::silenceRinging)
+    }
+
     override fun clearNotification() = callNotifications.clear()
 
     override fun openCallScreen() {

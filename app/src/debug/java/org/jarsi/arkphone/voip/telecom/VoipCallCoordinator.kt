@@ -77,8 +77,13 @@ class VoipCallCoordinator(
         var call: ActiveCall? = null
         override fun answer() {
             call?.let { current ->
+                Log.i(TAG, "ARK user answer id=${current.handle.id}")
                 current.answeredByUser = true
                 telecom.answered(current.handle.id)
+                // The insistent ringtone must die with the answer, not wait
+                // for the media to connect — an ICE failure used to leave it
+                // looping over a call the user had already picked up.
+                ui.silenceRinging(current.handle)
             }
             session.answer()
         }
@@ -230,6 +235,7 @@ class VoipCallCoordinator(
         call.handle,
         onSystemAnswer = {
             call.answeredByUser = true
+            ui.silenceRinging(call.handle)
             call.session.answer()
         },
         onSystemDisconnect = { call.session.hangUp() },

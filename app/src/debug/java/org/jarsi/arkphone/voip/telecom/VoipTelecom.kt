@@ -38,6 +38,9 @@ interface VoipCallUi {
     fun removed(id: String)
     fun showIncoming(handle: VoipCallHandle)
     fun showOngoing(handle: VoipCallHandle)
+
+    /** Kills the insistent ringtone the moment the call is answered. */
+    fun silenceRinging(handle: VoipCallHandle)
     fun clearNotification()
     fun openCallScreen()
     fun startCallService()

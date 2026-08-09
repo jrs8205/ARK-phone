@@ -116,10 +116,16 @@ object VoipModule {
             signaling = EngineSignaling(engine),
             adapterFactory = StreamPeerConnectionAdapterFactory(provider),
             turnFetcher = {
+                // Bracketing logs: a 2026-08-09 cold-start call stalled inside
+                // this fetch with no trace; these say on which side it died.
+                android.util.Log.i("ArkPhone", "ARK turn fetch begins")
                 val identity = identityRepository.identity.first()
-                identity?.let {
+                android.util.Log.i("ArkPhone", "ARK turn identity=${identity != null}")
+                val servers = identity?.let {
                     accountClient.turnCredentials("${it.code}.${it.deviceToken}")
                 }
+                android.util.Log.i("ArkPhone", "ARK turn servers=${servers?.size}")
+                servers
             },
             scope = scope,
             peerId = peerCode,
