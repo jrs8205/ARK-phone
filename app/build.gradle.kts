@@ -75,6 +75,34 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+        // Family field-test build: the debug sourceset's ARK engine with the
+        // RELEASE signature, so it installs OVER an installed release build
+        // and keeps its data and the dialer role. Unminified on purpose — R8
+        // rules for the VoIP stack are unproven, and this build trades size
+        // for zero shrinker risk. Never published as a release.
+        create("beta") {
+            isDebuggable = false
+            isMinifyEnabled = false
+            versionNameSuffix = "-beta"
+            buildConfigField(
+                "String",
+                "VOIP_WORKER_URL",
+                "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: ""}\"",
+            )
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            matchingFallbacks += listOf("debug", "release")
+        }
+    }
+    sourceSets {
+        // Beta IS the debug feature set — one source of truth, two signatures.
+        getByName("beta") {
+            java.srcDirs("src/debug/java")
+            kotlin.srcDirs("src/debug/java")
+            res.srcDirs("src/debug/res")
+            manifest.srcFile("src/debug/AndroidManifest.xml")
+        }
     }
     lint {
         // Version-currency checks flip on upstream releases, not on code
@@ -128,6 +156,11 @@ dependencies {
     debugImplementation(libs.okhttp)
     debugImplementation(libs.kotlinx.serialization.json)
     debugImplementation(libs.stream.webrtc)
+    "betaImplementation"(libs.androidx.core.telecom)
+    "betaImplementation"(libs.firebase.messaging)
+    "betaImplementation"(libs.okhttp)
+    "betaImplementation"(libs.kotlinx.serialization.json)
+    "betaImplementation"(libs.stream.webrtc)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
