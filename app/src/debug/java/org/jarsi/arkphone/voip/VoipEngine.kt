@@ -22,6 +22,9 @@ const val FLUSH_DRAIN_MS: Long = 500L
 /** How long connecting may take before the inbox is treated as unreachable. */
 private const val CONNECT_TIMEOUT_MS = 8_000L
 
+/** Post-drain slack for the ring to reach Telecom before the wake lock drops. */
+private const val WAKE_RING_MARGIN_MS = 500L
+
 /**
  * The one long-lived piece of VoIP state in the process: this device's inbox
  * socket, the flush reconciliation that decides what rings, and the reach
@@ -47,9 +50,15 @@ class VoipEngine @Inject constructor(
     private val _signals = MutableSharedFlow<SignalingMessage>(extraBufferCapacity = 64)
     val signals: SharedFlow<SignalingMessage> = _signals.asSharedFlow()
 
-    /** Called from the FCM wake path; connecting is all a wake ever does. */
-    fun onWake() {
-        scope.launch { connect() }
+    /**
+     * The FCM wake path. Returns only once the inbox is connected and the
+     * flush drain has had time to ring, so the messaging service can hold its
+     * process priority and wake lock over the whole window — a wake that
+     * merely launched a detached coroutine used to die with the service on a
+     * dozing phone.
+     */
+    suspend fun awaitWake() {
+        if (connect()) delay(FLUSH_DRAIN_MS + WAKE_RING_MARGIN_MS)
     }
 
     /** True once the inbox socket is open. False when this device has no identity. */
@@ -74,12 +83,18 @@ class VoipEngine @Inject constructor(
         } ?: false
     }
 
-    /** The routing pre-check; false whenever anything at all is uncertain. */
-    suspend fun reach(peerCode: String, timeoutMs: Long): Boolean {
-        if (!connect()) return false
-        val active = client ?: return false
-        return active.reach(peerCode, timeoutMs)
-    }
+    /**
+     * The routing pre-check; false whenever anything at all is uncertain.
+     * [timeoutMs] caps the WHOLE check: a cold own-socket connect must eat
+     * into the budget, not stack its 8 s in front of it — the promise to the
+     * user is one bounded wait before the carrier takes over.
+     */
+    suspend fun reach(peerCode: String, timeoutMs: Long): Boolean =
+        withTimeoutOrNull(timeoutMs) {
+            if (!connect()) return@withTimeoutOrNull false
+            val active = client ?: return@withTimeoutOrNull false
+            active.reach(peerCode, timeoutMs)
+        } ?: false
 
     fun send(message: SignalingMessage): Boolean = client?.send(message) ?: false
 

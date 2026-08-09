@@ -51,6 +51,19 @@ class CallNotifications @Inject constructor(
         }
     }
 
+    /**
+     * API 34+ gates full-screen intents behind a special app op that a
+     * sideloaded build starts WITHOUT. When this is false, the ARK incoming
+     * notification still shows, but a locked screen will not light up — the
+     * settings screen points the user at the grant.
+     */
+    fun canUseFullScreenIntent(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return true
+        }
+        return notificationManager?.canUseFullScreenIntent() != false
+    }
+
     fun ensureChannels() {
         val ringtone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         val audioAttributes = AudioAttributes.Builder()

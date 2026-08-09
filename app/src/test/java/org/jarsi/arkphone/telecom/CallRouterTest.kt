@@ -52,11 +52,30 @@ class CallRouterTest {
             settingsCache = settingsCache,
             linkCache = linkCache,
             voipCallGateway = if (withGateway) Optional.of(gateway) else Optional.empty(),
+            emergencyNumbers = { it == "112" },
         )
     }
 
     private suspend fun givenLink() {
         links.link("+358 44 5552841", "ARK-BBBB-BBBB", "Jarsi", "pk", 1_000L)
+    }
+
+    @Test
+    fun anEmergencyNumberNeverTouchesTheVoipPath() = runTest {
+        links.link("112", "ARK-BBBB-BBBB", "Oops", "pk", 1_000L)
+        val router = router(scope = backgroundScope)
+        assertTrue(router.placeCall("112"))
+        assertEquals("112", placed.single().first.schemeSpecificPart)
+        assertTrue(gateway.started.isEmpty())
+    }
+
+    @Test
+    fun aUssdCodeNeverTouchesTheVoipPath() = runTest {
+        givenLink()
+        val router = router(scope = backgroundScope)
+        assertTrue(router.placeCall("*123#"))
+        assertEquals("*123#", placed.single().first.schemeSpecificPart)
+        assertTrue(gateway.started.isEmpty())
     }
 
     @Test

@@ -253,6 +253,40 @@ class SignalingClientTest {
     }
 
     @Test
+    fun `the socket is kept alive with pings while open`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        advanceTimeBy(SignalingClient.PING_INTERVAL_MS + 100)
+        runCurrent()
+        assertEquals(listOf("ping"), connector.handles.single().sent)
+        advanceTimeBy(SignalingClient.PING_INTERVAL_MS)
+        runCurrent()
+        assertEquals(listOf("ping", "ping"), connector.handles.single().sent)
+        client.stop()
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(2, connector.handles.single().sent.size)
+    }
+
+    @Test
+    fun `a refused ping drops the socket and reconnects`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        advanceTimeBy(SignalingClient.PING_INTERVAL_MS + 100)
+        runCurrent()
+        assertEquals(SignalingConnectionState.DISCONNECTED, client.connectionState.value)
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(2, connector.handles.size)
+        client.stop()
+    }
+
+    @Test
     fun `stop closes the socket and stops reconnecting`() = runTest {
         val connector = FakeConnector()
         val client = client(connector, backgroundScope)

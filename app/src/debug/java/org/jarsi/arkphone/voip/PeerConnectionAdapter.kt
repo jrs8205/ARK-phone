@@ -20,6 +20,9 @@ interface PeerConnectionAdapter {
     suspend fun createOfferSdp(): String
     suspend fun createAnswerSdp(remoteOfferSdp: String): String
     suspend fun acceptAnswer(remoteAnswerSdp: String)
+
+    /** The mute button: disables the local audio track without renegotiating. */
+    fun setMicEnabled(enabled: Boolean)
     fun addRemoteIceCandidate(candidateJson: String)
     suspend fun stats(): StatsSnapshot?
     fun close()

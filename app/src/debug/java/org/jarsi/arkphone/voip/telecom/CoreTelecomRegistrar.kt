@@ -6,6 +6,7 @@ import android.telecom.DisconnectCause
 import android.util.Log
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlScope
+import androidx.core.telecom.CallEndpointCompat
 import androidx.core.telecom.CallsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -30,13 +31,18 @@ class CoreTelecomRegistrar @Inject constructor(
     private var registered = false
 
     private var sessionJob: Job? = null
+    private var endpointJob: Job? = null
     private var controlScope: CallControlScope? = null
     private var currentId: String? = null
+
+    /** The endpoints Telecom last advertised for the live call. */
+    private var endpoints: List<CallEndpointCompat> = emptyList()
 
     override fun add(
         handle: VoipCallHandle,
         onSystemAnswer: () -> Unit,
         onSystemDisconnect: () -> Unit,
+        onFailed: () -> Unit,
     ): Boolean = try {
         if (!registered) {
             callsManager.registerAppWithTelecom(CallsManager.CAPABILITY_BASELINE)
@@ -51,7 +57,10 @@ class CoreTelecomRegistrar @Inject constructor(
                 CallAttributesCompat.DIRECTION_OUTGOING
             },
             callType = CallAttributesCompat.CALL_TYPE_AUDIO_CALL,
-            callCapabilities = CallAttributesCompat.SUPPORTS_SET_INACTIVE,
+            // Phase 1 has no hold, so the capability must not be advertised:
+            // the system turned its setInactive requests (an arriving carrier
+            // call, a hold request) into a dropped internet call.
+            callCapabilities = 0,
         )
         currentId = handle.id
         Log.i(TAG, "ARK telecom add id=${handle.id}")
@@ -65,14 +74,20 @@ class CoreTelecomRegistrar @Inject constructor(
                     onAnswer = { onSystemAnswer() },
                     onDisconnect = { onSystemDisconnect() },
                     onSetActive = { },
-                    onSetInactive = { onSystemDisconnect() },
+                    onSetInactive = { },
                 ) {
                     controlScope = this
+                    endpointJob = scope.launch {
+                        availableEndpoints.collect { endpoints = it }
+                    }
                     Log.i(TAG, "ARK addCall session open id=${handle.id}")
                 }
                 Log.i(TAG, "ARK addCall ended id=${handle.id}")
             } catch (e: Exception) {
                 Log.w(TAG, "Telecom refused the ARK call", e)
+                // add() already returned true; without this the coordinator
+                // would keep ringing a call the platform never accepted.
+                if (currentId == handle.id) onFailed()
             }
         }
         true
@@ -81,10 +96,32 @@ class CoreTelecomRegistrar @Inject constructor(
         false
     }
 
+    override fun answered(id: String) {
+        if (currentId != id) return
+        val control = controlScope ?: return
+        scope.launch {
+            runCatching { control.answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL) }
+        }
+    }
+
     override fun setActive(id: String) {
         if (currentId != id) return
         val control = controlScope ?: return
         scope.launch { control.setActive() }
+    }
+
+    override fun requestSpeaker(id: String, speakerOn: Boolean) {
+        if (currentId != id) return
+        val control = controlScope ?: return
+        scope.launch {
+            val wanted = if (speakerOn) {
+                CallEndpointCompat.TYPE_SPEAKER
+            } else {
+                CallEndpointCompat.TYPE_EARPIECE
+            }
+            val target = endpoints.firstOrNull { it.type == wanted } ?: return@launch
+            runCatching { control.requestEndpointChange(target) }
+        }
     }
 
     override fun remove(id: String) {
@@ -92,6 +129,9 @@ class CoreTelecomRegistrar @Inject constructor(
         val control = controlScope
         currentId = null
         controlScope = null
+        endpointJob?.cancel()
+        endpointJob = null
+        endpoints = emptyList()
         val job = sessionJob
         sessionJob = null
         scope.launch {

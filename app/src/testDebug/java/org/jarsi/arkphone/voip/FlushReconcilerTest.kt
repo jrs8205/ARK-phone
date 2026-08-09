@@ -67,6 +67,41 @@ class FlushReconcilerTest {
         assertEquals(IncomingArkCall("ARK-BBBB-BBBB", "v=0 b"), reconcileFlush(flush))
     }
 
+    private fun candidate(from: String, value: String) = SignalingMessage(
+        type = SignalingTypes.ICE_CANDIDATE,
+        from = from,
+        payload = buildJsonObject { put("candidate", value) },
+    )
+
+    @Test
+    fun candidatesTrickledAfterTheOfferRideAlongWithTheRing() {
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0"),
+            candidate("ARK-BBBB-BBBB", "c-1"),
+            candidate("ARK-BBBB-BBBB", "c-2"),
+        )
+        assertEquals(
+            IncomingArkCall("ARK-BBBB-BBBB", "v=0", listOf("c-1", "c-2")),
+            reconcileFlush(flush),
+        )
+    }
+
+    @Test
+    fun candidatesFromOtherPeersAndDeadAttemptsAreNotSeeded() {
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0 stale"),
+            candidate("ARK-BBBB-BBBB", "stale-c"),
+            end("ARK-BBBB-BBBB"),
+            candidate("ARK-CCCC-CCCC", "orphan-c"),
+            offer("ARK-BBBB-BBBB", "v=0 live"),
+            candidate("ARK-BBBB-BBBB", "live-c"),
+        )
+        assertEquals(
+            IncomingArkCall("ARK-BBBB-BBBB", "v=0 live", listOf("live-c")),
+            reconcileFlush(flush),
+        )
+    }
+
     @Test
     fun framesWithoutAServerAttestedFromAreIgnored() {
         val flush = listOf(

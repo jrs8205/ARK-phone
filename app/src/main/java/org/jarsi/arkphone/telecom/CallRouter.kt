@@ -20,10 +20,17 @@ class CallRouter @Inject constructor(
     private val settingsCache: SettingsCache,
     private val linkCache: ArkLinkCache,
     private val voipCallGateway: Optional<VoipCallGateway>,
+    private val emergencyNumbers: EmergencyNumbers,
 ) {
     /** Returns false only when the call could not be placed at all. */
     fun placeCall(number: String): Boolean {
         if (number.isBlank()) return false
+        // The contract in the class doc, made real: an emergency call or a
+        // USSD/MMI string (* or # anywhere) never waits on the internet path,
+        // even if a link key happens to collide with its digits.
+        if (number.any { it == '*' || it == '#' } || emergencyNumbers.isEmergency(number)) {
+            return phoneCaller.placeCall(number)
+        }
         val gateway = voipCallGateway.orElse(null) ?: return phoneCaller.placeCall(number)
         if (!settingsCache.current.arkInternetCallsEnabled) return phoneCaller.placeCall(number)
         val link = linkCache.linkFor(number) ?: return phoneCaller.placeCall(number)

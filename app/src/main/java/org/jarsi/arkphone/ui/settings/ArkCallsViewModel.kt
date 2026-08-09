@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.settings
 
+import android.Manifest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,8 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.ArkIdentity
 import org.jarsi.arkphone.data.ArkIdentityRepository
 import org.jarsi.arkphone.data.SettingsRepository
+import org.jarsi.arkphone.telecom.FullScreenIntentPermission
+import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.voip.VoipAccountGateway
 import java.util.Optional
 import javax.inject.Inject
@@ -22,6 +25,8 @@ data class ArkCallsUiState(
     val nickname: String = "",
     val registering: Boolean = false,
     val registerFailed: Boolean = false,
+    val micPermissionMissing: Boolean = false,
+    val fullScreenIntentMissing: Boolean = false,
 )
 
 @HiltViewModel
@@ -29,12 +34,15 @@ class ArkCallsViewModel @Inject constructor(
     private val identityRepository: ArkIdentityRepository,
     private val settingsRepository: SettingsRepository,
     private val accountGateway: Optional<VoipAccountGateway>,
+    private val permissionChecker: PermissionChecker,
+    private val fullScreenIntentPermission: FullScreenIntentPermission,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArkCallsUiState(available = accountGateway.isPresent))
     val uiState: StateFlow<ArkCallsUiState> = _uiState.asStateFlow()
 
     init {
+        refreshPermissions()
         viewModelScope.launch {
             identityRepository.identity.collect { identity ->
                 _uiState.value = _uiState.value.copy(
@@ -49,6 +57,15 @@ class ArkCallsViewModel @Inject constructor(
                     _uiState.value.copy(enabled = settings.arkInternetCallsEnabled)
             }
         }
+    }
+
+    /** Re-checked on every resume: both grants happen outside this screen. */
+    fun refreshPermissions() {
+        if (!_uiState.value.available) return
+        _uiState.value = _uiState.value.copy(
+            micPermissionMissing = !permissionChecker.has(Manifest.permission.RECORD_AUDIO),
+            fullScreenIntentMissing = !fullScreenIntentPermission.allowed(),
+        )
     }
 
     fun onNicknameChanged(nickname: String) {

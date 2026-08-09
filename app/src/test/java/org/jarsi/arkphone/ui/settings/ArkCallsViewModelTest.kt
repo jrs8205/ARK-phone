@@ -3,6 +3,7 @@ package org.jarsi.arkphone.ui.settings
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.ArkIdentity
 import org.jarsi.arkphone.testing.FakeArkIdentityRepository
+import org.jarsi.arkphone.testing.FakePermissionChecker
 import org.jarsi.arkphone.testing.FakeSettingsRepository
 import org.jarsi.arkphone.testing.FakeVoipAccountGateway
 import org.jarsi.arkphone.testing.MainDispatcherRule
@@ -28,6 +29,10 @@ class ArkCallsViewModelTest {
         identityRepository = identities,
         settingsRepository = settings,
         accountGateway = if (available) Optional.of(gateway) else Optional.empty(),
+        permissionChecker = FakePermissionChecker().apply {
+            grant(android.Manifest.permission.RECORD_AUDIO)
+        },
+        fullScreenIntentPermission = { true },
     )
 
     @Test

@@ -150,4 +150,32 @@ class VoipEngineTest {
         val engine = engine(connector, backgroundScope, identity = null)
         assertFalse(engine.reach("ARK-BBBB-BBBB", 4_000))
     }
+
+    @Test
+    fun reachIsBoundedByItsOwnTimeoutEvenWhenConnectStalls() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        // The handshake never completes: the promise to the caller is one
+        // bounded wait, not the connect timeout stacked in front of it.
+        val reachable = async { engine.reach("ARK-BBBB-BBBB", 5_000) }
+        runCurrent()
+        advanceTimeBy(5_100)
+        runCurrent()
+        assertTrue(reachable.isCompleted)
+        assertFalse(reachable.await())
+    }
+
+    @Test
+    fun awaitWakeHoldsUntilTheDrainWindowHasPassed() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        val wake = async { engine.awaitWake() }
+        runCurrent()
+        connector.opens()
+        runCurrent()
+        assertFalse(wake.isCompleted)
+        advanceTimeBy(FLUSH_DRAIN_MS + 600)
+        runCurrent()
+        assertTrue(wake.isCompleted)
+    }
 }

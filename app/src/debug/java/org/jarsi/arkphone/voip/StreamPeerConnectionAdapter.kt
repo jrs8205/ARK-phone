@@ -89,10 +89,17 @@ class StreamPeerConnectionAdapter(
         observer,
     ) ?: error("PeerConnection creation failed")
 
+    private val audioTrack = factory.createAudioTrack(
+        "audio0",
+        factory.createAudioSource(MediaConstraints()),
+    )
+
     init {
-        val audioSource = factory.createAudioSource(MediaConstraints())
-        val audioTrack = factory.createAudioTrack("audio0", audioSource)
         connection.addTrack(audioTrack, listOf("stream0"))
+    }
+
+    override fun setMicEnabled(enabled: Boolean) {
+        runCatching { audioTrack.setEnabled(enabled) }
     }
 
     override suspend fun createOfferSdp(): String {

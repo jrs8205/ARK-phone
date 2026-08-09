@@ -1,6 +1,8 @@
 package org.jarsi.arkphone.di
 
 import android.content.Context
+import android.os.Build
+import android.telephony.TelephonyManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -71,6 +73,9 @@ import org.jarsi.arkphone.telecom.SpeechAvailability
 import org.jarsi.arkphone.telecom.TelecomCallPlacer
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.CallScreeningRole
+import org.jarsi.arkphone.telecom.CallNotifications
+import org.jarsi.arkphone.telecom.EmergencyNumbers
+import org.jarsi.arkphone.telecom.FullScreenIntentPermission
 import org.jarsi.arkphone.telecom.RejectMessageSender
 import org.jarsi.arkphone.telecom.RingSilencer
 import org.jarsi.arkphone.telecom.SmsRejectMessageSender
@@ -287,5 +292,28 @@ abstract class AppModule {
 
         @Provides
         fun provideArkLinkDao(db: ArkPhoneDatabase): ArkLinkDao = db.arkLinkDao()
+
+        @Provides
+        @Singleton
+        fun provideFullScreenIntentPermission(
+            callNotifications: CallNotifications,
+        ): FullScreenIntentPermission =
+            FullScreenIntentPermission { callNotifications.canUseFullScreenIntent() }
+
+        @Provides
+        @Singleton
+        fun provideEmergencyNumbers(@ApplicationContext context: Context): EmergencyNumbers =
+            EmergencyNumbers { number ->
+                // Telephony may be unavailable or throw; routing then proceeds
+                // normally and the carrier stack still applies its own rules.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    false
+                } else {
+                    runCatching {
+                        context.getSystemService(TelephonyManager::class.java)
+                            ?.isEmergencyNumber(number) == true
+                    }.getOrDefault(false)
+                }
+            }
     }
 }

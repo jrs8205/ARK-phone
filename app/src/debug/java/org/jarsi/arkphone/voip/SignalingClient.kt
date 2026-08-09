@@ -60,6 +60,7 @@ class SignalingClient(
 
     private var handle: WebSocketHandle? = null
     private var reconnectJob: Job? = null
+    private var pingJob: Job? = null
     private var reconnectDelayMs = 1_000L
     private var running = false
 
@@ -73,6 +74,8 @@ class SignalingClient(
         running = false
         reconnectJob?.cancel()
         reconnectJob = null
+        pingJob?.cancel()
+        pingJob = null
         handle?.close()
         handle = null
         _connectionState.value = SignalingConnectionState.DISCONNECTED
@@ -115,6 +118,27 @@ class SignalingClient(
     private fun onOpen() {
         reconnectDelayMs = 1_000L
         _connectionState.value = SignalingConnectionState.CONNECTED
+        startPinging()
+    }
+
+    /**
+     * The socket's proof of life: the worker counts a socket silent for 45 s
+     * as a zombie and stops trusting it with calls, so pings must keep
+     * flowing for as long as the socket claims to be open. A refused ping
+     * doubles as the half-dead-socket probe.
+     */
+    private fun startPinging() {
+        pingJob?.cancel()
+        pingJob = scope.launch {
+            while (true) {
+                delay(PING_INTERVAL_MS)
+                val current = handle ?: return@launch
+                if (!current.send(PING)) {
+                    onSendRefused()
+                    return@launch
+                }
+            }
+        }
     }
 
     private fun onText(text: String) {
@@ -136,6 +160,7 @@ class SignalingClient(
     }
 
     private fun onClosed(closeCode: Int, reason: String) {
+        pingJob?.cancel()
         // A 1000/"superseded" close means this device opened a newer socket.
         // Reconnecting here would supersede the socket that just replaced this
         // one, and the loop would repeat forever.
@@ -150,6 +175,7 @@ class SignalingClient(
     private fun onSendRefused() {
         if (!running) return
         val lost = handle ?: return
+        pingJob?.cancel()
         lost.close()
         handle = null
         _connectionState.value = SignalingConnectionState.DISCONNECTED
@@ -168,7 +194,9 @@ class SignalingClient(
 
     companion object {
         const val SUPERSEDED_REASON = "superseded"
+        const val PING_INTERVAL_MS = 20_000L
         private const val NORMAL_CLOSE = 1000
+        private const val PING = "ping"
         private const val PONG = "pong"
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
     }

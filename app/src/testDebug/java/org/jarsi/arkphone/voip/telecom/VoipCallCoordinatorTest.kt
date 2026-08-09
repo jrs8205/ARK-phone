@@ -27,38 +27,53 @@ class VoipCallCoordinatorTest {
 
     private class FakeSession : VoipMediaSession {
         val calls = mutableListOf<String>()
+        var micOn = true
         private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
         override val state: StateFlow<VoipCallState> = _state
         override fun placeCall() { calls += "placeCall" }
         override fun answer() { calls += "answer" }
         override fun reject() { calls += "reject" }
         override fun hangUp() { calls += "hangUp" }
+        override fun setMicEnabled(enabled: Boolean) { micOn = enabled }
         fun moveTo(next: VoipCallState) { _state.value = next }
     }
 
     private class FakeTelecom(var accepts: Boolean = true) : VoipTelecom {
         val added = mutableListOf<String>()
         val removed = mutableListOf<String>()
+        val answered = mutableListOf<String>()
         var lastAnswer: (() -> Unit)? = null
         var lastDisconnect: (() -> Unit)? = null
+        var lastFailed: (() -> Unit)? = null
         override fun add(
             handle: VoipCallHandle,
             onSystemAnswer: () -> Unit,
             onSystemDisconnect: () -> Unit,
+            onFailed: () -> Unit,
         ): Boolean {
             if (!accepts) return false
             added += handle.id
             lastAnswer = onSystemAnswer
             lastDisconnect = onSystemDisconnect
+            lastFailed = onFailed
             return true
         }
+        override fun answered(id: String) { answered += id }
         override fun setActive(id: String) = Unit
+        override fun requestSpeaker(id: String, speakerOn: Boolean) {
+            speakerRequests += id to speakerOn
+        }
         override fun remove(id: String) { removed += id }
+        val speakerRequests = mutableListOf<Pair<String, Boolean>>()
     }
 
     private class FakeUi : VoipCallUi {
         val events = mutableListOf<String>()
-        override fun added(handle: VoipCallHandle) { events += "added" }
+        var lastHandle: VoipCallHandle? = null
+        override fun added(handle: VoipCallHandle) {
+            events += "added"
+            lastHandle = handle
+        }
         override fun changed() { events += "changed" }
         override fun removed(id: String) { events += "removed" }
         override fun showIncoming(handle: VoipCallHandle) { events += "showIncoming" }
@@ -67,11 +82,22 @@ class VoipCallCoordinatorTest {
         override fun openCallScreen() { events += "openCallScreen" }
         override fun startCallService() { events += "startCallService" }
         override fun stopCallService() { events += "stopCallService" }
+        var audioController: org.jarsi.arkphone.telecom.InCallAudioController? = null
+        override fun attachAudioControls(
+            controller: org.jarsi.arkphone.telecom.InCallAudioController,
+        ) {
+            audioController = controller
+        }
+        override fun detachAudioControls() { audioController = null }
+        override fun audioStateChanged(muted: Boolean, speakerOn: Boolean) {
+            events += "audio muted=$muted speaker=$speakerOn"
+        }
     }
 
     private class FakeCallLog : ArkCallLog {
         val records = mutableListOf<ArkCallRecord>()
         override fun record(record: ArkCallRecord) { records += record }
+        override fun unreadMissedCount(): Int = records.count { it.type == ArkCallType.MISSED }
     }
 
     private class FakeReach(var reachable: Boolean) {
@@ -102,9 +128,11 @@ class VoipCallCoordinatorTest {
         reach: FakeReach,
         nicknameFor: (String) -> String? = { "Jarsi" },
         numberFor: (String) -> String? = { "+358 44 5552841" },
+        blockCheck: suspend (String?) -> Boolean = { false },
+        hasMic: () -> Boolean = { true },
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
-        sessionFactory = { _, _, _ -> session },
+        sessionFactory = { _, _, _, _ -> session },
         telecom = telecom,
         ui = ui,
         nicknameForCode = nicknameFor,
@@ -113,6 +141,8 @@ class VoipCallCoordinatorTest {
         missedCalls = { missed += it },
         clock = Clock { 1_000L },
         scope = scope,
+        blockCheck = blockCheck,
+        hasMicPermission = hasMic,
     )
 
     @Test
@@ -242,5 +272,112 @@ class VoipCallCoordinatorTest {
         telecom.lastAnswer!!()
         telecom.lastDisconnect!!()
         assertEquals(listOf("answer", "hangUp"), session.calls)
+    }
+
+    @Test
+    fun anUnlinkedCallerNeverRings() = runTest {
+        val coordinator = coordinator(
+            backgroundScope,
+            FakeReach(reachable = true),
+            nicknameFor = { null },
+            numberFor = { null },
+        )
+        coordinator.onIncoming(IncomingArkCall("ARK-EEEE-EEEE", "v=0"))
+        runCurrent()
+        assertTrue(telecom.added.isEmpty())
+        assertTrue(ui.events.isEmpty())
+    }
+
+    @Test
+    fun aBlockedNumberNeverRings() = runTest {
+        val coordinator = coordinator(
+            backgroundScope,
+            FakeReach(reachable = true),
+            blockCheck = { true },
+        )
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertTrue(telecom.added.isEmpty())
+        assertTrue(ui.events.isEmpty())
+    }
+
+    @Test
+    fun withoutMicPermissionTheCarrierPlacesTheCall() = runTest {
+        val coordinator =
+            coordinator(backgroundScope, FakeReach(reachable = true), hasMic = { false })
+        assertFalse(coordinator.startCall(link) { })
+        assertTrue(session.calls.isEmpty())
+        assertTrue(telecom.added.isEmpty())
+    }
+
+    @Test
+    fun anEarlySessionFailureFallsBackToTheCarrier() = runTest {
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("no-turn"))
+        runCurrent()
+        assertTrue(fellBack)
+        assertTrue(ui.events.contains("removed"))
+    }
+
+    @Test
+    fun aTelecomWithdrawalOnAnOutgoingCallFallsBack() = runTest {
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        telecom.lastFailed!!()
+        runCurrent()
+        assertTrue(fellBack)
+    }
+
+    @Test
+    fun answeringInArkUiAlsoAnswersTheTelecomCall() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        ui.lastHandle!!.answer()
+        assertEquals(listOf("voip-in-ARK-BBBB-BBBB"), telecom.answered)
+        assertEquals(listOf("answer"), session.calls)
+    }
+
+    @Test
+    fun theForegroundServiceCoversIceNegotiation() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertFalse(ui.events.contains("startCallService"))
+        session.moveTo(VoipCallState.Connecting)
+        runCurrent()
+        assertTrue(ui.events.contains("startCallService"))
+    }
+
+    @Test
+    fun theMuteAndSpeakerButtonsActOnTheArkCall() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        val audio = ui.audioController!!
+        audio.applyMuted(true)
+        assertFalse(session.micOn)
+        audio.applyRoute(true)
+        assertEquals(listOf("voip-in-ARK-BBBB-BBBB" to true), telecom.speakerRequests)
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        assertTrue(ui.audioController == null)
+    }
+
+    @Test
+    fun anAnsweredButNeverConnectedCallIsNotMissed() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        telecom.lastAnswer!!()
+        session.moveTo(VoipCallState.Ended("connection-failed"))
+        runCurrent()
+        assertEquals(ArkCallType.INCOMING, callLog.records.single().type)
+        assertTrue(missed.isEmpty())
     }
 }

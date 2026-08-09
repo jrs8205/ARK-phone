@@ -27,6 +27,7 @@ class VoipCallHandle(
     private val direction: VoipCallDirection,
     private val actions: VoipCallActions,
     private val clock: Clock,
+    private val disconnectErrorFor: (reason: String) -> DisconnectError? = { null },
 ) : CallHandle {
 
     var state: VoipCallState = VoipCallState.Idle
@@ -38,8 +39,9 @@ class VoipCallHandle(
     /** Calls over the internet never belong to a SIM. */
     override val simAccountId: String? = null
 
-    /** Nothing in the VoIP path produces a platform DisconnectCause. */
-    override val disconnectError: DisconnectError? = null
+    /** Set on end from the session's reason, so the ended screen can say why. */
+    override var disconnectError: DisconnectError? = null
+        private set
 
     override val viaArkCall: Boolean = true
 
@@ -69,6 +71,9 @@ class VoipCallHandle(
         // ended screen and the call-log row agree on it.
         if (state == VoipCallState.InCall && connectTimeMillis == 0L) {
             connectTimeMillis = clock.nowMillis()
+        }
+        if (state is VoipCallState.Ended && disconnectError == null) {
+            disconnectError = disconnectErrorFor(state.reason)
         }
     }
 

@@ -67,6 +67,19 @@ class ArkCallRecordTest {
     }
 
     @Test
+    fun anAnsweredCallWhoseMediaNeverConnectedIsNotAMissedCall() {
+        val record = arkCallRecordOf(
+            handle = handle(VoipCallDirection.INCOMING, connectedAt = null),
+            direction = VoipCallDirection.INCOMING,
+            endReason = "connection-failed",
+            endedAtMillis = 40_000L,
+            answeredByUser = true,
+        )
+        assertEquals(ArkCallType.INCOMING, record.type)
+        assertEquals(0L, record.durationSeconds)
+    }
+
+    @Test
     fun anOutgoingCallThatWasNeverAnsweredIsStillAnOutgoingCall() {
         val record = arkCallRecordOf(
             handle = handle(VoipCallDirection.OUTGOING, connectedAt = null),

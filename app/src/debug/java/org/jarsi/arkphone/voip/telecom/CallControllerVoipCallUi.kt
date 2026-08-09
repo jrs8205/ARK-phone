@@ -11,8 +11,9 @@ import javax.inject.Singleton
 
 /**
  * Routes an ARK call through exactly the surfaces a carrier call uses: the
- * same CallController, the same notification (no CallStyle, no full-screen
- * intent — that decision is field-tested) and the same InCallActivity.
+ * same CallController, the same notification and the same InCallActivity.
+ * Unlike a carrier call, the ARK notification carries a full-screen intent —
+ * a background-woken process has no other way to light a locked screen.
  */
 @Singleton
 class CallControllerVoipCallUi @Inject constructor(
@@ -50,4 +51,20 @@ class CallControllerVoipCallUi @Inject constructor(
     override fun startCallService() = VoipForegroundService.start(context)
 
     override fun stopCallService() = VoipForegroundService.stop(context)
+
+    // The carrier path's controller is set by ArkInCallService, which never
+    // binds for a self-managed ARK call — without this the mute and speaker
+    // buttons act on null or on a stale carrier controller.
+    override fun attachAudioControls(controller: org.jarsi.arkphone.telecom.InCallAudioController) {
+        callController.audioController = controller
+        callController.onAudioStateChanged(muted = false, speakerOn = false)
+    }
+
+    override fun detachAudioControls() {
+        callController.audioController = null
+    }
+
+    override fun audioStateChanged(muted: Boolean, speakerOn: Boolean) {
+        callController.onAudioStateChanged(muted = muted, speakerOn = speakerOn)
+    }
 }

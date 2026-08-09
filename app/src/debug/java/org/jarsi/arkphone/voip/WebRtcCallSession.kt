@@ -25,6 +25,7 @@ class WebRtcCallSession(
     private val scope: CoroutineScope,
     private val peerId: String,
     initialOfferSdp: String? = null,
+    initialRemoteCandidates: List<String> = emptyList(),
 ) : VoipMediaSession {
     private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
     override val state: StateFlow<VoipCallState> = _state.asStateFlow()
@@ -44,6 +45,9 @@ class WebRtcCallSession(
 
     init {
         if (initialOfferSdp != null) _state.value = VoipCallState.Ringing(initialOfferSdp)
+        // Candidates that arrived in the same inbox flush as the offer were
+        // emitted before this session existed; without this seed they are gone.
+        pendingRemoteCandidates += initialRemoteCandidates
         scope.launch {
             signaling.incoming.collect { message -> onSignal(message) }
         }
@@ -54,7 +58,13 @@ class WebRtcCallSession(
         _state.value = VoipCallState.Connecting
         scope.launch {
             val adapter = openAdapter() ?: return@launch
-            val offer = adapter.createOfferSdp()
+            val offer = media { adapter.createOfferSdp() }
+            if (offer == null) {
+                // The peer knows nothing yet; die quietly and let the
+                // coordinator route the call over the carrier instead.
+                end("media-error", notifyPeer = false)
+                return@launch
+            }
             signaling.send(
                 SignalingMessage(
                     type = SignalingTypes.CALL_OFFER,
@@ -70,7 +80,12 @@ class WebRtcCallSession(
         _state.value = VoipCallState.Connecting
         scope.launch {
             val adapter = openAdapter() ?: return@launch
-            val answer = adapter.createAnswerSdp(ringing.offerSdp)
+            val answer = media { adapter.createAnswerSdp(ringing.offerSdp) }
+            if (answer == null) {
+                // A malformed remote offer must end the call, not the process.
+                end("media-error", notifyPeer = true)
+                return@launch
+            }
             if (activeAdapter !== adapter) return@launch
             remoteDescriptionSet = true
             flushPendingCandidates(adapter)
@@ -84,6 +99,15 @@ class WebRtcCallSession(
         }
     }
 
+    /** libwebrtc surfaces bad SDP as exceptions; only cancellation may pass. */
+    private suspend fun <T> media(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
     override fun reject() {
         if (_state.value !is VoipCallState.Ringing) return
         signaling.send(SignalingMessage(type = SignalingTypes.CALL_REJECT, to = peerId))
@@ -91,9 +115,22 @@ class WebRtcCallSession(
     }
 
     override fun hangUp() {
-        if (_state.value == VoipCallState.Idle || _state.value is VoipCallState.Ended) return
-        signaling.send(SignalingMessage(type = SignalingTypes.CALL_END, to = peerId))
-        end("local-hangup", notifyPeer = false)
+        when (_state.value) {
+            is VoipCallState.Ended -> return
+            // The outgoing pre-check phase: nothing is on the wire yet, so no
+            // peer may learn of the attempt, but the attempt itself must die —
+            // otherwise the coordinator falls back to a carrier call the user
+            // just cancelled.
+            VoipCallState.Idle -> end("local-hangup", notifyPeer = false)
+            else -> {
+                signaling.send(SignalingMessage(type = SignalingTypes.CALL_END, to = peerId))
+                end("local-hangup", notifyPeer = false)
+            }
+        }
+    }
+
+    override fun setMicEnabled(enabled: Boolean) {
+        activeAdapter?.setMicEnabled(enabled)
     }
 
     fun reset() {
@@ -127,6 +164,11 @@ class WebRtcCallSession(
     }
 
     private fun onSignal(message: SignalingMessage) {
+        // The engine socket carries every peer's frames. Server errors have no
+        // from; anything else must come from THE peer of this call — any other
+        // registered account is a bystander and must not get to end the call
+        // or feed it candidates.
+        if (message.type != SignalingTypes.ERROR && message.from != peerId) return
         when (message.type) {
             SignalingTypes.CALL_OFFER -> {
                 if (_state.value != VoipCallState.Idle) return
@@ -137,7 +179,10 @@ class WebRtcCallSession(
                 val sdp = message.payload?.get("sdp")?.jsonPrimitive?.content ?: return
                 val adapter = activeAdapter ?: return
                 scope.launch {
-                    adapter.acceptAnswer(sdp)
+                    if (media { adapter.acceptAnswer(sdp) } == null) {
+                        end("media-error", notifyPeer = true)
+                        return@launch
+                    }
                     if (activeAdapter !== adapter) return@launch
                     remoteDescriptionSet = true
                     flushPendingCandidates(adapter)

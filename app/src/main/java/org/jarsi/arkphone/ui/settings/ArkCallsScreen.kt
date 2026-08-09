@@ -1,6 +1,12 @@
 package org.jarsi.arkphone.ui.settings
 
+import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -46,6 +53,14 @@ fun ArkCallsScreen(
     // Resolved during composition so the text tracks configuration changes;
     // Context.getString inside the click lambda trips LocalContextGetResourceValueCall.
     val shareText = uiState.code?.let { stringResource(R.string.ark_calls_share_text, it) }
+    // Both grants are decided outside this screen, so re-check on every return.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshPermissions()
+        onPauseOrDispose { }
+    }
+    val micLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { viewModel.refreshPermissions() }
     ArkCallsContent(
         uiState = uiState,
         onBack = onBack,
@@ -60,6 +75,14 @@ fun ArkCallsScreen(
                 runCatching { context.startActivity(Intent.createChooser(share, null)) }
             }
         },
+        onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+        onRequestFullScreenIntent = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                    .setData(Uri.fromParts("package", context.packageName, null))
+                runCatching { context.startActivity(intent) }
+            }
+        },
     )
 }
 
@@ -72,6 +95,8 @@ fun ArkCallsContent(
     onRegister: () -> Unit = {},
     onEnabledChanged: (Boolean) -> Unit = {},
     onShare: (String) -> Unit = {},
+    onRequestMic: () -> Unit = {},
+    onRequestFullScreenIntent: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     Scaffold(
@@ -132,6 +157,20 @@ fun ArkCallsContent(
                 // The toggleable row is the single accessible target.
                 Switch(checked = uiState.enabled, onCheckedChange = null)
             }
+            if (uiState.micPermissionMissing) {
+                PermissionBanner(
+                    text = stringResource(R.string.ark_calls_mic_permission),
+                    buttonText = stringResource(R.string.ark_calls_mic_permission_button),
+                    onClick = onRequestMic,
+                )
+            }
+            if (uiState.fullScreenIntentMissing) {
+                PermissionBanner(
+                    text = stringResource(R.string.ark_calls_fsi_permission),
+                    buttonText = stringResource(R.string.ark_calls_fsi_permission_button),
+                    onClick = onRequestFullScreenIntent,
+                )
+            }
             Text(
                 stringResource(R.string.ark_calls_your_code),
                 style = MaterialTheme.typography.titleSmall,
@@ -181,6 +220,28 @@ fun ArkCallsContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PermissionBanner(
+    text: String,
+    buttonText: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        OutlinedButton(onClick = onClick, modifier = Modifier.padding(top = 4.dp)) {
+            Text(buttonText)
         }
     }
 }

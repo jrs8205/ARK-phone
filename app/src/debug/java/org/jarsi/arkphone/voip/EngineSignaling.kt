@@ -26,9 +26,19 @@ interface VoipMediaSession {
     fun answer()
     fun reject()
     fun hangUp()
+    fun setMicEnabled(enabled: Boolean)
 }
 
 fun interface VoipMediaSessionFactory {
-    /** [offerSdp] is null for an outgoing call. */
-    fun create(peerCode: String, offerSdp: String?, scope: CoroutineScope): VoipMediaSession
+    /**
+     * [offerSdp] is null for an outgoing call. [remoteCandidates] carries the
+     * candidates that arrived in the same inbox flush as the offer — they were
+     * emitted before any session existed, so this is their only way in.
+     */
+    fun create(
+        peerCode: String,
+        offerSdp: String?,
+        remoteCandidates: List<String>,
+        scope: CoroutineScope,
+    ): VoipMediaSession
 }

@@ -1,8 +1,6 @@
 package org.jarsi.arkphone.telecom
 
 import android.app.KeyguardManager
-import android.app.NotificationManager
-import android.os.Build
 import android.os.PowerManager
 import android.telecom.Call
 import android.telecom.CallAudioState
@@ -183,8 +181,5 @@ class ArkInCallService : InCallService() {
         )
     }
 
-    private fun canUseFullScreenIntentCompat(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
-        return getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() != false
-    }
+    private fun canUseFullScreenIntentCompat(): Boolean = callNotifications.canUseFullScreenIntent()
 }

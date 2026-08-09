@@ -21,27 +21,37 @@ class WebRtcCallSessionTest {
         var closed = false
         var remoteAnswer: String? = null
         var acceptAnswerGate: CompletableDeferred<Unit>? = null
+        var throwOnAnswer = false
         val remoteCandidates = mutableListOf<String>()
         override suspend fun createOfferSdp() = "offer-sdp"
-        override suspend fun createAnswerSdp(remoteOfferSdp: String) = "answer-sdp"
+        override suspend fun createAnswerSdp(remoteOfferSdp: String): String {
+            if (throwOnAnswer) throw IllegalStateException("malformed sdp")
+            return "answer-sdp"
+        }
         override suspend fun acceptAnswer(remoteAnswerSdp: String) {
             acceptAnswerGate?.await()
             remoteAnswer = remoteAnswerSdp
         }
         override fun addRemoteIceCandidate(candidateJson: String) { remoteCandidates.add(candidateJson) }
+        override fun setMicEnabled(enabled: Boolean) { micOn = enabled }
         override suspend fun stats(): StatsSnapshot? = null
         override fun close() { closed = true }
+        var micOn = true
     }
 
     private class FakeFactory : PeerConnectionAdapterFactory {
         val created = mutableListOf<FakeAdapter>()
         var lastRelayOnly = false
+        var throwOnAnswer = false
         override fun create(
             iceServers: List<IceServerConfig>,
             relayOnly: Boolean,
         ): PeerConnectionAdapter {
             lastRelayOnly = relayOnly
-            return FakeAdapter().also { created.add(it) }
+            return FakeAdapter().also {
+                it.throwOnAnswer = throwOnAnswer
+                created.add(it)
+            }
         }
     }
 
@@ -56,7 +66,11 @@ class WebRtcCallSessionTest {
         fun serverSends(message: SignalingMessage) { _incoming.tryEmit(message) }
     }
 
-    private class Harness(scope: kotlinx.coroutines.CoroutineScope) {
+    private class Harness(
+        scope: kotlinx.coroutines.CoroutineScope,
+        initialOfferSdp: String? = null,
+        initialRemoteCandidates: List<String> = emptyList(),
+    ) {
         val signaling = FakeSignaling()
         val factory = FakeFactory()
         val session = WebRtcCallSession(
@@ -65,6 +79,8 @@ class WebRtcCallSessionTest {
             turnFetcher = { listOf(IceServerConfig(urls = listOf("stun:s"))) },
             scope = scope,
             peerId = "phone-10pro",
+            initialOfferSdp = initialOfferSdp,
+            initialRemoteCandidates = initialRemoteCandidates,
         )
 
         fun serverSends(message: SignalingMessage) {
@@ -262,6 +278,65 @@ class WebRtcCallSessionTest {
         runCurrent()
         assertEquals(1, h.sentOfType(SignalingTypes.CALL_END).size)
         assertEquals(VoipCallState.Ended("local-hangup"), h.session.state.value)
+    }
+
+    @Test
+    fun `hanging up during the reach pre-check ends the attempt without signaling`() = runTest {
+        val h = Harness(backgroundScope)
+        runCurrent()
+        assertEquals(VoipCallState.Idle, h.session.state.value)
+        h.session.hangUp()
+        assertEquals(VoipCallState.Ended("local-hangup"), h.session.state.value)
+        // Nothing was on the wire yet, so no peer may learn a call was attempted.
+        assertTrue(h.signaling.sent.isEmpty())
+    }
+
+    @Test
+    fun `frames from a third account never touch the call`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        h.serverSends(SignalingMessage(type = SignalingTypes.CALL_END, from = "ARK-INTRUDER"))
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.ICE_CANDIDATE,
+                from = "ARK-INTRUDER",
+                payload = buildJsonObject { put("candidate", "evil") },
+            ),
+        )
+        runCurrent()
+        assertEquals(VoipCallState.Connecting, h.session.state.value)
+        assertTrue(h.factory.created.single().remoteCandidates.isEmpty())
+        h.session.hangUp()
+        runCurrent()
+    }
+
+    @Test
+    fun `a throwing answer ends the call instead of crashing`() = runTest {
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer")
+        h.factory.throwOnAnswer = true
+        runCurrent()
+        h.session.answer()
+        runCurrent()
+        assertEquals(VoipCallState.Ended("media-error"), h.session.state.value)
+        // The peer already knows about the call, so it must hear the end.
+        assertEquals(1, h.sentOfType(SignalingTypes.CALL_END).size)
+    }
+
+    @Test
+    fun `seeded flush candidates are applied when the call is answered`() = runTest {
+        val h = Harness(
+            backgroundScope,
+            initialOfferSdp = "their-offer",
+            initialRemoteCandidates = listOf("flush-1", "flush-2"),
+        )
+        runCurrent()
+        assertEquals(VoipCallState.Ringing("their-offer"), h.session.state.value)
+        h.session.answer()
+        runCurrent()
+        assertEquals(listOf("flush-1", "flush-2"), h.factory.created.single().remoteCandidates)
+        h.session.hangUp()
+        runCurrent()
     }
 
     @Test

@@ -269,6 +269,12 @@
     <string name="ark_calls_share">Jaa koodi</string>
     <string name="ark_calls_share_text">ARK-koodini on %1$s</string>
     <string name="ark_calls_unavailable">ARK-nettipuhelut eivät ole käytössä tässä versiossa</string>
+    <string name="ark_calls_mic_permission">Nettipuhelut tarvitsevat mikrofonin. Ilman sitä jokainen puhelu siirtyy mobiiliverkkoon.</string>
+    <string name="ark_calls_mic_permission_button">Salli mikrofoni</string>
+    <string name="ark_calls_fsi_permission">Jotta puhelu soi lukitulla näytöllä, ARK-phone tarvitsee koko näytön ilmoitusten luvan.</string>
+    <string name="ark_calls_fsi_permission_button">Avaa asetukset</string>
+    <string name="ark_call_end_rejected">Puhelu hylättiin</string>
+    <string name="ark_call_end_connection_lost">Nettipuhelun yhteys katkesi</string>
     <string name="contact_card_ark_link">Linkitä ARK-koodi</string>
     <string name="contact_card_ark_linked">ARK: %1$s</string>
     <string name="contact_card_ark_unlink">Poista ARK-linkitys</string>

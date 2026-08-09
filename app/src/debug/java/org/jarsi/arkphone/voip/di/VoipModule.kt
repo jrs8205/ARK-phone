@@ -34,7 +34,11 @@ import org.jarsi.arkphone.voip.WebRtcCallSession
 import org.jarsi.arkphone.voip.fcm.ArkFcmRegistration
 import org.jarsi.arkphone.voip.WebSocketConnector
 import org.jarsi.arkphone.voip.WorkerVoipAccountGateway
+import org.jarsi.arkphone.R
+import org.jarsi.arkphone.telecom.CallRuleEvaluator
+import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.telecom.MissedCallNotifier
+import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.voip.telecom.ArkCallLog
 import org.jarsi.arkphone.voip.telecom.CallControllerVoipCallUi
 import org.jarsi.arkphone.voip.telecom.CoreTelecomRegistrar
@@ -107,7 +111,7 @@ object VoipModule {
         accountClient: ArkAccountClient,
         identityRepository: ArkIdentityRepository,
         provider: PeerConnectionFactoryProvider,
-    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, scope ->
+    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, remoteCandidates, scope ->
         WebRtcCallSession(
             signaling = EngineSignaling(engine),
             adapterFactory = StreamPeerConnectionAdapterFactory(provider),
@@ -120,6 +124,7 @@ object VoipModule {
             scope = scope,
             peerId = peerCode,
             initialOfferSdp = offerSdp,
+            initialRemoteCandidates = remoteCandidates,
         )
     }
 
@@ -130,6 +135,7 @@ object VoipModule {
     @Provides
     @Singleton
     fun provideVoipCallCoordinator(
+        @ApplicationContext context: Context,
         engine: VoipEngine,
         sessionFactory: VoipMediaSessionFactory,
         telecom: VoipTelecom,
@@ -137,6 +143,8 @@ object VoipModule {
         linkCache: ArkLinkCache,
         callLog: ArkCallLog,
         missedCallNotifier: MissedCallNotifier,
+        callRuleEvaluator: CallRuleEvaluator,
+        permissionChecker: PermissionChecker,
         clock: Clock,
         @ApplicationScope scope: CoroutineScope,
     ): VoipCallCoordinator = VoipCallCoordinator(
@@ -148,10 +156,30 @@ object VoipModule {
         numberForCode = { code -> linkCache.current.values.firstOrNull { it.code == code }?.number },
         callLog = callLog,
         missedCalls = { record ->
-            missedCallNotifier.onMissedCallsChanged(count = 1, number = record.number)
+            missedCallNotifier.onMissedCallsChanged(
+                count = callLog.unreadMissedCount(),
+                number = record.number,
+            )
         },
         clock = clock,
         scope = scope,
+        // An ARK call answers to the same rules as a carrier call; the SIM
+        // gate does not apply, which evaluate() treats as an unknown account.
+        blockCheck = { number -> callRuleEvaluator.evaluate(number).block },
+        hasMicPermission = { permissionChecker.has(android.Manifest.permission.RECORD_AUDIO) },
+        disconnectErrorFor = { reason ->
+            when (reason) {
+                "rejected" -> DisconnectError(
+                    label = context.getString(R.string.ark_call_end_rejected),
+                    description = null,
+                )
+                "connection-failed", "media-error" -> DisconnectError(
+                    label = context.getString(R.string.ark_call_end_connection_lost),
+                    description = null,
+                )
+                else -> null
+            }
+        },
     )
 
     @Provides
