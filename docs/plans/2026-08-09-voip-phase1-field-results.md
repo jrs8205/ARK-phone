@@ -140,6 +140,35 @@ reborn). Fixed in `fae5b92`: the ring channel is chosen from the screen
 state — locked rings HIGH + full-screen intent, awake rings on the
 ordinary channel with no banner. Awaiting a screen-on verification call.
 
+## Round 10 — mobile↔mobile (17:27)
+
+**PASS.** Both phones on mobile data only (both behind carrier CGNAT, so
+the TURN relay carries the media): rang, answered, audio good both ways.
+
+The round surfaced one more gap: the proximity screen-off never engaged
+during ARK calls on either phone — the earpiece flag that arms the
+proximity lock is set by the carrier path's InCallService callback, which
+never runs for a self-managed call, and the ARK audio glue left it false.
+Fixed in `dab497e`: off speaker, an ARK call reports the earpiece route,
+following the speaker toggle. Awaiting an at-the-ear verification call.
+
+## Soak (started 17:30)
+
+Baselines on the `dab497e` build, freshly launched:
+
+| | Native heap | Total PSS |
+|---|---|---|
+| Pixel 8a | 14.4 MB | 186 MB |
+| Pixel 10 Pro | 11.4 MB | 210 MB |
+
+Protocol: use the phones normally for a day or two, placing at least ten
+ARK calls spread out in both directions across mixed states (locked and
+awake, Wi-Fi and mobile), each held ≥30 s. Note anything odd: a ring that
+never came, a stuck notification, a warm phone, battery drain. At the end,
+re-measure `dumpsys meminfo` against the baselines — the per-call WebRTC
+disposal fix predicts flat native-heap growth — and check that no ringing
+or ongoing notification is left behind.
+
 ## Remaining protocol (stage C)
 
 - [x] Doze test (14:12): rang on the locked screen; socket survived forced
@@ -154,6 +183,7 @@ ordinary channel with no banner. Awaiting a screen-on verification call.
 - [x] Awake-screen ring re-verify (17:23, on `fae5b92`): call-screen
       buttons only, no heads-up banner; the tray keeps a quiet entry with
       an answer action as the secondary surface, like a carrier call
-- [ ] Mobile ↔ mobile
-- [ ] Master switch off → carrier
-- [ ] Soak: several calls over a day, both directions
+- [x] Mobile ↔ mobile (17:27): TURN relay carries the call, audio good
+- [ ] At-the-ear verify (after `dab497e`): screen darkens on proximity
+- [ ] Master switch off → carrier (both directions)
+- [~] Soak: running — baselines above, end-check pending
