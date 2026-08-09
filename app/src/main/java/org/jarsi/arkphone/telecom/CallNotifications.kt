@@ -246,21 +246,33 @@ class CallNotifications @Inject constructor(
             .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }
     }
 
-    fun showOngoingCall(info: CallInfo) {
+    /**
+     * The one ongoing-call notification. The ARK foreground service posts the
+     * SAME notification under the SAME id as its mandatory foreground notice,
+     * so an ARK call shows exactly one entry — two side-by-side entries left
+     * the user guessing which one returns to the call (2026-08-09 20:19).
+     */
+    fun buildOngoingCall(info: CallInfo?): Notification {
         val content = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ONGOING)
+        return NotificationCompat.Builder(context, CHANNEL_ONGOING)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_ongoing_title))
-            .setContentText(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
+            .setContentText(
+                info?.displayName ?: info?.number
+                    ?: context.getString(R.string.incall_unknown_caller),
+            )
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setContentIntent(content)
             .build()
-        notify(notification)
+    }
+
+    fun showOngoingCall(info: CallInfo) {
+        notify(buildOngoingCall(info))
     }
 
     fun clear() {

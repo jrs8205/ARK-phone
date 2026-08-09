@@ -1,5 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="voip_notification_channel" translatable="false">ARK internet calls</string>
-    <string name="voip_notification_title" translatable="false">ARK call in progress</string>
-</resources>
+<resources />
