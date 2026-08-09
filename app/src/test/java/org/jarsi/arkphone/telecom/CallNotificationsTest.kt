@@ -54,6 +54,28 @@ class CallNotificationsTest {
     }
 
     @Test
+    fun anAwakeArkRingWithTheAppInBackgroundKeepsTheBanner() {
+        // The call screen cannot launch from the background, so the heads-up
+        // banner with its answer/decline actions is the only answer surface.
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(viaArkCall = true), arkBanner = true)
+        assertEquals(CallNotifications.CHANNEL_INCOMING_ARK, notification.channelId)
+        assertNotNull(notification.fullScreenIntent)
+    }
+
+    @Test
+    fun aVoiceOnlyArkRingOnALockedScreenIsSilentButStillLightsTheScreen() {
+        shadowOf(context.getSystemService(android.app.KeyguardManager::class.java))
+            .setKeyguardLocked(true)
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(viaArkCall = true), silentRing = true)
+        // Voice-only mode: no channel ringtone under the announcement, but the
+        // full-screen intent still needs a HIGH channel to light the screen.
+        assertEquals(CallNotifications.CHANNEL_INCOMING_ARK_SILENT, notification.channelId)
+        assertNotNull(notification.fullScreenIntent)
+    }
+
+    @Test
     fun theRingingNotificationNeverHeadsUpOverTheCallScreen() {
         // ARK-phone always opens its own call screen, so a heads-up would
         // stack a second set of answer/decline buttons on top of it. A

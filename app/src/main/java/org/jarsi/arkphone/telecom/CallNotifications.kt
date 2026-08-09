@@ -30,6 +30,7 @@ class CallNotifications @Inject constructor(
         // bannering answer/decline buttons over ARK-phone's own call screen.
         const val CHANNEL_INCOMING = "incoming_calls_v2"
         const val CHANNEL_INCOMING_ARK = "incoming_calls_ark"
+        const val CHANNEL_INCOMING_ARK_SILENT = "incoming_calls_ark_silent"
         const val CHANNEL_INCOMING_SILENT = "incoming_calls_silent_v2"
         private val REPLACED_CHANNELS = listOf("incoming_calls", "incoming_calls_silent")
         const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
@@ -122,12 +123,27 @@ class CallNotifications @Inject constructor(
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(incoming)
-        // The ARK channel belongs only to builds that can receive ARK calls;
-        // a release install must neither show nor keep it in system settings.
+        // The ARK channels belong only to builds that can receive ARK calls;
+        // a release install must neither show nor keep them in settings. The
+        // silent variant exists because a voice-only ring still needs HIGH
+        // importance for the full-screen intent on a locked screen — just
+        // without the channel ringtone under the announcement.
         if (voipCallGateway.get().isPresent) {
             notificationManager.createNotificationChannel(incomingArk)
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_INCOMING_ARK_SILENT,
+                    context.getString(R.string.notification_channel_incoming_ark_silent),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                },
+            )
         } else {
             notificationManager.deleteNotificationChannel(CHANNEL_INCOMING_ARK)
+            notificationManager.deleteNotificationChannel(CHANNEL_INCOMING_ARK_SILENT)
         }
         // User-silenced ring: DEFAULT importance so the re-posted notification
         // stays in the status bar instead of heads-upping over the call screen.
@@ -144,14 +160,15 @@ class CallNotifications @Inject constructor(
         REPLACED_CHANNELS.forEach(notificationManager::deleteNotificationChannel)
     }
 
-    fun showIncomingCall(info: CallInfo, silentRing: Boolean = false) {
-        notify(buildIncomingCall(info, silentRing))
+    fun showIncomingCall(info: CallInfo, silentRing: Boolean = false, arkBanner: Boolean = false) {
+        notify(buildIncomingCall(info, silentRing, arkBanner = arkBanner))
     }
 
     internal fun buildIncomingCall(
         info: CallInfo,
         silentRing: Boolean = false,
         quiet: Boolean = false,
+        arkBanner: Boolean = false,
     ): Notification {
         val openCallScreen = PendingIntent.getActivity(
             context, 0, InCallActivity.intent(context),
@@ -161,16 +178,20 @@ class CallNotifications @Inject constructor(
             .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setImportant(true)
             .build()
-        // The HIGH channel and its full-screen intent exist to light a LOCKED
-        // phone; on an unlocked, awake screen the same channel heads-ups a
-        // second set of answer/decline buttons over the opening call screen
-        // (field-hit 2026-08-09 17:09). An awake ARK ring therefore uses the
-        // ordinary incoming channel — full ringtone, no banner.
-        val arkLockedRing = info.viaArkCall && screenLockedOrOff()
+        // The HIGH channel and its full-screen intent exist for the rings
+        // where the call screen cannot open itself: a locked or dark screen
+        // (the intent lights it) and — [arkBanner] — an awake screen with the
+        // app in the background, where activity launches are blocked and the
+        // heads-up banner IS the answer surface. With the app in the
+        // foreground the call screen opens, and the same channel would stack
+        // a second set of answer/decline buttons over it (field-hits
+        // 2026-08-09 17:09 and 17:57).
+        val arkHighRing = info.viaArkCall && (screenLockedOrOff() || arkBanner)
         val channel = when {
             quiet -> CHANNEL_INCOMING_SILENCED
+            arkHighRing && silentRing -> CHANNEL_INCOMING_ARK_SILENT
+            arkHighRing -> CHANNEL_INCOMING_ARK
             silentRing -> CHANNEL_INCOMING_SILENT
-            arkLockedRing -> CHANNEL_INCOMING_ARK
             else -> CHANNEL_INCOMING
         }
         // No CallStyle, and for carrier calls no full-screen intent either:
@@ -205,7 +226,7 @@ class CallNotifications @Inject constructor(
             .setOngoing(true)
             .setContentIntent(openCallScreen)
             .apply {
-                if (arkLockedRing && !quiet) setFullScreenIntent(openCallScreen, true)
+                if (arkHighRing && !quiet) setFullScreenIntent(openCallScreen, true)
             }
             .build()
             .apply { if (!quiet) flags = flags or Notification.FLAG_INSISTENT }

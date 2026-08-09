@@ -213,3 +213,58 @@ Improvement suggestions from the same review (shipped 2026-07-26):
 - [ ] `DeviceDefault` parents for window themes
 - [x] Monochrome launcher icon (2026-07-26, with the lint cleanup)
 - [ ] targetSdk bump when a newer stable SDK is available
+
+## Future ideas (recorded 2026-08-08)
+
+- [ ] ARK internet messaging (WhatsApp/Signal style) alongside SMS: user idea
+      once VoIP lands — send text over the ARK channel to linked contacts.
+      The Phase 1 worker already gives the transport for free (inbox DO per
+      code, offline buffering, FCM wake); the real new work is E2E crypto
+      (the Phase 2 key-verification story), message persistence/UI in the
+      existing conversation screens, and a delivery/read model. Deserves its
+      own design phase after VoIP Phase 1 field validation.
+
+## Phase 1 field feedback (2026-08-08, first linking session)
+
+- [ ] Linking UX is too convoluted (user: "todella monimutkaista ja sekavaa"):
+      creating a code lives in Settings -> ARK internet calls but linking hides
+      on the contact card, and nothing guides the user between them. Ideas for
+      the promotion round: a guided link flow started from the ARK settings
+      screen (pick contact -> enter code), a "Link a contact" row next to the
+      own-code card, explainer copy on both surfaces, and ideally a share
+      message whose link/code the receiving phone recognizes and offers to
+      link automatically.
+- [x] Request the full-screen-intent permission in-app (Settings.
+      ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT): Android denies it silently by
+      default for sideloaded builds, and without it a locked phone cannot ring
+      for an ARK call. Field phones were granted it via adb appops on
+      2026-08-08; real users need the settings flow. (Shipped 2026-08-09 in
+      the review-fix wave: the ARK calls settings screen shows banners for
+      both this and the microphone permission.)
+
+## External VoIP review follow-ups (2026-08-09)
+
+The 23-finding external review was fixed in full on 2026-08-09 (app 39b4265,
+worker 399b9c8) except for the items below, which need a design conversation:
+
+- [ ] Wake authorization for reach-query: today any registered account that
+      knows a code can trigger an FCM wake on it. The durable wake budget
+      (10 s interval, 6 per caller per 10 min, 30 per target per hour) caps
+      the battery damage, and the Android-side link gate keeps unlinked
+      callers from ringing, but the wake itself is unauthorized. Syncing the
+      link list to the worker would fix it at the cost of teaching the server
+      the social graph. Preferred design sketch: a per-link wake token minted
+      by the recipient and shared inside the same out-of-band link exchange
+      as the code; the caller presents it in reach-query and the worker
+      stores only a hash — authorization without the graph. Do after the
+      Phase 1 field protocol is green.
+- [ ] Live audio endpoint state for ARK calls: mute/speaker now act on the
+      real track and Telecom endpoints, but the button state is optimistic —
+      collecting CallControlScope's currentCallEndpoint/isMuted flows would
+      reflect Bluetooth and system-initiated changes too.
+- [ ] Editing the ARK nickname after registration (field ask 2026-08-09):
+      the worker has no update route — needs an authed POST /account/nickname
+      + RegistryDO.updateNickname + an edit affordance on the ARK settings
+      screen. Until then the account nickname is immutable. The per-contact
+      LINK name can already be refreshed by removing the ARK link on the
+      contact card and linking again.

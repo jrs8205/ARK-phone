@@ -194,6 +194,7 @@
         <item quantity="other">Toista %1$d sekunnin välein</item>
     </plurals>
     <string name="notification_channel_incoming_silent">Saapuvat puhelut (äänetön)</string>
+    <string name="notification_channel_incoming_ark_silent">Saapuvat ARK-puhelut (puhekuulutus)</string>
     <string name="notification_channel_incoming_silenced">Saapuvat puhelut (hiljennetty)</string>
     <string name="sim_cards_title">SIM-kortit</string>
     <string name="sim_cards_description">Aktiivisten SIM-korttien tiedot</string>

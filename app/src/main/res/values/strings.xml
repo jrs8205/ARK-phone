@@ -196,6 +196,7 @@
         <item quantity="other">Repeat every %1$d seconds</item>
     </plurals>
     <string name="notification_channel_incoming_silent">Incoming calls (silent)</string>
+    <string name="notification_channel_incoming_ark_silent">Incoming ARK calls (voice announcement)</string>
     <string name="notification_channel_incoming_silenced">Incoming calls (silenced by you)</string>
     <string name="sim_cards_title">SIM cards</string>
     <string name="sim_cards_description">Details of the active SIM cards</string>
