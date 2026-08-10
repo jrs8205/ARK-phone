@@ -38,6 +38,14 @@ class CoreTelecomRegistrar @Inject constructor(
     /** An answer that arrived before addCall handed its scope back. */
     private var pendingAnswer = false
 
+    /**
+     * A route choice that could not be applied yet — tapped before addCall
+     * handed its scope back, or before Telecom advertised the endpoint. The
+     * UI shows the choice optimistically, so dropping it left the audio on
+     * the earpiece under a speaker icon.
+     */
+    private var pendingSpeaker: Boolean? = null
+
     /** The endpoints Telecom last advertised for the live call. */
     private var endpoints: List<CallEndpointCompat> = emptyList()
 
@@ -81,7 +89,12 @@ class CoreTelecomRegistrar @Inject constructor(
                 ) {
                     controlScope = this
                     endpointJob = scope.launch {
-                        availableEndpoints.collect { endpoints = it }
+                        availableEndpoints.collect {
+                            endpoints = it
+                            // The endpoint the user already asked for may
+                            // only now exist; apply the remembered choice.
+                            replayPendingSpeaker(handle.id)
+                        }
                     }
                     if (pendingAnswer) {
                         // The user answered faster than Telecom set up: the
@@ -89,6 +102,7 @@ class CoreTelecomRegistrar @Inject constructor(
                         pendingAnswer = false
                         answered(handle.id)
                     }
+                    replayPendingSpeaker(handle.id)
                     Log.i(TAG, "ARK addCall session open id=${handle.id}")
                 }
                 Log.i(TAG, "ARK addCall ended id=${handle.id}")
@@ -131,16 +145,28 @@ class CoreTelecomRegistrar @Inject constructor(
 
     override fun requestSpeaker(id: String, speakerOn: Boolean) {
         if (currentId != id) return
-        val control = controlScope ?: return
-        scope.launch {
-            val wanted = if (speakerOn) {
-                CallEndpointCompat.TYPE_SPEAKER
-            } else {
-                CallEndpointCompat.TYPE_EARPIECE
-            }
-            val target = endpoints.firstOrNull { it.type == wanted } ?: return@launch
-            runCatching { control.requestEndpointChange(target) }
+        val control = controlScope
+        val target = endpointFor(speakerOn)
+        if (control == null || target == null) {
+            pendingSpeaker = speakerOn
+            return
         }
+        pendingSpeaker = null
+        scope.launch { runCatching { control.requestEndpointChange(target) } }
+    }
+
+    private fun endpointFor(speakerOn: Boolean): CallEndpointCompat? {
+        val wanted = if (speakerOn) {
+            CallEndpointCompat.TYPE_SPEAKER
+        } else {
+            CallEndpointCompat.TYPE_EARPIECE
+        }
+        return endpoints.firstOrNull { it.type == wanted }
+    }
+
+    private fun replayPendingSpeaker(id: String) {
+        val speakerOn = pendingSpeaker ?: return
+        requestSpeaker(id, speakerOn)
     }
 
     override fun remove(id: String, onReleased: () -> Unit) {
@@ -152,6 +178,7 @@ class CoreTelecomRegistrar @Inject constructor(
         currentId = null
         controlScope = null
         pendingAnswer = false
+        pendingSpeaker = null
         endpointJob?.cancel()
         endpointJob = null
         endpoints = emptyList()
