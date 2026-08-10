@@ -8,14 +8,20 @@ import org.junit.Test
 
 class FlushReconcilerTest {
 
-    private fun offer(from: String, sdp: String) = SignalingMessage(
+    private fun offer(from: String, sdp: String, callId: String? = null) = SignalingMessage(
         type = SignalingTypes.CALL_OFFER,
         from = from,
-        payload = buildJsonObject { put("sdp", sdp) },
+        payload = buildJsonObject {
+            put("sdp", sdp)
+            callId?.let { put("callId", it) }
+        },
     )
 
-    private fun end(from: String) =
-        SignalingMessage(type = SignalingTypes.CALL_END, from = from)
+    private fun end(from: String, callId: String? = null) = SignalingMessage(
+        type = SignalingTypes.CALL_END,
+        from = from,
+        payload = callId?.let { id -> buildJsonObject { put("callId", id) } },
+    )
 
     private fun reject(from: String) =
         SignalingMessage(type = SignalingTypes.CALL_REJECT, from = from)
@@ -113,6 +119,38 @@ class FlushReconcilerTest {
             IncomingArkCall("ARK-BBBB-BBBB", "v=0 live", listOf("live-c")),
             reconcileFlush(flush),
         )
+    }
+
+    @Test
+    fun aStaleStampedEndDoesNotCancelANewerStampedOffer() {
+        // The caller's resend queue can flush an earlier attempt's end after
+        // the live offer; both are stamped, so the mismatch proves the end
+        // belongs to the dead attempt.
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0 live", callId = "call-b"),
+            end("ARK-BBBB-BBBB", callId = "call-a"),
+        )
+        val ringing = reconcileFlush(flush)!!
+        assertEquals("v=0 live", ringing.offerSdp)
+        assertEquals("call-b", ringing.callId)
+    }
+
+    @Test
+    fun aMatchingStampedEndStillCancelsItsOffer() {
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0", callId = "call-b"),
+            end("ARK-BBBB-BBBB", callId = "call-b"),
+        )
+        assertNull(reconcileFlush(flush))
+    }
+
+    @Test
+    fun anUnstampedEndFromAnOlderBuildStillCancelsAStampedOffer() {
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0", callId = "call-b"),
+            end("ARK-BBBB-BBBB"),
+        )
+        assertNull(reconcileFlush(flush))
     }
 
     @Test

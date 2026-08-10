@@ -44,8 +44,16 @@ fun reconcileFlush(messages: List<SignalingMessage>): IncomingArkCall? {
                 candidates.remove(from)
             }
             SignalingTypes.CALL_END, SignalingTypes.CALL_REJECT -> {
-                live.remove(from)
-                candidates.remove(from)
+                // A cancel lands only on its own attempt: the caller's resend
+                // queue can flush an earlier attempt's end after the live
+                // offer, and both carry stamps that prove the mismatch. An
+                // unstamped side (an older build) still cancels.
+                val cancelStamp = message.payload?.get("callId")?.jsonPrimitive?.content
+                val offerStamp = live[from]?.second
+                if (cancelStamp == null || offerStamp == null || cancelStamp == offerStamp) {
+                    live.remove(from)
+                    candidates.remove(from)
+                }
             }
             SignalingTypes.ICE_CANDIDATE -> {
                 val candidate =
