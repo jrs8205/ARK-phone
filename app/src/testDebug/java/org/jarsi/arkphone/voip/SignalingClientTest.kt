@@ -445,6 +445,24 @@ class SignalingClientTest {
     }
 
     @Test
+    fun `stop discards stashed frames so a later run starts clean`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        client.send(SignalingMessage(type = SignalingTypes.CALL_END, to = "ARK-BBBB-BBBB"))
+        client.stop()
+        // The engine restarts later: the stashed frames belong to calls from
+        // the previous run, long dead, and must not replay into this one.
+        client.start()
+        runCurrent()
+        connector.opens()
+        assertEquals(emptyList<String>(), connector.handles[1].sent)
+        client.stop()
+    }
+
+    @Test
     fun `stop closes the socket and stops reconnecting`() = runTest {
         val connector = FakeConnector()
         val client = client(connector, backgroundScope)

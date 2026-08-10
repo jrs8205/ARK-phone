@@ -89,6 +89,9 @@ class SignalingClient(
         pingJob = null
         handle?.close()
         handle = null
+        // The stash belongs to this run's calls; a later start() must not
+        // open by replaying frames for calls that are long dead.
+        synchronized(resendQueue) { resendQueue.clear() }
         _connectionState.value = SignalingConnectionState.DISCONNECTED
     }
 
