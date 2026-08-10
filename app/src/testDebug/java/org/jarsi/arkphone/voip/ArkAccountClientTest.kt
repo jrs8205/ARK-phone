@@ -1,6 +1,9 @@
 package org.jarsi.arkphone.voip
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,8 +24,18 @@ class FakeArkHttp : ArkHttp {
 
     override suspend fun postJson(url: String, json: String, bearer: String?): ArkHttpResponse? {
         calls += Call("POST", url, json, bearer)
+        val gate = stallNextPost
+        if (gate != null) {
+            stallNextPost = null
+            // Real OkHttp blocks through coroutine cancellation — execute()
+            // returns only when the wire does — so the stall must too.
+            return withContext(NonCancellable) { gate.await() }
+        }
         return response
     }
+
+    /** Stalls the next POST like an in-flight request on a slow wire. */
+    var stallNextPost: CompletableDeferred<ArkHttpResponse?>? = null
 }
 
 class ArkAccountClientTest {

@@ -2,6 +2,7 @@ package org.jarsi.arkphone.voip.fcm
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -40,6 +41,27 @@ class ArkFcmRegistrationTest {
         runCurrent()
         assertEquals(2, http.calls.size)
         assertEquals("fcm-a", identities.fcm.value)
+    }
+
+    @Test
+    fun aRotationWaitsOutThePredecessorsInFlightPostBeforePostingItself() = runTest {
+        val stalled = CompletableDeferred<ArkHttpResponse?>()
+        http.stallNextPost = stalled
+        val registration = registration(backgroundScope)
+        registration.onNewToken("fcm-a")
+        runCurrent()
+        assertEquals(1, http.calls.size)
+        // Token A's post is still on the wire — cancellation cannot recall
+        // it. B must not post until A's request has finished, or the worker
+        // keeps whichever token happens to land last.
+        http.response = ArkHttpResponse(204, "")
+        registration.onNewToken("fcm-b")
+        runCurrent()
+        assertEquals(1, http.calls.size)
+        stalled.complete(ArkHttpResponse(204, ""))
+        runCurrent()
+        assertEquals(2, http.calls.size)
+        assertEquals("fcm-b", identities.fcm.value)
     }
 
     @Test

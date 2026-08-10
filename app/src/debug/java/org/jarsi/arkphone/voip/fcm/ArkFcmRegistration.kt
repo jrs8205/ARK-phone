@@ -7,8 +7,11 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,7 +57,18 @@ class ArkFcmRegistration @Inject constructor(
             // must die with the rotation, or its late success posts the dead
             // token over the live one and the phone turns unwakeable.
             syncJob?.cancel()
-            syncJob = scope.launch { syncWithRetry(token) }
+            val predecessor = syncJob
+            syncJob = scope.launch {
+                // Cancellation cannot recall a post already on the wire —
+                // OkHttp's execute() blocks straight through it. Posting the
+                // new token while the old one is in flight lets the worker
+                // keep whichever lands last, so wait the predecessor out;
+                // the join must survive this job's own cancellation or a
+                // third rotation would skip the wait.
+                predecessor?.let { withContext(NonCancellable) { it.join() } }
+                ensureActive()
+                syncWithRetry(token)
+            }
         }
     }
 
