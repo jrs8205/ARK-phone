@@ -330,6 +330,31 @@ class SignalingClientTest {
     }
 
     @Test
+    fun `a frame refused during the flush survives to the socket after it`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        assertFalse(
+            client.send(SignalingMessage(type = SignalingTypes.CALL_END, to = "ARK-BBBB-BBBB")),
+        )
+        advanceTimeBy(1_100)
+        runCurrent()
+        // The replacement socket refuses its flush too — the frame must go
+        // back in line instead of vanishing with the cleared queue.
+        connector.handles[1].accepts = false
+        connector.opens()
+        advanceTimeBy(1_100)
+        runCurrent()
+        connector.opens()
+        val resent = connector.handles[2].sent.mapNotNull { SignalingJson.decode(it) }
+        assertEquals(listOf(SignalingTypes.CALL_END), resent.map { it.type })
+        assertEquals("ARK-BBBB-BBBB", resent.single().to)
+        client.stop()
+    }
+
+    @Test
     fun `forceReconnect dials a fresh socket immediately`() = runTest {
         val connector = FakeConnector()
         val client = client(connector, backgroundScope)

@@ -172,7 +172,19 @@ class SignalingClient(
             copy
         }
         val current = handle ?: return
-        for (message in stashed) current.send(SignalingJson.encode(message))
+        for ((index, message) in stashed.withIndex()) {
+            if (!current.send(SignalingJson.encode(message))) {
+                // The replacement socket refused too. Everything unsent goes
+                // back in line — ahead of anything stashed meanwhile, it is
+                // older — and the socket is dropped like any refused send.
+                synchronized(resendQueue) {
+                    resendQueue.addAll(0, stashed.subList(index, stashed.size))
+                    while (resendQueue.size > MAX_RESEND) resendQueue.removeFirst()
+                }
+                onSendRefused()
+                return
+            }
+        }
     }
 
     /**
