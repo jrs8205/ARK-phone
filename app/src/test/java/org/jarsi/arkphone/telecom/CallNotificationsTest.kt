@@ -33,6 +33,18 @@ class CallNotificationsTest {
     )
 
     @Test
+    fun ensureChannelsDeletesTheLegacyVoipServiceChannel() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel("voip_calls", "Internet call", NotificationManager.IMPORTANCE_LOW),
+        )
+        CallNotifications(context) { java.util.Optional.empty() }.ensureChannels()
+        // A release installed over the beta has no debug-only service to
+        // delete this; the shared channel bootstrap must own the removal.
+        assertNull(manager.getNotificationChannel("voip_calls"))
+    }
+
+    @Test
     fun anArkRingOnAnAwakeUnlockedScreenStaysOffTheHeadsUpChannel() {
         // Robolectric default: screen on, keyguard unlocked. The call screen
         // opens, so the notification must not banner a second button set —

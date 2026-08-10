@@ -1,6 +1,5 @@
 package org.jarsi.arkphone.voip
 
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -20,15 +19,6 @@ class VoipForegroundService : Service() {
     @Inject lateinit var callNotifications: CallNotifications
 
     @Inject lateinit var callController: CallController
-
-    override fun onCreate() {
-        super.onCreate()
-        // The service's own channel and notification are gone: the ongoing
-        // notification IS the foreground notice now. Two entries under the
-        // same app left the user guessing which one returns to the call.
-        getSystemService(NotificationManager::class.java)
-            .deleteNotificationChannel(LEGACY_CHANNEL_ID)
-    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val info = callController.calls.value.firstOrNull()
@@ -57,8 +47,6 @@ class VoipForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        private const val LEGACY_CHANNEL_ID = "voip_calls"
-
         fun start(context: Context) {
             context.startForegroundService(Intent(context, VoipForegroundService::class.java))
         }

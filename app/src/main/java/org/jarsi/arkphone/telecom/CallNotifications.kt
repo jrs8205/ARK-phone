@@ -41,6 +41,9 @@ class CallNotifications @Inject constructor(
             "incoming_calls_silent",
             "incoming_calls_ark",
             "incoming_calls_ark_silent",
+            // The VoIP service's own channel: a release installed over the
+            // beta has no debug-only service left to delete it.
+            "voip_calls",
         )
         const val CHANNEL_INCOMING_SILENCED = "incoming_calls_silenced"
         const val CHANNEL_ONGOING = "ongoing_calls"
