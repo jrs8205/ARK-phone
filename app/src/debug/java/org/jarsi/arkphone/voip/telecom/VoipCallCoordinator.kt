@@ -132,6 +132,11 @@ class VoipCallCoordinator(
             sessionScope.cancel()
             return false
         }
+        // An inline refusal (addCall failing before its first suspension on
+        // Main.immediate) has already finished this call and started the
+        // carrier fallback; opening surfaces for the dead handle would leave
+        // a call nothing can ever remove.
+        if (active !== call) return true
         ui.added(handle)
         attachAudio(call)
         ui.openCallScreen()

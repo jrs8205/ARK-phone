@@ -45,6 +45,8 @@ class VoipCallCoordinatorTest {
         var lastAnswer: (() -> Unit)? = null
         var lastDisconnect: (() -> Unit)? = null
         var lastFailed: (() -> Unit)? = null
+        /** Refuses inside add() itself, as Main.immediate lets addCall do. */
+        var failInline = false
         override fun add(
             handle: VoipCallHandle,
             onSystemAnswer: () -> Unit,
@@ -56,6 +58,7 @@ class VoipCallCoordinatorTest {
             lastAnswer = onSystemAnswer
             lastDisconnect = onSystemDisconnect
             lastFailed = onFailed
+            if (failInline) onFailed()
             return true
         }
         override fun answered(id: String) { answered += id }
@@ -163,6 +166,20 @@ class VoipCallCoordinatorTest {
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
         assertFalse(coordinator.startCall(link) { })
         assertTrue(session.calls.isEmpty())
+    }
+
+    @Test
+    fun anInlineTelecomRefusalLeavesNoZombieCall() = runTest {
+        var fellBack = 0
+        telecom.failInline = true
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        assertTrue(coordinator.startCall(link) { fellBack++ })
+        runCurrent()
+        assertEquals(1, fellBack)
+        // The handle was finished before add() returned: adding it to the UI
+        // afterwards would leave a call nothing can ever remove.
+        assertFalse(ui.events.contains("added"))
+        assertFalse(ui.events.contains("openCallScreen"))
     }
 
     @Test
