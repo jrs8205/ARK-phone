@@ -74,6 +74,15 @@ class CoreTelecomRegistrar @Inject constructor(
             callCapabilities = 0,
         )
         currentId = handle.id
+        // remove() clears the pending stash only when it still owns the
+        // call; a mismatch on a torn-down path can leave a previous call's
+        // answer or route choice behind, and replaying either into this
+        // call would answer it unasked or flip it onto the speaker.
+        pendingAnswer = false
+        pendingSpeaker = null
+        endpointJob?.cancel()
+        endpointJob = null
+        endpoints = emptyList()
         Log.i(TAG, "ARK telecom add id=${handle.id}")
         sessionJob = scope.launch {
             try {
