@@ -171,19 +171,22 @@ class SignalingClient(
     }
 
     private fun onOpen() {
-        reconnectDelayMs = 1_000L
         _connectionState.value = SignalingConnectionState.CONNECTED
         startPinging()
-        flushResendQueue()
+        // The backoff resets only once the socket proves it can carry a
+        // frame: a handshake that accepts but refuses the flush used to
+        // reset to one second and redial a broken worker forever.
+        if (flushResendQueue()) reconnectDelayMs = 1_000L
     }
 
-    private fun flushResendQueue() {
+    /** False when the socket refused mid-flush and was dropped. */
+    private fun flushResendQueue(): Boolean {
         val stashed = synchronized(resendQueue) {
             val copy = resendQueue.toList()
             resendQueue.clear()
             copy
         }
-        val current = handle ?: return
+        val current = handle ?: return false
         for ((index, message) in stashed.withIndex()) {
             if (!current.send(SignalingJson.encode(message))) {
                 // The replacement socket refused too. Everything unsent goes
@@ -194,9 +197,10 @@ class SignalingClient(
                     trimResendQueue()
                 }
                 onSendRefused()
-                return
+                return false
             }
         }
+        return true
     }
 
     /**

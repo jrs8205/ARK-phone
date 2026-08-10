@@ -344,15 +344,40 @@ class SignalingClientTest {
         advanceTimeBy(1_100)
         runCurrent()
         // The replacement socket refuses its flush too — the frame must go
-        // back in line instead of vanishing with the cleared queue.
+        // back in line instead of vanishing with the cleared queue. The
+        // refusal keeps the backoff growing, so the third dial takes 2 s.
         connector.handles[1].accepts = false
         connector.opens()
-        advanceTimeBy(1_100)
+        advanceTimeBy(2_100)
         runCurrent()
         connector.opens()
         val resent = connector.handles[2].sent.mapNotNull { SignalingJson.decode(it) }
         assertEquals(listOf(SignalingTypes.CALL_END), resent.map { it.type })
         assertEquals("ARK-BBBB-BBBB", resent.single().to)
+        client.stop()
+    }
+
+    @Test
+    fun `a flush refusal keeps the reconnect backoff growing`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        client.send(SignalingMessage(type = SignalingTypes.CALL_END, to = "ARK-BBBB-BBBB"))
+        advanceTimeBy(1_100)
+        runCurrent()
+        // The replacement accepts the handshake but refuses its first queued
+        // frame: a worker in this state used to be redialed at a fixed 1 s
+        // forever — the delay must keep doubling instead.
+        connector.handles[1].accepts = false
+        connector.opens()
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(2, connector.handles.size)
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(3, connector.handles.size)
         client.stop()
     }
 
