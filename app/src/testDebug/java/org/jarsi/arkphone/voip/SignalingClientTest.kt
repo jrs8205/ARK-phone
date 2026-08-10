@@ -20,7 +20,9 @@ class SignalingClientTest {
     private class FakeHandle(var accepts: Boolean = true) : WebSocketHandle {
         val sent = mutableListOf<String>()
         var closed = false
+        var onSend: ((String) -> Boolean)? = null
         override fun send(text: String): Boolean {
+            onSend?.let { return it(text) }
             if (!accepts) return false
             sent.add(text)
             return true
@@ -351,6 +353,55 @@ class SignalingClientTest {
         val resent = connector.handles[2].sent.mapNotNull { SignalingJson.decode(it) }
         assertEquals(listOf(SignalingTypes.CALL_END), resent.map { it.type })
         assertEquals("ARK-BBBB-BBBB", resent.single().to)
+        client.stop()
+    }
+
+    @Test
+    fun `the resend cap drops candidates before call frames when a flush is refused`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        connector.handles.single().accepts = false
+        // One critical frame, then enough candidates to fill the cap of 32.
+        client.send(SignalingMessage(type = SignalingTypes.CALL_ANSWER, to = "ARK-BBBB-BBBB"))
+        repeat(31) { i ->
+            client.send(
+                SignalingMessage(
+                    type = SignalingTypes.ICE_CANDIDATE,
+                    to = "ARK-BBBB-BBBB",
+                    payload = buildJsonObject { put("candidate", "c$i") },
+                ),
+            )
+        }
+        advanceTimeBy(1_100)
+        runCurrent()
+        // The replacement refuses its flush too, and one more candidate is
+        // stashed mid-flush: the requeued tail plus the newcomer overflow
+        // the cap by one, and the evicted frame must be a candidate — the
+        // answer is the frame the whole resend queue exists for.
+        val replacement = connector.handles[1]
+        var injected = false
+        replacement.onSend = {
+            if (!injected) {
+                injected = true
+                client.send(
+                    SignalingMessage(
+                        type = SignalingTypes.ICE_CANDIDATE,
+                        to = "ARK-BBBB-BBBB",
+                        payload = buildJsonObject { put("candidate", "mid-flush") },
+                    ),
+                )
+            }
+            false
+        }
+        connector.opens()
+        advanceTimeBy(2_100)
+        runCurrent()
+        connector.opens()
+        val resent = connector.handles[2].sent.mapNotNull { SignalingJson.decode(it) }
+        assertTrue(resent.any { it.type == SignalingTypes.CALL_ANSWER })
+        assertEquals(32, resent.size)
         client.stop()
     }
 

@@ -122,7 +122,19 @@ class SignalingClient(
         if (message.type !in RESEND_TYPES) return
         synchronized(resendQueue) {
             resendQueue += message
-            while (resendQueue.size > MAX_RESEND) resendQueue.removeFirst()
+            trimResendQueue()
+        }
+    }
+
+    /**
+     * Guarded by the resendQueue lock. The cap must not eat an offer,
+     * answer, reject or end — losing one kills the call, while a lost
+     * candidate merely degrades it. Candidates go first, oldest first.
+     */
+    private fun trimResendQueue() {
+        while (resendQueue.size > MAX_RESEND) {
+            val ice = resendQueue.indexOfFirst { it.type == SignalingTypes.ICE_CANDIDATE }
+            if (ice >= 0) resendQueue.removeAt(ice) else resendQueue.removeFirst()
         }
     }
 
@@ -179,7 +191,7 @@ class SignalingClient(
                 // older — and the socket is dropped like any refused send.
                 synchronized(resendQueue) {
                     resendQueue.addAll(0, stashed.subList(index, stashed.size))
-                    while (resendQueue.size > MAX_RESEND) resendQueue.removeFirst()
+                    trimResendQueue()
                 }
                 onSendRefused()
                 return
