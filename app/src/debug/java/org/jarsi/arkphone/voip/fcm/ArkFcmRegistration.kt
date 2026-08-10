@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.di.ApplicationScope
@@ -23,6 +24,8 @@ class ArkFcmRegistration @Inject constructor(
     private val tokenSync: FcmTokenSync,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
+    private var syncJob: Job? = null
+
     fun refresh() {
         if (FirebaseApp.getApps(context).isEmpty()) {
             Log.i(TAG, "No Firebase configuration; push wake-up is off")
@@ -39,7 +42,19 @@ class ArkFcmRegistration @Inject constructor(
                 Log.w(TAG, "FCM token blank")
                 return@addOnCompleteListener
             }
-            scope.launch { syncWithRetry(token) }
+            onNewToken(token)
+        }
+    }
+
+    /** A rotation from Firebase; also the funnel every fresh token goes through. */
+    fun onNewToken(token: String) {
+        scope.launch {
+            // The scope is single-threaded (Main.immediate), so the job swap
+            // cannot race. A sleeping retry for the token this one replaces
+            // must die with the rotation, or its late success posts the dead
+            // token over the live one and the phone turns unwakeable.
+            syncJob?.cancel()
+            syncJob = scope.launch { syncWithRetry(token) }
         }
     }
 

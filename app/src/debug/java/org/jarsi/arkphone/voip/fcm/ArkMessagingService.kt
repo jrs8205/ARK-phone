@@ -4,11 +4,8 @@ import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.voip.VoipEngine
 import javax.inject.Inject
 
@@ -25,9 +22,7 @@ class ArkMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var engine: VoipEngine
 
-    @Inject lateinit var tokenSync: FcmTokenSync
-
-    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+    @Inject lateinit var fcmRegistration: ArkFcmRegistration
 
     override fun onMessageReceived(message: RemoteMessage) {
         if (message.data["type"] != TYPE_INCOMING_CALL) return
@@ -43,7 +38,9 @@ class ArkMessagingService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        appScope.launch { tokenSync.sync(token) }
+        // The registration retries and cancels superseded rotations; a bare
+        // one-shot sync here once left the worker holding a dead token.
+        fcmRegistration.onNewToken(token)
     }
 
     private companion object {
