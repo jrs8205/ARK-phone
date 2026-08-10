@@ -75,6 +75,7 @@ import org.jarsi.arkphone.telecom.TelecomCallPlacer
 import org.jarsi.arkphone.telecom.AnnounceGate
 import org.jarsi.arkphone.telecom.CallScreeningRole
 import org.jarsi.arkphone.telecom.CallNotifications
+import org.jarsi.arkphone.telecom.CarrierBiasedEmergencyNumbers
 import org.jarsi.arkphone.telecom.EmergencyNumbers
 import org.jarsi.arkphone.telecom.FullScreenIntentPermission
 import org.jarsi.arkphone.telecom.RejectMessageSender
@@ -304,21 +305,19 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideEmergencyNumbers(@ApplicationContext context: Context): EmergencyNumbers =
-            EmergencyNumbers { number ->
-                // Telephony may be unavailable or throw; routing then proceeds
-                // normally and the carrier stack still applies its own rules.
-                runCatching {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        // The deprecated check is the only one that exists
-                        // before Q — returning false there would route a
-                        // linked 112 through VoIP.
-                        @Suppress("DEPRECATION")
-                        PhoneNumberUtils.isEmergencyNumber(number)
-                    } else {
-                        context.getSystemService(TelephonyManager::class.java)
-                            ?.isEmergencyNumber(number) == true
-                    }
-                }.getOrDefault(false)
+            CarrierBiasedEmergencyNumbers { number ->
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    // The deprecated check is the only one that exists
+                    // before Q — returning false there would route a
+                    // linked 112 through VoIP.
+                    @Suppress("DEPRECATION")
+                    PhoneNumberUtils.isEmergencyNumber(number)
+                } else {
+                    // A missing TelephonyManager must fail toward the
+                    // carrier, not classify as ordinary.
+                    checkNotNull(context.getSystemService(TelephonyManager::class.java))
+                        .isEmergencyNumber(number)
+                }
             }
     }
 }
