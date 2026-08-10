@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.ArkIdentity
+import org.jarsi.arkphone.telecom.ProximityController
 
 /**
  * Brings the VoIP engine up with the process: the FCM token is refreshed so
@@ -21,6 +22,11 @@ class ArkVoipStartup(
     private val fcmRefresh: () -> Unit,
     private val identities: Flow<ArkIdentity?>,
     private val scope: CoroutineScope,
+    // Never read: requiring it is what makes the proximity screen-off EXIST
+    // on this path — a self-managed ARK call binds no InCallService, so no
+    // other production site creates the singleton (screen stayed lit at the
+    // ear, field-hit 2026-08-10).
+    @Suppress("UNUSED_PARAMETER") proximityController: ProximityController,
 ) : VoipStartup {
 
     private var started = false

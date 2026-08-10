@@ -9,6 +9,10 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.jarsi.arkphone.data.ArkIdentity
+import org.jarsi.arkphone.telecom.CallController
+import org.jarsi.arkphone.telecom.CallHandle
+import org.jarsi.arkphone.telecom.ProximityController
+import org.jarsi.arkphone.telecom.ProximityLock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +27,36 @@ class ArkVoipStartupTest {
     private class StubHandle : WebSocketHandle {
         override fun send(text: String): Boolean = true
         override fun close() = Unit
+    }
+
+    private class FakeProximityLock : ProximityLock {
+        var held = false
+        override fun acquire() {
+            held = true
+        }
+        override fun release() {
+            held = false
+        }
+    }
+
+    /** The startup demands one; tests not about proximity get a throwaway. */
+    private fun kotlinx.coroutines.test.TestScope.proximity() =
+        ProximityController(CallController(), FakeProximityLock(), backgroundScope)
+
+    private class StartupCallHandle : CallHandle {
+        override val id: String = "voip-out-ARK-BBBB-BBBB"
+        override var telecomState: Int = android.telecom.Call.STATE_ACTIVE
+        override val number: String? = "0401234567"
+        override val displayName: String? = null
+        override val connectTimeMillis: Long = 0
+        override val simAccountId: String? = null
+        override fun answer() = Unit
+        override fun reject() = Unit
+        override fun disconnect() = Unit
+        override fun hold() = Unit
+        override fun unhold() = Unit
+        override fun playDtmf(digit: Char) = Unit
+        override fun stopDtmf() = Unit
     }
 
     private class StartupConnector : WebSocketConnector {
@@ -59,6 +93,7 @@ class ArkVoipStartupTest {
             { refreshed = true },
             MutableStateFlow<ArkIdentity?>(identity),
             backgroundScope,
+            proximity(),
         ).onAppStart()
         runCurrent()
         assertTrue(refreshed)
@@ -75,7 +110,8 @@ class ArkVoipStartupTest {
             config = VoipConfig("https://w"),
             scope = backgroundScope,
         )
-        ArkVoipStartup(engine, { }, { }, repository.state, backgroundScope).onAppStart()
+        ArkVoipStartup(engine, { }, { }, repository.state, backgroundScope, proximity())
+            .onAppStart()
         runCurrent()
         assertEquals(0, connector.handles.size)
         repository.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
@@ -99,6 +135,7 @@ class ArkVoipStartupTest {
             { },
             MutableStateFlow<ArkIdentity?>(ArkIdentity("ARK-AAAA-AAAA", "A", "t")),
             backgroundScope,
+            proximity(),
         ).onAppStart()
         runCurrent()
         connector.lastOnOpen!!()
@@ -133,10 +170,42 @@ class ArkVoipStartupTest {
             { },
             MutableStateFlow<ArkIdentity?>(ArkIdentity("ARK-AAAA-AAAA", "A", "t")),
             backgroundScope,
+            proximity(),
         )
         startup.onAppStart()
         startup.onAppStart()
         runCurrent()
         assertEquals(1, connector.handles.size)
+    }
+
+    @Test
+    fun startupArmsTheProximityScreenOffForArkCalls() = runTest {
+        val connector = StartupConnector()
+        val identity = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
+        val engine = VoipEngine(
+            identityRepository = TestArkIdentityRepository(identity),
+            connector = connector,
+            config = VoipConfig("https://w"),
+            scope = backgroundScope,
+        )
+        val callController = CallController()
+        val lock = FakeProximityLock()
+        // The startup must own the controller: the self-managed path binds no
+        // InCallService, so nothing else ever instantiates it — an ARK call
+        // at the ear left the screen lit (field-hit 2026-08-10 morning).
+        ArkVoipStartup(
+            engine,
+            { },
+            { },
+            MutableStateFlow<ArkIdentity?>(identity),
+            backgroundScope,
+            ProximityController(callController, lock, backgroundScope),
+        ).onAppStart()
+        runCurrent()
+        callController.onInCallUiVisibility(true)
+        callController.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
+        callController.onCallAdded(StartupCallHandle())
+        runCurrent()
+        assertTrue(lock.held)
     }
 }

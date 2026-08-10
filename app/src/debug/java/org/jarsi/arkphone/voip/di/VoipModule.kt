@@ -40,6 +40,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallRuleEvaluator
 import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.telecom.MissedCallNotifier
+import org.jarsi.arkphone.telecom.ProximityController
 import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.voip.telecom.ArkCallLog
 import org.jarsi.arkphone.voip.telecom.CallControllerVoipCallUi
@@ -217,11 +218,13 @@ object VoipModule {
         fcmRegistration: ArkFcmRegistration,
         identityRepository: ArkIdentityRepository,
         @ApplicationScope scope: CoroutineScope,
+        proximityController: ProximityController,
     ): VoipStartup = ArkVoipStartup(
         engine = engine,
         onIncoming = coordinator::onIncoming,
         fcmRefresh = fcmRegistration::refresh,
         identities = identityRepository.identity,
         scope = scope,
+        proximityController = proximityController,
     )
 }
