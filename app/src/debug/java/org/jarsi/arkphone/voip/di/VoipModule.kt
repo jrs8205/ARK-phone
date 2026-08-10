@@ -205,7 +205,12 @@ object VoipModule {
         // Bounded: a wedged DataStore must degrade to "unlinked" (safe by
         // carrier fallback), not hold the ring forever.
         awaitLinkCache = { withTimeoutOrNull(2_000L) { linkCache.await() } },
-        arkCallsEnabled = { settingsCache.current.arkInternetCallsEnabled },
+        // Bounded like the link cache: a wedged DataStore keeps the default
+        // rather than holding the ring forever.
+        arkCallsEnabled = {
+            withTimeoutOrNull(2_000L) { settingsCache.await() }?.arkInternetCallsEnabled
+                ?: settingsCache.current.arkInternetCallsEnabled
+        },
     )
 
     @Provides

@@ -52,7 +52,10 @@ class VoipCallCoordinator(
     private val hasMicPermission: () -> Boolean = { true },
     private val disconnectErrorFor: (reason: String) -> DisconnectError? = { null },
     private val awaitLinkCache: suspend () -> Unit = {},
-    private val arkCallsEnabled: () -> Boolean = { true },
+    // Suspends until settings have actually loaded: the synchronous default
+    // is true, and a cold FCM start read it before DataStore's first
+    // emission — a disabled phone rang anyway.
+    private val arkCallsEnabled: suspend () -> Boolean = { true },
 ) : VoipCallGateway {
 
     private var active: ActiveCall? = null

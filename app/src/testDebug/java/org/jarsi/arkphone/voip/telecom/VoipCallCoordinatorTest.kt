@@ -144,7 +144,7 @@ class VoipCallCoordinatorTest {
         numberFor: (String) -> String? = { "+358 44 5552841" },
         blockCheck: suspend (String?) -> Boolean = { false },
         hasMic: () -> Boolean = { true },
-        arkEnabled: () -> Boolean = { true },
+        arkEnabled: suspend () -> Boolean = { true },
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
         sessionFactory = { _, _, _, _, callId, _ ->
@@ -170,6 +170,26 @@ class VoipCallCoordinatorTest {
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
         assertFalse(coordinator.startCall(link) { })
         assertTrue(session.calls.isEmpty())
+    }
+
+    @Test
+    fun theMasterSwitchIsReadFromLoadedSettingsNotTheDefault() = runTest {
+        // Cold FCM start: the link cache can be ready before DataStore's
+        // first emission. The switch must wait for the real value — the
+        // default is true, and a disabled phone would ring anyway.
+        val coordinator = coordinator(
+            backgroundScope,
+            FakeReach(reachable = true),
+            arkEnabled = {
+                kotlinx.coroutines.delay(1_000)
+                false
+            },
+        )
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertFalse(ui.events.contains("added"))
     }
 
     @Test
