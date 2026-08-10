@@ -58,7 +58,14 @@ fun reconcileFlush(messages: List<SignalingMessage>): IncomingArkCall? {
             SignalingTypes.ICE_CANDIDATE -> {
                 val candidate =
                     message.payload?.get("candidate")?.jsonPrimitive?.content ?: continue
-                if (live.containsKey(from)) {
+                // Same stamp rule as the cancels: an earlier attempt's late
+                // candidates can trail the live offer in the flush, and
+                // seeding them would poison the new session's ICE.
+                val candidateStamp = message.payload["callId"]?.jsonPrimitive?.content
+                val offerStamp = live[from]?.second
+                val sameAttempt =
+                    candidateStamp == null || offerStamp == null || candidateStamp == offerStamp
+                if (live.containsKey(from) && sameAttempt) {
                     candidates.getOrPut(from) { mutableListOf() }.add(candidate)
                 }
             }

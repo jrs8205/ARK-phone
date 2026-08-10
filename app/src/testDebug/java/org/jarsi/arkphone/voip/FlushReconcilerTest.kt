@@ -86,10 +86,13 @@ class FlushReconcilerTest {
         assertEquals(IncomingArkCall("ARK-BBBB-BBBB", "v=0 b"), reconcileFlush(flush))
     }
 
-    private fun candidate(from: String, value: String) = SignalingMessage(
+    private fun candidate(from: String, value: String, callId: String? = null) = SignalingMessage(
         type = SignalingTypes.ICE_CANDIDATE,
         from = from,
-        payload = buildJsonObject { put("candidate", value) },
+        payload = buildJsonObject {
+            put("candidate", value)
+            callId?.let { put("callId", it) }
+        },
     )
 
     @Test
@@ -118,6 +121,23 @@ class FlushReconcilerTest {
         assertEquals(
             IncomingArkCall("ARK-BBBB-BBBB", "v=0 live", listOf("live-c")),
             reconcileFlush(flush),
+        )
+    }
+
+    @Test
+    fun aStampedCandidateFromAnotherAttemptIsNotSeeded() {
+        // The caller's resend queue can flush an earlier attempt's late
+        // candidates after the live offer; their stamps prove whose they
+        // are. An unstamped candidate (an older build) still rides along.
+        val flush = listOf(
+            offer("ARK-BBBB-BBBB", "v=0 live", callId = "call-b"),
+            candidate("ARK-BBBB-BBBB", "stale-c", callId = "call-a"),
+            candidate("ARK-BBBB-BBBB", "live-c", callId = "call-b"),
+            candidate("ARK-BBBB-BBBB", "unstamped-c"),
+        )
+        assertEquals(
+            listOf("live-c", "unstamped-c"),
+            reconcileFlush(flush)!!.iceCandidates,
         )
     }
 
