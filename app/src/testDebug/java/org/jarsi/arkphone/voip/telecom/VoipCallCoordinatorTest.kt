@@ -203,6 +203,24 @@ class VoipCallCoordinatorTest {
     }
 
     @Test
+    fun anInlineTelecomRefusalOnAnIncomingCallNeverBlipsTheRing() = runTest {
+        telecom.failInline = true
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        // The platform refused before ring() resumed: the phone must not
+        // flash a ring, announcement, or call screen for the dead call.
+        assertFalse(ui.events.contains("showIncoming"))
+        assertFalse(ui.events.contains("openCallScreen"))
+        assertTrue(session.calls.contains("hangUp"))
+        // The state observer must still run, so the Ended state finishes
+        // the call and frees the one-call slot.
+        session.moveTo(VoipCallState.Ended("local-hangup"))
+        runCurrent()
+        assertEquals(listOf("voip-in-ARK-BBBB-BBBB"), telecom.removed)
+    }
+
+    @Test
     fun anInlineTelecomRefusalLeavesNoZombieCall() = runTest {
         var fellBack = 0
         telecom.failInline = true

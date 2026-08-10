@@ -70,6 +70,8 @@ class VoipCallCoordinator(
         var timeoutJob: Job? = null,
         var answered: Boolean = false,
         var answeredByUser: Boolean = false,
+        /** Set when the platform withdrew the call; ring() checks it. */
+        var telecomFailed: Boolean = false,
     )
 
     /**
@@ -238,6 +240,13 @@ class VoipCallCoordinator(
             sessionScope.cancel()
             return
         }
+        if (activeCall.telecomFailed) {
+            // An inline refusal already hung the session up; opening the
+            // ring surfaces would blip a ring and announcement for a dead
+            // call. The observer still runs so the Ended state finishes it.
+            observe(activeCall)
+            return
+        }
         ui.added(handle)
         attachAudio(activeCall)
         ui.showIncoming(handle)
@@ -284,6 +293,7 @@ class VoipCallCoordinator(
     /** The platform withdrew a call it first accepted (async addCall refusal). */
     private fun onTelecomFailed(call: ActiveCall) {
         if (active !== call) return
+        call.telecomFailed = true
         Log.i(TAG, "ARK telecom failed id=${call.handle.id}")
         if (call.direction == VoipCallDirection.OUTGOING && !call.answered) {
             fallBack(call)
