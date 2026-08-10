@@ -72,6 +72,7 @@ class WebRtcCallSessionTest {
         scope: kotlinx.coroutines.CoroutineScope,
         initialOfferSdp: String? = null,
         initialRemoteCandidates: List<String> = emptyList(),
+        initialCallId: String? = null,
     ) {
         val signaling = FakeSignaling()
         val factory = FakeFactory()
@@ -83,6 +84,7 @@ class WebRtcCallSessionTest {
             peerId = "phone-10pro",
             initialOfferSdp = initialOfferSdp,
             initialRemoteCandidates = initialRemoteCandidates,
+            initialCallId = initialCallId,
         )
 
         fun serverSends(message: SignalingMessage) {
@@ -90,6 +92,67 @@ class WebRtcCallSessionTest {
         }
 
         fun sentOfType(type: String) = signaling.sent.filter { it.type == type }
+    }
+
+    @Test
+    fun `a call-end stamped for an earlier call does not end this one`() = runTest {
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
+        runCurrent()
+        // Call A's end, stashed in the resend queue and flushed after this
+        // call began, must not kill call B as a peer hang-up.
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_END,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("callId", "call-a") },
+            ),
+        )
+        runCurrent()
+        assertTrue(h.session.state.value is VoipCallState.Ringing)
+    }
+
+    @Test
+    fun `an unstamped call-end from an older build still ends the call`() = runTest {
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
+        runCurrent()
+        h.serverSends(SignalingMessage(type = SignalingTypes.CALL_END, from = "phone-10pro"))
+        runCurrent()
+        assertEquals(VoipCallState.Ended("peer-hangup"), h.session.state.value)
+    }
+
+    @Test
+    fun `outgoing frames carry the session's call id`() = runTest {
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
+        runCurrent()
+        h.session.answer()
+        runCurrent()
+        val answer = h.sentOfType(SignalingTypes.CALL_ANSWER).single()
+        assertEquals("call-b", answer.payload!!["callId"]!!.jsonPrimitive.content)
+        h.session.hangUp()
+        runCurrent()
+        val end = h.sentOfType(SignalingTypes.CALL_END).single()
+        assertEquals("call-b", end.payload!!["callId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `answering a live offer echoes its call id`() = runTest {
+        val h = Harness(backgroundScope)
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_OFFER,
+                from = "phone-10pro",
+                payload = buildJsonObject {
+                    put("sdp", "their-offer")
+                    put("callId", "call-x")
+                },
+            ),
+        )
+        runCurrent()
+        h.session.answer()
+        runCurrent()
+        val answer = h.sentOfType(SignalingTypes.CALL_ANSWER).single()
+        assertEquals("call-x", answer.payload!!["callId"]!!.jsonPrimitive.content)
     }
 
     @Test

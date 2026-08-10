@@ -16,6 +16,8 @@ data class IncomingArkCall(
     val offerSdp: String,
     val iceCandidates: List<String> = emptyList(),
     val sinceSeq: Long = 0L,
+    /** The caller's stamp for this attempt; null from an older build. */
+    val callId: String? = null,
 )
 
 /**
@@ -28,7 +30,7 @@ data class IncomingArkCall(
  * ringing session existed, so the seed is their only way in.
  */
 fun reconcileFlush(messages: List<SignalingMessage>): IncomingArkCall? {
-    val live = LinkedHashMap<String, String>()
+    val live = LinkedHashMap<String, Pair<String, String?>>()
     val candidates = HashMap<String, MutableList<String>>()
     for (message in messages) {
         // `from` is server-attested; a frame without one is not a real call.
@@ -36,8 +38,9 @@ fun reconcileFlush(messages: List<SignalingMessage>): IncomingArkCall? {
         when (message.type) {
             SignalingTypes.CALL_OFFER -> {
                 val sdp = message.payload?.get("sdp")?.jsonPrimitive?.content ?: continue
+                val callId = message.payload["callId"]?.jsonPrimitive?.content
                 live.remove(from)
-                live[from] = sdp
+                live[from] = sdp to callId
                 candidates.remove(from)
             }
             SignalingTypes.CALL_END, SignalingTypes.CALL_REJECT -> {
@@ -55,5 +58,10 @@ fun reconcileFlush(messages: List<SignalingMessage>): IncomingArkCall? {
         }
     }
     val newest = live.entries.lastOrNull() ?: return null
-    return IncomingArkCall(newest.key, newest.value, candidates[newest.key].orEmpty())
+    return IncomingArkCall(
+        newest.key,
+        newest.value.first,
+        candidates[newest.key].orEmpty(),
+        callId = newest.value.second,
+    )
 }

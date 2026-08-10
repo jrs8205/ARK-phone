@@ -26,9 +26,16 @@ class WebRtcCallSession(
     private val peerId: String,
     initialOfferSdp: String? = null,
     initialRemoteCandidates: List<String> = emptyList(),
+    initialCallId: String? = null,
 ) : VoipMediaSession {
     private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
     override val state: StateFlow<VoipCallState> = _state.asStateFlow()
+
+    // The one call this session is. The caller mints it, the callee adopts it
+    // from the offer; a frame stamped for any other call — a stale end resent
+    // out of a dead socket's queue — must not touch this one. Null from an
+    // older build's frame is accepted unchecked.
+    private var callId: String = initialCallId ?: java.util.UUID.randomUUID().toString()
 
     var relayOnly: Boolean = false
 
@@ -65,15 +72,22 @@ class WebRtcCallSession(
                 end("media-error", notifyPeer = false)
                 return@launch
             }
-            signaling.send(
-                SignalingMessage(
-                    type = SignalingTypes.CALL_OFFER,
-                    to = peerId,
-                    payload = buildJsonObject { put("sdp", offer) },
-                ),
-            )
+            signaling.send(frame(SignalingTypes.CALL_OFFER) { put("sdp", offer) })
         }
     }
+
+    /** Every frame this session emits is stamped with its call id. */
+    private fun frame(
+        type: String,
+        build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit = {},
+    ) = SignalingMessage(
+        type = type,
+        to = peerId,
+        payload = buildJsonObject {
+            put("callId", callId)
+            build()
+        },
+    )
 
     override fun answer() {
         val ringing = _state.value as? VoipCallState.Ringing ?: return
@@ -89,13 +103,7 @@ class WebRtcCallSession(
             if (activeAdapter !== adapter) return@launch
             remoteDescriptionSet = true
             flushPendingCandidates(adapter)
-            signaling.send(
-                SignalingMessage(
-                    type = SignalingTypes.CALL_ANSWER,
-                    to = peerId,
-                    payload = buildJsonObject { put("sdp", answer) },
-                ),
-            )
+            signaling.send(frame(SignalingTypes.CALL_ANSWER) { put("sdp", answer) })
         }
     }
 
@@ -110,7 +118,7 @@ class WebRtcCallSession(
 
     override fun reject() {
         if (_state.value !is VoipCallState.Ringing) return
-        signaling.send(SignalingMessage(type = SignalingTypes.CALL_REJECT, to = peerId))
+        signaling.send(frame(SignalingTypes.CALL_REJECT))
         end("local-reject", notifyPeer = false)
     }
 
@@ -123,7 +131,7 @@ class WebRtcCallSession(
             // just cancelled.
             VoipCallState.Idle -> end("local-hangup", notifyPeer = false)
             else -> {
-                signaling.send(SignalingMessage(type = SignalingTypes.CALL_END, to = peerId))
+                signaling.send(frame(SignalingTypes.CALL_END))
                 end("local-hangup", notifyPeer = false)
             }
         }
@@ -161,11 +169,9 @@ class WebRtcCallSession(
             adapter.events.collect { event ->
                 when (event) {
                     is AdapterEvent.LocalIceCandidate -> signaling.send(
-                        SignalingMessage(
-                            type = SignalingTypes.ICE_CANDIDATE,
-                            to = peerId,
-                            payload = buildJsonObject { put("candidate", event.candidateJson) },
-                        ),
+                        frame(SignalingTypes.ICE_CANDIDATE) {
+                            put("candidate", event.candidateJson)
+                        },
                     )
                     AdapterEvent.Connected -> _state.value = VoipCallState.InCall
                     AdapterEvent.Failed -> end("connection-failed", notifyPeer = true)
@@ -181,10 +187,22 @@ class WebRtcCallSession(
         // registered account is a bystander and must not get to end the call
         // or feed it candidates.
         if (message.type != SignalingTypes.ERROR && message.from != peerId) return
+        // An offer STARTS a call rather than belonging to this one, and an
+        // unstamped frame is an older build; everything else must be stamped
+        // for THIS call — a stale end resent out of a dead socket's queue
+        // used to kill the peer's next call as a phantom hang-up.
+        val frameCallId = message.payload?.get("callId")?.jsonPrimitive?.content
+        if (message.type != SignalingTypes.CALL_OFFER &&
+            message.type != SignalingTypes.ERROR &&
+            frameCallId != null && frameCallId != callId
+        ) {
+            return
+        }
         when (message.type) {
             SignalingTypes.CALL_OFFER -> {
                 if (_state.value != VoipCallState.Idle) return
                 val sdp = message.payload?.get("sdp")?.jsonPrimitive?.content ?: return
+                frameCallId?.let { callId = it }
                 _state.value = VoipCallState.Ringing(sdp)
             }
             SignalingTypes.CALL_ANSWER -> {
@@ -223,7 +241,7 @@ class WebRtcCallSession(
 
     private fun end(reason: String, notifyPeer: Boolean) {
         if (notifyPeer) {
-            signaling.send(SignalingMessage(type = SignalingTypes.CALL_END, to = peerId))
+            signaling.send(frame(SignalingTypes.CALL_END))
         }
         adapterJob?.cancel()
         activeAdapter?.close()

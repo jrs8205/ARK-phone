@@ -47,13 +47,15 @@ fun interface VoipMediaSessionFactory {
      * candidates that arrived in the same inbox flush as the offer — they were
      * emitted before any session existed, so this is their only way in.
      * [sinceSeq] is the call's replay horizon; pass a negative value for an
-     * outgoing call to mean "from now on".
+     * outgoing call to mean "from now on". [callId] is the offer's stamp for
+     * an incoming call; null lets the session mint its own.
      */
     fun create(
         peerCode: String,
         offerSdp: String?,
         remoteCandidates: List<String>,
         sinceSeq: Long,
+        callId: String?,
         scope: CoroutineScope,
     ): VoipMediaSession
 }

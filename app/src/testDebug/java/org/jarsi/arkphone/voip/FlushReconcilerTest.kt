@@ -26,6 +26,19 @@ class FlushReconcilerTest {
     }
 
     @Test
+    fun theOffersCallIdSurvivesReconciliation() {
+        val stamped = SignalingMessage(
+            type = SignalingTypes.CALL_OFFER,
+            from = "ARK-BBBB-BBBB",
+            payload = buildJsonObject {
+                put("sdp", "v=0")
+                put("callId", "call-x")
+            },
+        )
+        assertEquals("call-x", reconcileFlush(listOf(stamped))!!.callId)
+    }
+
+    @Test
     fun aLoneOfferRings() {
         assertEquals(
             IncomingArkCall("ARK-BBBB-BBBB", "v=0"),

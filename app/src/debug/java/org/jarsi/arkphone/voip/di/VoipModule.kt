@@ -119,7 +119,8 @@ object VoipModule {
         accountClient: ArkAccountClient,
         identityRepository: ArkIdentityRepository,
         provider: PeerConnectionFactoryProvider,
-    ): VoipMediaSessionFactory = VoipMediaSessionFactory { peerCode, offerSdp, remoteCandidates, sinceSeq, scope ->
+    ): VoipMediaSessionFactory =
+        VoipMediaSessionFactory { peerCode, offerSdp, remoteCandidates, sinceSeq, callId, scope ->
         WebRtcCallSession(
             // Negative horizon = an outgoing call: nothing before this moment
             // may replay into it.
@@ -144,6 +145,7 @@ object VoipModule {
             peerId = peerCode,
             initialOfferSdp = offerSdp,
             initialRemoteCandidates = remoteCandidates,
+            initialCallId = callId,
         )
     }
 

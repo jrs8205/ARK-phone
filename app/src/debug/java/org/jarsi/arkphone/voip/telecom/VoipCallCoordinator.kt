@@ -108,7 +108,7 @@ class VoipCallCoordinator(
         }
         val id = "voip-out-${link.code}"
         val sessionScope = newSessionScope()
-        val session = sessionFactory.create(link.code, null, emptyList(), -1L, sessionScope)
+        val session = sessionFactory.create(link.code, null, emptyList(), -1L, null, sessionScope)
         val actions = SessionActions(session)
         val handle = VoipCallHandle(
             id = id,
@@ -207,6 +207,7 @@ class VoipCallCoordinator(
             call.offerSdp,
             call.iceCandidates,
             call.sinceSeq,
+            call.callId,
             sessionScope,
         )
         val actions = SessionActions(session)

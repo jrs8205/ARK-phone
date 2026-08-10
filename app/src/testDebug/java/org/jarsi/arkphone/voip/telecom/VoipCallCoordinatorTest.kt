@@ -126,6 +126,7 @@ class VoipCallCoordinatorTest {
     private val ui = FakeUi()
     private val callLog = FakeCallLog()
     private val missed = mutableListOf<ArkCallRecord>()
+    private val createdCallIds = mutableListOf<String?>()
 
     private val link = ArkLink(
         numberKey = "445552841",
@@ -146,7 +147,10 @@ class VoipCallCoordinatorTest {
         arkEnabled: () -> Boolean = { true },
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
-        sessionFactory = { _, _, _, _, _ -> session },
+        sessionFactory = { _, _, _, _, callId, _ ->
+            createdCallIds += callId
+            session
+        },
         telecom = telecom,
         ui = ui,
         nicknameForCode = nicknameFor,
@@ -166,6 +170,16 @@ class VoipCallCoordinatorTest {
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
         assertFalse(coordinator.startCall(link) { })
         assertTrue(session.calls.isEmpty())
+    }
+
+    @Test
+    fun anIncomingSessionIsScopedToTheOffersCallId() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(
+            IncomingArkCall("ARK-BBBB-BBBB", "sdp", callId = "call-x"),
+        )
+        runCurrent()
+        assertEquals(listOf<String?>("call-x"), createdCallIds)
     }
 
     @Test
