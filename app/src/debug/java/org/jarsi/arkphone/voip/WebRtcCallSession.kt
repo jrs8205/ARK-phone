@@ -250,6 +250,10 @@ class WebRtcCallSession(
                 if (_state.value != VoipCallState.Idle) end("peer-hangup", notifyPeer = false)
             SignalingTypes.ERROR -> {
                 val code = message.payload?.get("code")?.jsonPrimitive?.content ?: "error"
+                // Version skew: an older worker answers a frame type it does
+                // not know (call-ringing) with unknown-type — the frame was
+                // advisory and the call itself is fine.
+                if (code == "unknown-type") return
                 if (_state.value != VoipCallState.Idle) end(code, notifyPeer = false)
             }
         }

@@ -190,6 +190,22 @@ class WebRtcCallSessionTest {
     }
 
     @Test
+    fun `an unknown-type server error does not end the call`() = runTest {
+        // An older deployed worker answers a frame type it does not know
+        // (call-ringing) with unknown-type; the call itself is fine.
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.ERROR,
+                payload = buildJsonObject { put("code", "unknown-type") },
+            ),
+        )
+        runCurrent()
+        assertTrue(h.session.state.value is VoipCallState.Ringing)
+    }
+
+    @Test
     fun `a call-end stamped for an earlier call does not end this one`() = runTest {
         val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
         runCurrent()
