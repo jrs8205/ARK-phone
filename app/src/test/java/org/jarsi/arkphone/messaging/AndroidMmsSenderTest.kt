@@ -52,6 +52,22 @@ class AndroidMmsSenderTest {
     }
 
     @Test
+    fun `a failed handoff deletes the staged pdu`() = runTest {
+        val failing = AndroidMmsSender(
+            context = context,
+            imageShrinker = ImageShrinker(context),
+            transport = { _, _ -> throw IllegalStateException("no mms service") },
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        failing.send(listOf("+358400000000"), "Moro", null)
+
+        val staged = File(context.cacheDir, "mms").listFiles().orEmpty()
+            .filter { it.name.startsWith("mms-send-") }
+        assertEquals(emptyList<File>(), staged)
+    }
+
+    @Test
     fun `send stores the outbox row with its parts`() = runTest {
         val image = File(context.cacheDir, "attachment.jpg")
         Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888).apply {

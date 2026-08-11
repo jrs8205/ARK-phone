@@ -75,6 +75,12 @@ class AndroidMmsSender @Inject constructor(
 
     companion object {
         const val MESSAGE_BOX_FAILED = 5
+
+        /** The staged outgoing PDU; deleted once the platform reports the
+         *  send outcome (see [SmsSendStatusReceiver]). */
+        internal fun sendPduFileFor(context: Context, messageId: Long): File =
+            File(File(context.cacheDir, "mms"), "mms-send-$messageId.pdu")
+
         private const val DEFAULT_MAX_MESSAGE_BYTES = 300 * 1024
         private const val ADDRESS_TYPE_TO = 151
         private const val CHARSET_UTF8 = 106
@@ -105,11 +111,13 @@ class AndroidMmsSender @Inject constructor(
             val pdu = composeSendReq(from = null, to = addresses, parts = parts)
             val rowUri = storeOutboxRow(addresses, parts) ?: return@runCatching null
             val messageId = ContentUris.parseId(rowUri)
-            val file = File(File(context.cacheDir, "mms"), "mms-send-$messageId.pdu")
-                .apply { parentFile?.mkdirs() }
+            val file = sendPduFileFor(context, messageId).apply { parentFile?.mkdirs() }
             file.writeBytes(pdu)
             runCatching { transport.sendPdu(file, rowUri) }
                 .onFailure {
+                    // The platform never took the file, so no status broadcast
+                    // will come to clean it up.
+                    file.delete()
                     // The row stays visible as failed instead of a stuck outbox.
                     context.contentResolver.update(
                         rowUri,

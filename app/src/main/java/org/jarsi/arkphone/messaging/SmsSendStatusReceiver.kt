@@ -2,6 +2,7 @@ package org.jarsi.arkphone.messaging
 
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -63,6 +64,12 @@ class SmsSendStatusReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val rowUri = intent.data ?: return
+        if (intent.action == ACTION_MMS_SENT) {
+            // The platform is done with the staged PDU either way.
+            runCatching {
+                AndroidMmsSender.sendPduFileFor(context, ContentUris.parseId(rowUri)).delete()
+            }
+        }
         val values =
             sentUpdateFor(intent.action.orEmpty(), resultCode, deliveryTpStatusFrom(intent))
                 ?: return

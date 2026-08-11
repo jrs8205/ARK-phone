@@ -1,9 +1,15 @@
 package org.jarsi.arkphone.messaging
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.provider.Telephony
 import android.telephony.SmsManager
+import androidx.core.net.toUri
+import androidx.test.core.app.ApplicationProvider
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,6 +78,20 @@ class SmsSendStatusReceiverTest {
     @Test
     fun `unknown action is ignored`() {
         assertNull(sentUpdateFor("org.example.SOMETHING_ELSE", Activity.RESULT_OK))
+    }
+
+    @Test
+    fun `an mms sent broadcast deletes the staged pdu`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(File(context.cacheDir, "mms").apply { mkdirs() }, "mms-send-42.pdu")
+        file.writeBytes(byteArrayOf(1))
+
+        SmsSendStatusReceiver().onReceive(
+            context,
+            Intent(ACTION_MMS_SENT, "content://mms/42".toUri()),
+        )
+
+        assertFalse(file.exists())
     }
 
     @Test
