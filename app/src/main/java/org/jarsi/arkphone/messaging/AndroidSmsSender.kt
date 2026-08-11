@@ -50,7 +50,8 @@ class AndroidSmsSender @Inject constructor(
                 for (index in parts.indices) {
                     val last = index == parts.lastIndex
                     sentIntents += if (last) statusIntent(ACTION_SMS_SENT, rowUri) else null
-                    deliveryIntents += if (last) statusIntent(ACTION_SMS_DELIVERED, rowUri) else null
+                    deliveryIntents +=
+                        if (last) statusIntent(ACTION_SMS_DELIVERED, rowUri, mutable = true) else null
                 }
                 smsManager.sendMultipartTextMessage(
                     address,
@@ -75,13 +76,21 @@ class AndroidSmsSender @Inject constructor(
         }
     }
 
-    private fun statusIntent(action: String, rowUri: Uri): PendingIntent =
+    private fun statusIntent(action: String, rowUri: Uri, mutable: Boolean = false): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             rowUri.hashCode(),
             Intent(action, rowUri, context, SmsSendStatusReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                PendingIntent.FLAG_IMMUTABLE or
-                PendingIntent.FLAG_ONE_SHOT,
+            if (mutable) {
+                // The delivery intent must stay mutable and reusable: the
+                // system skips fillIn on an immutable one — dropping the
+                // status-report PDU — and an SMSC may report "still trying"
+                // before the final outcome.
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT or
+                    PendingIntent.FLAG_IMMUTABLE or
+                    PendingIntent.FLAG_ONE_SHOT
+            },
         )
 }

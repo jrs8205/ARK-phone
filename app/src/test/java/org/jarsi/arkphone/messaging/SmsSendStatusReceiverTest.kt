@@ -40,6 +40,36 @@ class SmsSendStatusReceiverTest {
     }
 
     @Test
+    fun `a failed delivery report does not claim delivered`() {
+        val values =
+            sentUpdateFor(ACTION_SMS_DELIVERED, Activity.RESULT_OK, deliveryTpStatus = 0x41)
+        assertEquals(
+            Telephony.Sms.STATUS_FAILED,
+            values!!.getAsInteger(Telephony.Sms.STATUS),
+        )
+    }
+
+    @Test
+    fun `a still-trying delivery report stays pending`() {
+        val values =
+            sentUpdateFor(ACTION_SMS_DELIVERED, Activity.RESULT_OK, deliveryTpStatus = 0x30)
+        assertEquals(
+            Telephony.Sms.STATUS_PENDING,
+            values!!.getAsInteger(Telephony.Sms.STATUS),
+        )
+    }
+
+    @Test
+    fun `a delivered report completes the status`() {
+        val values =
+            sentUpdateFor(ACTION_SMS_DELIVERED, Activity.RESULT_OK, deliveryTpStatus = 0)
+        assertEquals(
+            Telephony.Sms.STATUS_COMPLETE,
+            values!!.getAsInteger(Telephony.Sms.STATUS),
+        )
+    }
+
+    @Test
     fun `unknown action is ignored`() {
         assertNull(sentUpdateFor("org.example.SOMETHING_ELSE", Activity.RESULT_OK))
     }
