@@ -212,7 +212,7 @@ object VoipModule {
             withTimeoutOrNull(2_000L) { settingsCache.await() }?.arkInternetCallsEnabled
                 ?: settingsCache.current.arkInternetCallsEnabled
         },
-        ringback = ToneGeneratorRingback(),
+        ringback = ToneGeneratorRingback(scope),
     )
 
     @Provides
