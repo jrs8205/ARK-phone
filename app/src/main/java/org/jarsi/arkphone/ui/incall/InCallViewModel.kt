@@ -183,7 +183,8 @@ class InCallViewModel @Inject constructor(
         val call = uiState.value.call ?: return
         // The rejection happens regardless — the user asked for it — but a
         // failed send (missing SEND_SMS, radio error) must not stay silent.
-        val sent = call.number?.let { rejectMessageSender.send(it, message) } == true
+        val sent =
+            call.number?.let { rejectMessageSender.send(it, message, call.simAccountId) } == true
         if (!sent) toaster.show(R.string.incall_reject_message_failed)
         callController.reject(call.id)
     }

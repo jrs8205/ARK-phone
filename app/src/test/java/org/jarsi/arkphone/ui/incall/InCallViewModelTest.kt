@@ -23,12 +23,12 @@ import org.junit.Test
 
 private class TestCallHandle(
     override var telecomState: Int = Call.STATE_RINGING,
+    override val simAccountId: String? = null,
 ) : CallHandle {
     override val id = "call-1"
     override val number = "0401234567"
     override val displayName: String? = null
     override val connectTimeMillis = 0L
-    override val simAccountId: String? = null
     override var disconnectError: DisconnectError? = null
     var answered = false
     var rejected = false
@@ -49,6 +49,7 @@ class InCallViewModelTest {
     private val clock = Clock { 100_000L }
     private val silencedCalls = mutableListOf<String>()
     private val sentMessages = mutableListOf<Pair<String, String>>()
+    private val sentMessageSims = mutableListOf<String?>()
     private val toasts = mutableListOf<Int>()
 
     private fun viewModel(
@@ -63,8 +64,9 @@ class InCallViewModelTest {
         FakeSimAccountRepository(),
         clock,
         { info -> silencedCalls.add(info.id) },
-        { number, message ->
+        { number, message, simAccountId ->
             sentMessages.add(number to message)
+            sentMessageSims.add(simAccountId)
             smsSucceeds
         },
         { resId -> toasts.add(resId) },
@@ -163,6 +165,20 @@ class InCallViewModelTest {
             assertEquals(listOf("0401234567" to "Soitan kohta."), sentMessages)
             assertTrue(handle.rejected)
             assertTrue(toasts.isEmpty())
+        }
+    }
+
+    @Test
+    fun rejectMessageRidesTheCallsSim() = runTest {
+        val controller = CallController()
+        val handle = TestCallHandle(simAccountId = "sim-2")
+        controller.onCallAdded(handle)
+        val viewModel = viewModel(controller)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.call == null) state = awaitItem()
+            viewModel.onRejectWithMessage("Soitan kohta.")
+            assertEquals(listOf<String?>("sim-2"), sentMessageSims)
         }
     }
 
