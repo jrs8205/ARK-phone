@@ -46,8 +46,10 @@ class FakeTelephonyProvider : ContentProvider() {
             }
             path.startsWith("content://mms-sms/threadID") -> {
                 // A multi-recipient (group) resolution answers a different
-                // thread so tests can observe re-threading.
-                val id = if (uri.getQueryParameters("recipient").size > 1) 77L else 42L
+                // thread per member count so tests can observe re-threading
+                // AND who was counted: two members = 77, three = 78, ...
+                val members = uri.getQueryParameters("recipient").size
+                val id = if (members > 1) 75L + members else 42L
                 MatrixCursor(arrayOf("_id")).apply { addRow(arrayOf(id)) }
             }
             path.startsWith("content://mms-sms/canonical-address/") -> {

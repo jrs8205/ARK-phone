@@ -234,12 +234,22 @@ class MmsDownloader @Inject constructor(
     // answers a refusal with the empty set.
     @SuppressLint("MissingPermission")
     private fun ownNumbers(): Set<String> = runCatching {
-        context.getSystemService(SubscriptionManager::class.java)
-            ?.activeSubscriptionInfoList
+        val manager = context.getSystemService(SubscriptionManager::class.java)
+            ?: return@runCatching emptySet()
+        manager.activeSubscriptionInfoList
             .orEmpty()
             .mapNotNull { info ->
+                // getPhoneNumber also asks the carrier and IMS; the legacy
+                // SIM-record number is blank on many operators, and a missed
+                // own number puts this phone into its own group threads —
+                // forking every received group into a parallel conversation.
+                val modern = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    runCatching { manager.getPhoneNumber(info.subscriptionId) }.getOrNull()
+                } else {
+                    null
+                }
                 @Suppress("DEPRECATION")
-                info.number?.takeIf { it.isNotBlank() }
+                (modern?.takeIf { it.isNotBlank() } ?: info.number)?.takeIf { it.isNotBlank() }
             }
             .toSet()
     }.getOrDefault(emptySet())

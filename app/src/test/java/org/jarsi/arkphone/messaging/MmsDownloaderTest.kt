@@ -2,6 +2,7 @@ package org.jarsi.arkphone.messaging
 
 import android.app.Application
 import android.provider.Telephony
+import android.telephony.SubscriptionManager
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -18,8 +19,11 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ContentProviderController
+import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowSubscriptionManager
 
 @RunWith(RobolectricTestRunner::class)
 class MmsDownloaderTest {
@@ -200,9 +204,45 @@ class MmsDownloaderTest {
         assertTrue("+358411111111" in addresses)
         assertEquals(132, provider.mmsRows.single().getAsInteger("m_type"))
         // The message moved from the sender's 1:1 thread to the group
-        // thread, and the abandoned thread's unread flag was recomputed.
-        assertEquals(77L, provider.mmsRows.single().getAsLong("thread_id"))
+        // thread (sender + both recipients — no own number is known here),
+        // and the abandoned thread's unread flag was recomputed.
+        assertEquals(78L, provider.mmsRows.single().getAsLong("thread_id"))
         assertEquals(listOf(42L), repository.recomputedThreads)
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `the received group thread never counts this phone's own number`() = runTest {
+        val subscriptionManager = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(SubscriptionManager::class.java)
+        shadowOf(subscriptionManager).setActiveSubscriptionInfoList(
+            listOf(
+                ShadowSubscriptionManager.SubscriptionInfoBuilder.newBuilder()
+                    .setId(1)
+                    .buildSubscriptionInfo(),
+            ),
+        )
+        shadowOf(subscriptionManager).setPhoneNumber(1, "0441111111")
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("0441111111", "+358400000000"),
+                    listOf(MmsPart("text/plain", "Ryhmälle".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        // The own number is filtered out, so the group is the sender plus
+        // the one other recipient — the SAME thread the user's own reply to
+        // this group creates. Counting ourselves in forked every group into
+        // a parallel conversation.
+        assertEquals(77L, provider.mmsRows.single().getAsLong("thread_id"))
     }
 
     @Test
