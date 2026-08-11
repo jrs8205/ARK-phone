@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -143,6 +144,16 @@ fun DialpadContent(
                     },
                     headlineContent = { Text(contact.displayName) },
                     supportingContent = { contact.phoneNumber?.let { Text(it) } },
+                )
+            }
+            items(uiState.historySuggestions, key = { it.number }) { suggestion ->
+                ListItem(
+                    modifier = Modifier.clickableListItem { onSuggestion(suggestion.number) },
+                    leadingContent = { Icon(Icons.Filled.History, contentDescription = null) },
+                    headlineContent = { Text(suggestion.display) },
+                    supportingContent = {
+                        Text(stringResource(R.string.dialpad_history_suggestion))
+                    },
                 )
             }
         }

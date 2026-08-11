@@ -102,6 +102,7 @@
     <string name="dialpad_long_press_speed_dial">Pikavalinta</string>
     <string name="dialpad_paste">Liitä numero</string>
     <string name="dialpad_clear">Tyhjennä numero</string>
+    <string name="dialpad_history_suggestion">Aiempi puhelu</string>
     <string name="recents_search_hint">Hae puheluista</string>
     <string name="recents_filter_all">Kaikki</string>
     <string name="recents_filter_missed">Vastaamattomat</string>

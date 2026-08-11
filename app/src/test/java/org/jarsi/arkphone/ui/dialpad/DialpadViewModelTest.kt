@@ -3,6 +3,9 @@ package org.jarsi.arkphone.ui.dialpad
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeSpeedDialRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
@@ -21,8 +24,9 @@ class DialpadViewModelTest {
 
     private val contacts = FakeContactsRepository()
     private val speedDial = FakeSpeedDialRepository()
+    private val callLog = FakeCallLogRepository()
 
-    private fun viewModel() = DialpadViewModel(contacts, speedDial)
+    private fun viewModel() = DialpadViewModel(contacts, speedDial, callLog)
 
     @Test
     fun pasteKeepsOnlyPhoneCharacters() = runTest {
@@ -61,6 +65,27 @@ class DialpadViewModelTest {
         viewModel.uiState.test {
             skipItems(1)
             assertEquals(mapOf(3 to "+358 44 5552841"), awaitItem().speedDial)
+        }
+    }
+
+    @Test
+    fun historyNumbersSurfaceAsSuggestionsWithFormattedDisplay() = runTest {
+        callLog.entries.value = listOf(
+            CallLogEntry(
+                id = 1, number = "0407654321", displayName = null,
+                type = CallType.OUTGOING, timestampMillis = 5, durationSeconds = 10,
+            ),
+        )
+        val viewModel = viewModel()
+        viewModel.setNumber("040")
+        viewModel.uiState.test {
+            skipItems(1)
+            val state = awaitItem()
+            assertEquals(listOf("0407654321"), state.historySuggestions.map { it.number })
+            assertEquals(
+                listOf(formatDialpadNumber("0407654321", java.util.Locale.getDefault().country)),
+                state.historySuggestions.map { it.display },
+            )
         }
     }
 

@@ -41,6 +41,28 @@ class DialpadContentTest {
     }
 
     @Test
+    @Config(sdk = [35], qualifiers = "w400dp-h1000dp")
+    fun tappingAHistorySuggestionFillsTheNumber() {
+        var suggested: String? = null
+        composeRule.setContent {
+            DialpadContent(
+                uiState = DialpadUiState(
+                    number = "040",
+                    historySuggestions = listOf(
+                        HistorySuggestion(number = "0401234567", display = "040 123 4567"),
+                    ),
+                ),
+                onKey = {},
+                onDelete = {},
+                onCall = {},
+                onSuggestion = { suggested = it },
+            )
+        }
+        composeRule.onNodeWithText("040 123 4567").performClick()
+        assertEquals("0401234567", suggested)
+    }
+
+    @Test
     fun keysReportPresses() {
         val pressed = mutableListOf<Char>()
         composeRule.setContent {

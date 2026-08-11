@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
+import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.model.Contact
@@ -20,8 +21,12 @@ data class DialpadUiState(
     val number: String = "",
     val displayNumber: String = "",
     val suggestions: List<Contact> = emptyList(),
+    val historySuggestions: List<HistorySuggestion> = emptyList(),
     val speedDial: Map<Int, String> = emptyMap(),
 )
+
+/** A call-log number matching the typed prefix, offered like a contact hit. */
+data class HistorySuggestion(val number: String, val display: String)
 
 /** The typed number as shown: formatted for [countryIso], except for star/hash codes. */
 internal fun formatDialpadNumber(number: String, countryIso: String): String {
@@ -36,7 +41,10 @@ private val PHONE_CHARACTERS = setOf('+', '*', '#')
 class DialpadViewModel @Inject constructor(
     contactsRepository: ContactsRepository,
     private val speedDialRepository: SpeedDialRepository,
+    callLogRepository: CallLogRepository,
 ) : ViewModel() {
+
+    private val callLog = callLogRepository.callLog()
 
     private val number = MutableStateFlow("")
 
@@ -45,11 +53,19 @@ class DialpadViewModel @Inject constructor(
             contactsRepository.contacts(),
             number,
             speedDialRepository.entries,
-        ) { contacts, number, speedDial ->
+            callLog,
+        ) { contacts, number, speedDial, log ->
+            val country = Locale.getDefault().country
             DialpadUiState(
                 number = number,
-                displayNumber = formatDialpadNumber(number, Locale.getDefault().country),
+                displayNumber = formatDialpadNumber(number, country),
                 suggestions = DialpadMatcher.filter(contacts, number).take(3),
+                historySuggestions = DialpadMatcher
+                    .filterHistory(log, contacts, number) {
+                        PhoneNumberUtils.formatNumberToE164(it, country)
+                    }
+                    .take(3)
+                    .map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
                 speedDial = speedDial,
             )
         }.stateIn(
