@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">ARK-puhelin</string>
     <string name="recents_empty">Ei vielä puheluita</string>
     <string name="recents_no_permission">ARK-phone tarvitsee pääsyn puhelulokiin näyttääkseen viimeisimmät puhelut.</string>
     <string name="common_grant_access">Myönnä käyttöoikeus</string>
