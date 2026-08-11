@@ -208,11 +208,11 @@ object VoipModule {
         awaitLinkCache = { withTimeoutOrNull(2_000L) { linkCache.await() } },
         // Bounded like the link cache: a wedged DataStore keeps the default
         // rather than holding the ring forever.
-        ringback = ToneGeneratorRingback(),
         arkCallsEnabled = {
             withTimeoutOrNull(2_000L) { settingsCache.await() }?.arkInternetCallsEnabled
                 ?: settingsCache.current.arkInternetCallsEnabled
         },
+        ringback = ToneGeneratorRingback(),
     )
 
     @Provides
