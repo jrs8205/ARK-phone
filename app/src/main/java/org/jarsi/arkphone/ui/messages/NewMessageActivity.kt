@@ -14,12 +14,16 @@ import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import java.io.File
 import javax.inject.Inject
 
-/** The recipient a SENDTO/SEND intent already names, if any. The scheme part
- *  may carry a "?body=…" suffix that is not part of the number. */
-internal fun directRecipient(intent: Intent): String? =
+/** The recipients a SENDTO/SEND intent already names. The scheme part may
+ *  carry a "?body=…" suffix that is not part of the numbers, and multiple
+ *  recipients arrive as one semicolon- or comma-separated string. */
+internal fun directRecipients(intent: Intent): List<String> =
     intent.data?.schemeSpecificPart
         ?.substringBefore('?')
-        ?.takeIf { it.isNotBlank() }
+        ?.split(';', ',')
+        ?.map { it.trim() }
+        ?.filter { it.isNotBlank() }
+        .orEmpty()
 
 /** The prefilled message text a SEND/SENDTO intent carries, if any. */
 internal fun sharedBody(intent: Intent): String? {
@@ -80,9 +84,9 @@ class NewMessageActivity : ComponentActivity() {
         enableEdgeToEdge()
         val body = sharedBody(intent)
         val image = stageSharedImage(this, sharedImage(intent))
-        val direct = directRecipient(intent)
-        if (direct != null) {
-            messagingNavigator.openConversation(this, listOf(direct), body, image)
+        val direct = directRecipients(intent)
+        if (direct.isNotEmpty()) {
+            messagingNavigator.openConversation(this, direct, body, image)
             finish()
             return
         }

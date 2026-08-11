@@ -30,7 +30,28 @@ class NewMessageIntentTest {
     fun `shared body decodes the sendto body query`() {
         val intent = Intent(Intent.ACTION_SENDTO, "smsto:0441234567?body=Moro%20taas".toUri())
         assertEquals("Moro taas", sharedBody(intent))
-        assertEquals("0441234567", directRecipient(intent))
+        assertEquals(listOf("0441234567"), directRecipients(intent))
+    }
+
+    @Test
+    fun `semicolon separated sendto recipients are split`() {
+        val intent = Intent(Intent.ACTION_SENDTO, "smsto:0441234567;0507654321".toUri())
+        assertEquals(listOf("0441234567", "0507654321"), directRecipients(intent))
+    }
+
+    @Test
+    fun `comma separated sendto recipients are split and trimmed`() {
+        val intent = Intent(Intent.ACTION_SENDTO, "smsto:0441234567, 0507654321?body=Moro".toUri())
+        assertEquals(listOf("0441234567", "0507654321"), directRecipients(intent))
+    }
+
+    @Test
+    fun `an intent without a recipient yields an empty list`() {
+        assertEquals(emptyList<String>(), directRecipients(Intent(Intent.ACTION_SEND)))
+        assertEquals(
+            emptyList<String>(),
+            directRecipients(Intent(Intent.ACTION_SENDTO, "smsto:;".toUri())),
+        )
     }
 
     @Test
@@ -44,7 +65,7 @@ class NewMessageIntentTest {
     fun `shared body keeps an encoded ampersand in the sendto body`() {
         val intent = Intent(Intent.ACTION_SENDTO, "smsto:0441234567?body=Tom%20%26%20Jerry".toUri())
         assertEquals("Tom & Jerry", sharedBody(intent))
-        assertEquals("0441234567", directRecipient(intent))
+        assertEquals(listOf("0441234567"), directRecipients(intent))
     }
 
     @Test
