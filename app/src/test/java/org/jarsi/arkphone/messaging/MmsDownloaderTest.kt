@@ -75,6 +75,13 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a push remembers the sim it arrived on`() = runTest {
+        downloader.onPush(pushPdu(), subscriptionId = 7)
+
+        assertEquals(7, provider.mmsRows.single().getAsInteger("sub_id"))
+    }
+
+    @Test
     fun `a re-sent notification for the same transaction is ignored`() = runTest {
         // An unacknowledged m-notification-ind gets re-pushed by the
         // carrier; the same transaction must not become a second copy.

@@ -22,10 +22,11 @@ class WapPushReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.WAP_PUSH_DELIVER_ACTION) return
         val pdu = intent.getByteArrayExtra("data") ?: return
+        val subscriptionId = intent.getIntExtra("subscription", -1)
         val pendingResult = goAsync()
         scope.launch {
             try {
-                downloader.onPush(pdu)
+                downloader.onPush(pdu, subscriptionId)
             } finally {
                 pendingResult?.finish()
             }

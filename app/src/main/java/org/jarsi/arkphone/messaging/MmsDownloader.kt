@@ -62,7 +62,7 @@ class MmsDownloader @Inject constructor(
         private const val TEXT_PLAIN = "text/plain"
     }
 
-    suspend fun onPush(pdu: ByteArray) {
+    suspend fun onPush(pdu: ByteArray, subscriptionId: Int = -1) {
         val notification = parseNotificationInd(pdu) ?: return
         val sender = notification.from ?: return
         withContext(ioDispatcher) {
@@ -80,6 +80,11 @@ class MmsDownloader @Inject constructor(
                     put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_NOTIFICATION)
                     put(Telephony.Mms.CONTENT_LOCATION, notification.contentLocation)
                     put(Telephony.Mms.TRANSACTION_ID, notification.transactionId)
+                    // Remembered on the row so a later retry still downloads
+                    // over the right SIM.
+                    if (subscriptionId >= 0) {
+                        put(Telephony.Mms.SUBSCRIPTION_ID, subscriptionId)
+                    }
                 }
                 val rowUri = context.contentResolver.insert(Telephony.Mms.CONTENT_URI, values)
                     ?: return@runCatching
@@ -163,15 +168,25 @@ class MmsDownloader @Inject constructor(
                 .putExtra(EXTRA_MESSAGE_ID, messageId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        smsManager().downloadMultimediaMessage(context, contentLocation, fileUri, null, downloaded)
+        val subscriptionId =
+            queryColumn(messageId, Telephony.Mms.SUBSCRIPTION_ID)?.toIntOrNull() ?: -1
+        smsManager(subscriptionId)
+            .downloadMultimediaMessage(context, contentLocation, fileUri, null, downloaded)
     }
 
-    private fun smsManager(): SmsManager =
+    /** The download must ride the SIM the notification arrived on: the
+     *  default subscription's APN reaches the wrong carrier's MMSC. */
+    private fun smsManager(subscriptionId: Int): SmsManager =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSystemService(SmsManager::class.java)
+            val manager = context.getSystemService(SmsManager::class.java)
+            if (subscriptionId >= 0) manager.createForSubscriptionId(subscriptionId) else manager
         } else {
             @Suppress("DEPRECATION")
-            SmsManager.getDefault()
+            if (subscriptionId >= 0) {
+                SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
+            } else {
+                SmsManager.getDefault()
+            }
         }
 
     /** Returns the thread the message was moved away from, if any. */
