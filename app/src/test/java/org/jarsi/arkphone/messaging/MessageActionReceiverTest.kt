@@ -6,6 +6,7 @@ import androidx.core.app.RemoteInput
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.testing.FakeMessageNotifier
 import org.jarsi.arkphone.testing.FakeMessagesRepository
+import org.jarsi.arkphone.testing.FakeMmsSender
 import org.jarsi.arkphone.testing.FakeSmsSender
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,11 +18,13 @@ import org.robolectric.RobolectricTestRunner
 class MessageActionReceiverTest {
 
     private val fakeSender = FakeSmsSender()
+    private val fakeMmsSender = FakeMmsSender()
     private val fakeRepository = FakeMessagesRepository()
     private val fakeNotifier = FakeMessageNotifier()
 
     private val handler = MessageActionHandler(
         smsSender = fakeSender,
+        mmsSender = fakeMmsSender,
         messagesRepository = fakeRepository,
         messageNotifier = fakeNotifier,
     )
@@ -38,6 +41,38 @@ class MessageActionReceiverTest {
         assertEquals("+358441234567" to "Takaisin", fakeSender.sent.single())
         assertEquals(listOf(3L), fakeRepository.markedRead)
         assertEquals(listOf(3L), fakeNotifier.cancelledThreads)
+    }
+
+    @Test
+    fun `a reply on a group thread goes to the whole group as one MMS`() = runTest {
+        fakeRepository.recipientsByThread[3L] = listOf("+358441111111", "+358442222222")
+        handler.handle(
+            action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
+            threadId = 3L,
+            address = "+358441111111",
+            replyText = "Moro kaikille",
+        )
+
+        assertTrue(fakeSender.sent.isEmpty())
+        val sent = fakeMmsSender.sent.single()
+        assertEquals(listOf("+358441111111", "+358442222222"), sent.addresses)
+        assertEquals("Moro kaikille", sent.text)
+        assertEquals(listOf(3L), fakeRepository.markedRead)
+        assertEquals(listOf(3L), fakeNotifier.cancelledThreads)
+    }
+
+    @Test
+    fun `a reply on a single thread stays a plain SMS`() = runTest {
+        fakeRepository.recipientsByThread[3L] = listOf("+358441234567")
+        handler.handle(
+            action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
+            threadId = 3L,
+            address = "+358441234567",
+            replyText = "Takaisin",
+        )
+
+        assertTrue(fakeMmsSender.sent.isEmpty())
+        assertEquals("+358441234567" to "Takaisin", fakeSender.sent.single())
     }
 
     @Test

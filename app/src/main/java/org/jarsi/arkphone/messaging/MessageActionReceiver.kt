@@ -14,6 +14,7 @@ import javax.inject.Inject
 /** What one notification-action tap does, testable without a receiver. */
 class MessageActionHandler @Inject constructor(
     private val smsSender: SmsSender,
+    private val mmsSender: MmsSender,
     private val messagesRepository: MessagesRepository,
     private val messageNotifier: MessageNotifier,
 ) {
@@ -25,11 +26,17 @@ class MessageActionHandler @Inject constructor(
             return
         }
         if (threadId < 0) return
-        if (action == MessageActionReceiver.ACTION_MESSAGE_REPLY &&
-            !address.isNullOrBlank() &&
-            !replyText.isNullOrBlank()
-        ) {
-            smsSender.send(address, replyText.trim())
+        if (action == MessageActionReceiver.ACTION_MESSAGE_REPLY && !replyText.isNullOrBlank()) {
+            val recipients =
+                runCatching { messagesRepository.recipients(threadId) }.getOrDefault(emptyList())
+            when {
+                // A group reply is a group MMS even when it is only text — an
+                // SMS to one member would fork the thread into a 1:1
+                // conversation (same rule as the in-app reply).
+                recipients.size > 1 -> mmsSender.send(recipients, replyText.trim(), null)
+                !address.isNullOrBlank() -> smsSender.send(address, replyText.trim())
+                recipients.size == 1 -> smsSender.send(recipients.single(), replyText.trim())
+            }
         }
         messagesRepository.markThreadRead(threadId)
         messageNotifier.cancelThread(threadId)
