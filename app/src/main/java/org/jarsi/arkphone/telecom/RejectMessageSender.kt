@@ -36,6 +36,9 @@ class SmsRejectMessageSender @Inject constructor(
     }
 
     /** The subscription of the SIM the call rang on, or -1 to use the default. */
+    // handleFor already refuses without READ_PHONE_STATE, and runCatching
+    // covers a SecurityException with the default-SIM fallback.
+    @SuppressLint("MissingPermission")
     private fun subscriptionIdFor(simAccountId: String?): Int {
         simAccountId ?: return -1
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return -1

@@ -8,7 +8,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.messaging.MessagingNavigator
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
 import java.io.File
@@ -79,27 +83,39 @@ class NewMessageActivity : ComponentActivity() {
 
     @Inject lateinit var messagingNavigator: MessagingNavigator
 
+    private var navigating = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val body = sharedBody(intent)
-        val image = stageSharedImage(this, sharedImage(intent))
         val direct = directRecipients(intent)
         if (direct.isNotEmpty()) {
-            messagingNavigator.openConversation(this, direct, body, image)
-            finish()
+            openStaged(direct, body)
             return
         }
         setContent {
             ArkPhoneTheme {
                 NewMessageScreen(
                     onBack = ::finish,
-                    onStart = { numbers ->
-                        messagingNavigator.openConversation(this, numbers, body, image)
-                        finish()
-                    },
+                    onStart = { numbers -> openStaged(numbers, body) },
                 )
             }
+        }
+    }
+
+    /** Stages the shared image off the main thread — a multi-megabyte camera
+     *  share used to block onCreate — but still before finish(), which kills
+     *  the sender's URI grant. */
+    private fun openStaged(numbers: List<String>, body: String?) {
+        if (navigating) return
+        navigating = true
+        lifecycleScope.launch {
+            val image = withContext(Dispatchers.IO) {
+                stageSharedImage(this@NewMessageActivity, sharedImage(intent))
+            }
+            messagingNavigator.openConversation(this@NewMessageActivity, numbers, body, image)
+            finish()
         }
     }
 }
