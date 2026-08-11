@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.Conversation
 import org.jarsi.arkphone.testing.FakeContactsRepository
+import org.jarsi.arkphone.testing.FakeMessageNotifier
 import org.jarsi.arkphone.testing.FakeMessagesRepository
 import org.jarsi.arkphone.testing.FakePermissionChecker
 import org.jarsi.arkphone.testing.FakeSmsRole
@@ -25,8 +26,9 @@ class MessagesViewModelTest {
     private val contacts = FakeContactsRepository()
     private val permissions = FakePermissionChecker()
     private val smsRole = FakeSmsRole(held = true)
+    private val notifier = FakeMessageNotifier()
 
-    private fun viewModel() = MessagesViewModel(repository, contacts, permissions, smsRole)
+    private fun viewModel() = MessagesViewModel(repository, contacts, permissions, smsRole, notifier)
 
     private fun conversation(
         threadId: Long,
@@ -216,6 +218,30 @@ class MessagesViewModelTest {
             }
             assertEquals(setOf(3L, 4L), repository.deletedThreads.toSet())
             assertTrue(repository.refreshCalls > 0)
+        }
+    }
+
+    @Test
+    fun deleteSelectedCancelsTheThreadsNotifications() = runTest {
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            awaitItem()
+            viewModel.onToggleSelection(4L)
+            awaitItem()
+            viewModel.onDeleteSelected()
+            var state = awaitItem()
+            while (state.selectedThreadIds.isNotEmpty()) {
+                state = awaitItem()
+            }
+            assertEquals(setOf(3L, 4L), notifier.cancelledThreads.toSet())
         }
     }
 

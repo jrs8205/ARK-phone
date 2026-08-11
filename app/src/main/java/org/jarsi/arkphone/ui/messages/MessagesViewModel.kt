@@ -17,6 +17,7 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.Conversation
+import org.jarsi.arkphone.messaging.MessageNotifier
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.util.PermissionChecker
 import org.jarsi.arkphone.util.sameCaller
@@ -77,6 +78,7 @@ class MessagesViewModel @Inject constructor(
     contactsRepository: ContactsRepository,
     private val permissionChecker: PermissionChecker,
     private val smsRole: SmsRole,
+    private val messageNotifier: MessageNotifier,
 ) : ViewModel() {
 
     private val permissionState = MutableStateFlow(hasSmsPermission())
@@ -154,7 +156,12 @@ class MessagesViewModel @Inject constructor(
         val targets = selected.value
         if (targets.isEmpty()) return
         viewModelScope.launch {
-            targets.forEach { repository.deleteThread(it) }
+            targets.forEach {
+                repository.deleteThread(it)
+                // The conversation screen was never opened, so nothing else
+                // ever cancels a deleted thread's notification.
+                messageNotifier.cancelThread(it)
+            }
             selected.value = emptySet()
             repository.refresh()
         }
