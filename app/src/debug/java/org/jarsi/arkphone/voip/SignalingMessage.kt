@@ -18,6 +18,7 @@ object SignalingTypes {
     const val REACH_REPLY = "reach-reply"
     const val CALL_OFFER = "call-offer"
     const val CALL_ANSWER = "call-answer"
+    const val CALL_RINGING = "call-ringing"
     const val CALL_REJECT = "call-reject"
     const val ICE_CANDIDATE = "ice-candidate"
     const val CALL_END = "call-end"

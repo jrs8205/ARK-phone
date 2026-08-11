@@ -56,6 +56,7 @@ class VoipCallCoordinator(
     // is true, and a cold FCM start read it before DataStore's first
     // emission — a disabled phone rang anyway.
     private val arkCallsEnabled: suspend () -> Boolean = { true },
+    private val ringback: RingbackController = RingbackController.None,
 ) : VoipCallGateway {
 
     private var active: ActiveCall? = null
@@ -72,6 +73,7 @@ class VoipCallCoordinator(
         var answeredByUser: Boolean = false,
         /** Set when the platform withdrew the call; ring() checks it. */
         var telecomFailed: Boolean = false,
+        var ringbackJob: Job? = null,
     )
 
     /**
@@ -250,6 +252,9 @@ class VoipCallCoordinator(
         ui.added(handle)
         attachAudio(activeCall)
         ui.showIncoming(handle)
+        // Only now is this phone truly ringing; the caller's ringback starts
+        // on this frame, so it must never precede the surfaces.
+        session.notifyRinging()
         // Same surface as a ringing carrier call: the notification alone is
         // easy to miss, so the call screen opens with it (field feedback).
         ui.openCallScreen()
@@ -303,6 +308,13 @@ class VoipCallCoordinator(
     }
 
     private fun observe(call: ActiveCall) {
+        if (call.direction == VoipCallDirection.OUTGOING) {
+            call.ringbackJob = scope.launch {
+                call.session.peerRinging.collect { ringing ->
+                    if (ringing) ringback.start() else ringback.stop()
+                }
+            }
+        }
         call.stateJob = scope.launch {
             call.session.state.collect { state ->
                 call.handle.onState(state)
@@ -373,6 +385,10 @@ class VoipCallCoordinator(
         active = null
         call.timeoutJob?.cancel()
         call.stateJob?.cancel()
+        // Cancel before the stop: a collect still running could restart the
+        // tone over a call that is already gone.
+        call.ringbackJob?.cancel()
+        ringback.stop()
         call.sessionScope.cancel()
         telecom.remove(call.handle.id) { afterTelecomReleased?.invoke() }
         ui.detachAudioControls()

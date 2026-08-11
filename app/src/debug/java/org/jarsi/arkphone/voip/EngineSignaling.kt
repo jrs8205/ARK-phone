@@ -34,11 +34,15 @@ class EngineSignaling(
 /** The media half of a call, as the coordinator drives it. */
 interface VoipMediaSession {
     val state: StateFlow<VoipCallState>
+    /** True while the callee reports its incoming-call surfaces showing. */
+    val peerRinging: StateFlow<Boolean>
     fun placeCall()
     fun answer()
     fun reject()
     fun hangUp()
     fun setMicEnabled(enabled: Boolean)
+    /** Callee side: tells the caller this phone's ring surfaces are up. */
+    fun notifyRinging()
 }
 
 fun interface VoipMediaSessionFactory {

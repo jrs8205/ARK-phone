@@ -31,6 +31,14 @@ class WebRtcCallSession(
     private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
     override val state: StateFlow<VoipCallState> = _state.asStateFlow()
 
+    private val _peerRinging = MutableStateFlow(false)
+    override val peerRinging: StateFlow<Boolean> = _peerRinging.asStateFlow()
+
+    override fun notifyRinging() {
+        if (_state.value !is VoipCallState.Ringing) return
+        signaling.send(frame(SignalingTypes.CALL_RINGING))
+    }
+
     // The one call this session is. The caller mints it, the callee adopts it
     // from the offer; a frame stamped for any other call — a stale end resent
     // out of a dead socket's queue — must not touch this one. Null from an
@@ -173,7 +181,10 @@ class WebRtcCallSession(
                             put("candidate", event.candidateJson)
                         },
                     )
-                    AdapterEvent.Connected -> _state.value = VoipCallState.InCall
+                    AdapterEvent.Connected -> {
+                        _peerRinging.value = false
+                        _state.value = VoipCallState.InCall
+                    }
                     AdapterEvent.Failed -> end("connection-failed", notifyPeer = true)
                 }
             }
@@ -205,7 +216,12 @@ class WebRtcCallSession(
                 frameCallId?.let { callId = it }
                 _state.value = VoipCallState.Ringing(sdp)
             }
+            SignalingTypes.CALL_RINGING ->
+                if (_state.value == VoipCallState.Connecting) _peerRinging.value = true
             SignalingTypes.CALL_ANSWER -> {
+                // The peer picked up: ringback must die now, not when the
+                // media finally connects.
+                _peerRinging.value = false
                 val sdp = message.payload?.get("sdp")?.jsonPrimitive?.content ?: return
                 val adapter = activeAdapter ?: return
                 scope.launch {
@@ -248,6 +264,7 @@ class WebRtcCallSession(
         activeAdapter = null
         pendingRemoteCandidates.clear()
         remoteDescriptionSet = false
+        _peerRinging.value = false
         _state.value = VoipCallState.Ended(reason)
     }
 

@@ -10,6 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -92,6 +93,100 @@ class WebRtcCallSessionTest {
         }
 
         fun sentOfType(type: String) = signaling.sent.filter { it.type == type }
+    }
+
+    @Test
+    fun `notifyRinging sends a stamped call-ringing frame`() = runTest {
+        val h = Harness(backgroundScope, initialOfferSdp = "their-offer", initialCallId = "call-b")
+        runCurrent()
+        h.session.notifyRinging()
+        runCurrent()
+        val ringing = h.sentOfType(SignalingTypes.CALL_RINGING).single()
+        assertEquals("call-b", ringing.payload!!["callId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a stamped call-ringing marks the peer as ringing`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        val callId = h.sentOfType(SignalingTypes.CALL_OFFER).single()
+            .payload!!["callId"]!!.jsonPrimitive.content
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_RINGING,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("callId", callId) },
+            ),
+        )
+        runCurrent()
+        assertTrue(h.session.peerRinging.value)
+    }
+
+    @Test
+    fun `a call-ringing stamped for another call is ignored`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_RINGING,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("callId", "someone-elses-call") },
+            ),
+        )
+        runCurrent()
+        assertFalse(h.session.peerRinging.value)
+    }
+
+    @Test
+    fun `the peer's answer stops the ringback signal`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        val callId = h.sentOfType(SignalingTypes.CALL_OFFER).single()
+            .payload!!["callId"]!!.jsonPrimitive.content
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_RINGING,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("callId", callId) },
+            ),
+        )
+        runCurrent()
+        assertTrue(h.session.peerRinging.value)
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_ANSWER,
+                from = "phone-10pro",
+                payload = buildJsonObject {
+                    put("callId", callId)
+                    put("sdp", "answer-sdp")
+                },
+            ),
+        )
+        runCurrent()
+        assertFalse(h.session.peerRinging.value)
+    }
+
+    @Test
+    fun `ending the call stops the ringback signal`() = runTest {
+        val h = Harness(backgroundScope)
+        h.session.placeCall()
+        runCurrent()
+        val callId = h.sentOfType(SignalingTypes.CALL_OFFER).single()
+            .payload!!["callId"]!!.jsonPrimitive.content
+        h.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.CALL_RINGING,
+                from = "phone-10pro",
+                payload = buildJsonObject { put("callId", callId) },
+            ),
+        )
+        runCurrent()
+        h.session.hangUp()
+        runCurrent()
+        assertFalse(h.session.peerRinging.value)
     }
 
     @Test

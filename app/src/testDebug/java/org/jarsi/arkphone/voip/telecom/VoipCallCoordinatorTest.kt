@@ -30,11 +30,13 @@ class VoipCallCoordinatorTest {
         var micOn = true
         private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
         override val state: StateFlow<VoipCallState> = _state
+        override val peerRinging = MutableStateFlow(false)
         override fun placeCall() { calls += "placeCall" }
         override fun answer() { calls += "answer" }
         override fun reject() { calls += "reject" }
         override fun hangUp() { calls += "hangUp" }
         override fun setMicEnabled(enabled: Boolean) { micOn = enabled }
+        override fun notifyRinging() { calls += "notifyRinging" }
         fun moveTo(next: VoipCallState) { _state.value = next }
     }
 
@@ -121,10 +123,21 @@ class VoipCallCoordinatorTest {
         }
     }
 
+    private class FakeRingback : RingbackController {
+        var playing = false
+        var startCount = 0
+        override fun start() {
+            playing = true
+            startCount++
+        }
+        override fun stop() { playing = false }
+    }
+
     private val session = FakeSession()
     private val telecom = FakeTelecom()
     private val ui = FakeUi()
     private val callLog = FakeCallLog()
+    private val ringback = FakeRingback()
     private val missed = mutableListOf<ArkCallRecord>()
     private val createdCallIds = mutableListOf<String?>()
 
@@ -162,7 +175,64 @@ class VoipCallCoordinatorTest {
         blockCheck = blockCheck,
         hasMicPermission = hasMic,
         arkCallsEnabled = arkEnabled,
+        ringback = ringback,
     )
+
+    @Test
+    fun anOutgoingCallPlaysRingbackWhileThePeerRings() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { }
+        runCurrent()
+        assertFalse(ringback.playing)
+        session.peerRinging.value = true
+        runCurrent()
+        assertTrue(ringback.playing)
+        session.peerRinging.value = false
+        runCurrent()
+        assertFalse(ringback.playing)
+        assertEquals(1, ringback.startCount)
+    }
+
+    @Test
+    fun finishingTheCallStopsRingbackEvenIfThePeerFlagStaysUp() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { }
+        runCurrent()
+        session.peerRinging.value = true
+        runCurrent()
+        assertTrue(ringback.playing)
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        assertFalse(ringback.playing)
+    }
+
+    @Test
+    fun anIncomingCallNeverPlaysRingback() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        session.peerRinging.value = true
+        runCurrent()
+        assertFalse(ringback.playing)
+    }
+
+    @Test
+    fun theRingingPhoneTellsTheCallerOnceItsSurfacesAreUp() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertTrue(session.calls.contains("notifyRinging"))
+        assertTrue(ui.events.contains("showIncoming"))
+    }
+
+    @Test
+    fun anInlineTelecomRefusalNeverNotifiesTheCaller() = runTest {
+        telecom.failInline = true
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertFalse(session.calls.contains("notifyRinging"))
+    }
 
     @Test
     fun aRefusingPlatformMeansTheCallerMustUseTheCarrier() = runTest {
@@ -352,7 +422,7 @@ class VoipCallCoordinatorTest {
         runCurrent()
         telecom.lastAnswer!!()
         telecom.lastDisconnect!!()
-        assertEquals(listOf("answer", "hangUp"), session.calls)
+        assertEquals(listOf("notifyRinging", "answer", "hangUp"), session.calls)
     }
 
     @Test
@@ -471,7 +541,7 @@ class VoipCallCoordinatorTest {
         runCurrent()
         ui.lastHandle!!.answer()
         assertEquals(listOf("voip-in-ARK-BBBB-BBBB"), telecom.answered)
-        assertEquals(listOf("answer"), session.calls)
+        assertEquals(listOf("notifyRinging", "answer"), session.calls)
         // The ringtone dies with the answer, not with the media connecting.
         assertTrue(ui.events.contains("silenceRinging"))
     }

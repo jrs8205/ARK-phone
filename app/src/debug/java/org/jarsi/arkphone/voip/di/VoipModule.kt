@@ -46,6 +46,7 @@ import org.jarsi.arkphone.voip.telecom.ArkCallLog
 import org.jarsi.arkphone.voip.telecom.CallControllerVoipCallUi
 import org.jarsi.arkphone.voip.telecom.CoreTelecomRegistrar
 import org.jarsi.arkphone.voip.telecom.SystemArkCallLog
+import org.jarsi.arkphone.voip.telecom.ToneGeneratorRingback
 import org.jarsi.arkphone.voip.telecom.VoipCallCoordinator
 import org.jarsi.arkphone.voip.telecom.VoipCallUi
 import org.jarsi.arkphone.voip.telecom.VoipTelecom
@@ -207,6 +208,7 @@ object VoipModule {
         awaitLinkCache = { withTimeoutOrNull(2_000L) { linkCache.await() } },
         // Bounded like the link cache: a wedged DataStore keeps the default
         // rather than holding the ring forever.
+        ringback = ToneGeneratorRingback(),
         arkCallsEnabled = {
             withTimeoutOrNull(2_000L) { settingsCache.await() }?.arkInternetCallsEnabled
                 ?: settingsCache.current.arkInternetCallsEnabled
