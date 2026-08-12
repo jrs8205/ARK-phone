@@ -46,9 +46,13 @@ class MessagingNavigator @Inject constructor(
                 }.getOrNull()
             } ?: return@launch
             runCatching {
-                context.startActivity(
-                    ConversationActivity.intent(context, threadId, initialBody, initialImage),
-                )
+                val intent = ConversationActivity.intent(context, threadId, initialBody, initialImage)
+                if (context !is android.app.Activity) {
+                    // Starting from a non-activity context (the sharing
+                    // activity died mid-share) is refused without a task.
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
             }
         }
     }
