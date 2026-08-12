@@ -307,6 +307,34 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun aGroupReplyRidesTheSimTheGroupArrivedOn() = runTest {
+        repository.recipientsByThread[3L] = listOf("+358441234567", "+358400000000")
+        seedThread(3L, listOf(message(1, 1000).copy(subscriptionId = 5)))
+        val mmsSender = FakeMmsSender()
+        val viewModel = ConversationViewModel(
+            repository,
+            contacts,
+            blockedNumbers,
+            smsSender,
+            mmsSender,
+            smsRole,
+            FakeMessageSharer(),
+            notifier,
+        )
+        viewModel.open(3L)
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (!state.isGroup) {
+                state = awaitItem()
+            }
+            viewModel.onSendText("Moro")
+            advanceUntilIdle()
+            assertEquals(5, mmsSender.sent.single().subscriptionId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun sendingIsBlockedWithoutTheSmsRole() = runTest {
         smsRole.held = false
         seedThread(3L, listOf(message(1, 1000)))

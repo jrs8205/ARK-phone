@@ -233,9 +233,20 @@ class ConversationViewModel @Inject constructor(
             when {
                 // A group reply is a group MMS even when it is only text:
                 // that is what keeps everyone's copy in the same thread.
+                // It also rides the SIM the group last arrived on — another
+                // SIM is another sender identity, and every other member's
+                // phone would fork the conversation. 1:1 sends keep the
+                // default messaging SIM.
                 groupRecipients != null -> {
                     attachedImage.value = null
-                    mmsSender.send(groupRecipients, trimmed.takeIf { it.isNotEmpty() }, attachment)
+                    val arrivalSubscription = state.messages
+                        .lastOrNull { it.incoming }?.subscriptionId ?: -1
+                    mmsSender.send(
+                        groupRecipients,
+                        trimmed.takeIf { it.isNotEmpty() },
+                        attachment,
+                        arrivalSubscription,
+                    )
                 }
                 attachment != null -> {
                     attachedImage.value = null
