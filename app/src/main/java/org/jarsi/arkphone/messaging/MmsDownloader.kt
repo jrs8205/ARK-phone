@@ -197,7 +197,10 @@ class MmsDownloader @Inject constructor(
         val update = ContentValues().apply {
             put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_RETRIEVED)
             if (conf.timestampSeconds > 0) put(Telephony.Mms.DATE, conf.timestampSeconds)
-            groupRecipients(conf)?.let { group ->
+            // An insert-address-token retrieve-conf hides its sender, but
+            // the push already stored the real one on the row.
+            val sender = conf.from ?: querySender(messageId)
+            groupRecipients(conf, sender)?.let { group ->
                 // A group MMS belongs to the thread of the whole group, not
                 // to the 1:1 thread of its sender the push was filed under.
                 newThreadId = Telephony.Threads.getOrCreateThreadId(context, group)
@@ -221,8 +224,8 @@ class MmsDownloader @Inject constructor(
      *  While any active SIM keeps its own number to itself, a lone To entry
      *  can be this phone, so only two or more other recipients count as a
      *  group — one known number must not pass for knowing them all. */
-    private fun groupRecipients(conf: RetrieveConf): Set<String>? {
-        val sender = conf.from ?: return null
+    private fun groupRecipients(conf: RetrieveConf, sender: String?): Set<String>? {
+        if (sender == null) return null
         val own = ownNumbers()
         val others = (conf.to + conf.cc)
             .filter { it.isNotBlank() }

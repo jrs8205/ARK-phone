@@ -246,6 +246,28 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a retrieve conf without a sender still re-threads through the pushed one`() = runTest {
+        // Some MMSCs deliver the retrieve-conf with the insert-address-token
+        // From form; the push already stored the real sender on the row.
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    null,
+                    listOf("+358400000000", "+358411111111"),
+                    listOf(MmsPart("text/plain", "Ryhmälle".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(78L, provider.mmsRows.single().getAsLong("thread_id"))
+    }
+
+    @Test
     fun `a group addressed through cc gets the group thread`() = runTest {
         downloader.onPush(pushPdu())
         val messageId = provider.mmsRows.single().getAsLong("_id")
