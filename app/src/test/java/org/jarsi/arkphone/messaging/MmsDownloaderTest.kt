@@ -96,6 +96,24 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a reused transaction id with another content location is a new message`() = runTest {
+        // Transaction ids are scoped to one MMSC transaction, not to the
+        // lifetime of this database: another SIM's MMSC — or the same one
+        // years later — may reuse one for a different message.
+        fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
+        fun textBytes(text: String) = text.toByteArray(Charsets.UTF_8) + 0
+        val other = bytes(0x8C, 0x82) +
+            bytes(0x98) + textBytes("T1") +
+            bytes(0x89, 0x19, 0x80) + textBytes("+358441234567/TYPE=PLMN") +
+            bytes(0x83) + textBytes("http://mmsc/y")
+
+        downloader.onPush(pushPdu())
+        downloader.onPush(other)
+
+        assertEquals(2, provider.mmsRows.size)
+    }
+
+    @Test
     fun `a finished download stores the parts and notifies`() = runTest {
         downloader.onPush(pushPdu())
         val messageId = provider.mmsRows.single().getAsLong("_id")

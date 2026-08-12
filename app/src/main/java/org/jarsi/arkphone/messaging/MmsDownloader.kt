@@ -70,7 +70,11 @@ class MmsDownloader @Inject constructor(
             runCatching {
                 // The carrier re-sends an unacknowledged notification; the
                 // same transaction must not become a second message copy.
-                if (transactionExists(notification.transactionId)) return@runCatching
+                // The content location scopes the check: transaction ids are
+                // per-MMSC and can recur on another SIM or years later.
+                if (transactionExists(notification.transactionId, notification.contentLocation)) {
+                    return@runCatching
+                }
                 val blocked = blockedNumbers.isBlocked(sender)
                 val values = ContentValues().apply {
                     put(
@@ -108,12 +112,12 @@ class MmsDownloader @Inject constructor(
         }
     }
 
-    private fun transactionExists(transactionId: String): Boolean =
+    private fun transactionExists(transactionId: String, contentLocation: String): Boolean =
         context.contentResolver.query(
             Telephony.Mms.CONTENT_URI,
             arrayOf(Telephony.Mms._ID),
-            Telephony.Mms.TRANSACTION_ID + " = ?",
-            arrayOf(transactionId),
+            Telephony.Mms.TRANSACTION_ID + " = ? AND " + Telephony.Mms.CONTENT_LOCATION + " = ?",
+            arrayOf(transactionId, contentLocation),
             null,
         )?.use { it.count > 0 } ?: false
 

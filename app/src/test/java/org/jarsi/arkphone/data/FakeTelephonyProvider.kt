@@ -87,6 +87,7 @@ class FakeTelephonyProvider : ContentProvider() {
             }
             uri == Telephony.Mms.CONTENT_URI -> {
                 val byTransaction = selection?.contains("tr_id") == true
+                val byContentLocation = selection?.contains("ct_l") == true
                 val threadIdArg = selectionArgs?.firstOrNull()
                     ?.takeIf { !byTransaction }?.toLongOrNull()
                 val unreadOnly = selection?.contains("read = 0") == true
@@ -97,6 +98,9 @@ class FakeTelephonyProvider : ContentProvider() {
                     .filter { threadIdArg == null || it.getAsLong("thread_id") == threadIdArg }
                     .filter {
                         !byTransaction || it.getAsString("tr_id") == selectionArgs?.firstOrNull()
+                    }
+                    .filter {
+                        !byContentLocation || it.getAsString("ct_l") == selectionArgs?.getOrNull(1)
                     }
                     .filter { !unreadOnly || it.getAsInteger("read") == 0 }
                     .sortedBy { it.getAsLong("date") }
