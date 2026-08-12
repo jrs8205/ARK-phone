@@ -9,6 +9,7 @@ import org.jarsi.arkphone.testing.FakeCallLogRepository
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeSpeedDialRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
+import org.jarsi.arkphone.util.DialingRegion
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +27,8 @@ class DialpadViewModelTest {
     private val speedDial = FakeSpeedDialRepository()
     private val callLog = FakeCallLogRepository()
 
-    private fun viewModel() = DialpadViewModel(contacts, speedDial, callLog)
+    private fun viewModel() =
+        DialpadViewModel(contacts, speedDial, callLog, DialingRegion { "FI" })
 
     @Test
     fun pasteKeepsOnlyPhoneCharacters() = runTest {
@@ -39,15 +41,14 @@ class DialpadViewModelTest {
     }
 
     @Test
-    fun displayNumberIsFormattedForTheDefaultCountry() = runTest {
+    fun displayNumberIsFormattedForTheDialingRegion() = runTest {
         val viewModel = viewModel()
         viewModel.setNumber("0401234567")
         viewModel.uiState.test {
             skipItems(1)
-            val state = awaitItem()
             assertEquals(
-                formatDialpadNumber("0401234567", java.util.Locale.getDefault().country),
-                state.displayNumber,
+                formatDialpadNumber("0401234567", "FI"),
+                awaitItem().displayNumber,
             )
         }
     }
@@ -83,8 +84,30 @@ class DialpadViewModelTest {
             val state = awaitItem()
             assertEquals(listOf("0407654321"), state.historySuggestions.map { it.number })
             assertEquals(
-                listOf(formatDialpadNumber("0407654321", java.util.Locale.getDefault().country)),
+                listOf(formatDialpadNumber("0407654321", "FI")),
                 state.historySuggestions.map { it.display },
+            )
+        }
+    }
+
+    @Test
+    fun historyMatchingUsesTheSimRegionNotTheDeviceLanguage() = runTest {
+        // A Finnish phone whose device language is English: the E164 round
+        // trip must run in the SIM's region, or the international-format
+        // history entry never matches nationally typed digits.
+        callLog.entries.value = listOf(
+            CallLogEntry(
+                id = 1, number = "+358407654321", displayName = null,
+                type = CallType.OUTGOING, timestampMillis = 5, durationSeconds = 10,
+            ),
+        )
+        val viewModel = viewModel()
+        viewModel.setNumber("040")
+        viewModel.uiState.test {
+            skipItems(1)
+            assertEquals(
+                listOf("+358407654321"),
+                awaitItem().historySuggestions.map { it.number },
             )
         }
     }

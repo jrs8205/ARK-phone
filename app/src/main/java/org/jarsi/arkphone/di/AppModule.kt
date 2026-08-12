@@ -89,6 +89,8 @@ import org.jarsi.arkphone.telecom.WhatsAppCaller
 import org.jarsi.arkphone.util.AndroidNotificationAccessChecker
 import org.jarsi.arkphone.util.AndroidPermissionChecker
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.DialingRegion
+import org.jarsi.arkphone.util.androidDialingRegion
 import org.jarsi.arkphone.util.AndroidToaster
 import org.jarsi.arkphone.util.NotificationAccessChecker
 import org.jarsi.arkphone.util.PermissionChecker
@@ -263,6 +265,11 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideClock(): Clock = Clock { System.currentTimeMillis() }
+
+        @Provides
+        @Singleton
+        fun provideDialingRegion(@ApplicationContext context: Context): DialingRegion =
+            androidDialingRegion(context)
 
         @Provides
         @Singleton

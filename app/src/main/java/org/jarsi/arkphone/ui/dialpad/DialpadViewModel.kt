@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Locale
 import org.jarsi.arkphone.data.CallLogRepository
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.util.DialingRegion
 import javax.inject.Inject
 
 data class DialpadUiState(
@@ -42,6 +42,7 @@ class DialpadViewModel @Inject constructor(
     contactsRepository: ContactsRepository,
     private val speedDialRepository: SpeedDialRepository,
     callLogRepository: CallLogRepository,
+    private val dialingRegion: DialingRegion,
 ) : ViewModel() {
 
     private val callLog = callLogRepository.callLog()
@@ -55,7 +56,7 @@ class DialpadViewModel @Inject constructor(
             speedDialRepository.entries,
             callLog,
         ) { contacts, number, speedDial, log ->
-            val country = Locale.getDefault().country
+            val country = dialingRegion.countryIso()
             DialpadUiState(
                 number = number,
                 displayNumber = formatDialpadNumber(number, country),
