@@ -74,10 +74,28 @@ object DialpadMatcher {
         }
     }
 
-    fun filter(contacts: List<Contact>, query: String): List<Contact> {
+    /** Name (T9), raw substring, or — from [HISTORY_MIN_TYPED] typed digits,
+     *  the floor that keeps a lone trunk zero from matching the whole book —
+     *  any dial form of the number. The history list hides numbers that
+     *  belong to a contact, so a contact missed here vanishes from both. */
+    fun filter(
+        contacts: List<Contact>,
+        query: String,
+        e164: (String) -> String? = { null },
+    ): List<Contact> {
         if (query.isEmpty()) return emptyList()
+        val typed = query.dialableCharacters()
         return contacts.filter { contact ->
-            matches(contact.displayName, query) || contact.phoneNumber?.contains(query) == true
+            matches(contact.displayName, query) ||
+                contact.phoneNumber?.contains(query) == true ||
+                contact.phoneNumber?.matchesAcrossFormats(typed, e164) == true
         }
+    }
+
+    private fun String.matchesAcrossFormats(typed: String, e164: (String) -> String?): Boolean {
+        if (typed.length < HISTORY_MIN_TYPED) return false
+        val stripped = dialableCharacters()
+        if (stripped.isEmpty()) return false
+        return dialForms(stripped, e164).any { it.startsWith(typed) }
     }
 }

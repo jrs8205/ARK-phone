@@ -57,14 +57,15 @@ class DialpadViewModel @Inject constructor(
             callLog,
         ) { contacts, number, speedDial, log ->
             val country = dialingRegion.countryIso()
+            val e164 = { candidate: String ->
+                PhoneNumberUtils.formatNumberToE164(candidate, country)
+            }
             DialpadUiState(
                 number = number,
                 displayNumber = formatDialpadNumber(number, country),
-                suggestions = DialpadMatcher.filter(contacts, number).take(3),
+                suggestions = DialpadMatcher.filter(contacts, number, e164).take(3),
                 historySuggestions = DialpadMatcher
-                    .filterHistory(log, contacts, number) {
-                        PhoneNumberUtils.formatNumberToE164(it, country)
-                    }
+                    .filterHistory(log, contacts, number, e164)
                     .take(3)
                     .map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
                 speedDial = speedDial,

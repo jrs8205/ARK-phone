@@ -70,6 +70,36 @@ class DialpadMatcherTest {
     }
 
     @Test
+    fun crossFormatTypingSurfacesTheContact() {
+        // The call-log side hides numbers that belong to a contact, so the
+        // contact matcher must find them across formats too — otherwise the
+        // number vanishes from both suggestion lists.
+        val contacts = listOf(contact(1, "Matti", "+358 40 123 4567"))
+        assertEquals(
+            listOf("Matti"),
+            DialpadMatcher.filter(contacts, "040", ::fakeE164).map { it.displayName },
+        )
+    }
+
+    @Test
+    fun internationalTypingSurfacesANationallyStoredContact() {
+        val contacts = listOf(contact(1, "Matti", "040 123 4567"))
+        assertEquals(
+            listOf("Matti"),
+            DialpadMatcher.filter(contacts, "+35840", ::fakeE164).map { it.displayName },
+        )
+    }
+
+    @Test
+    fun theCrossFormatMatchNeedsThreeTypedCharacters() {
+        // Every Finnish national number starts with 0; without the same
+        // three-digit floor as the history list, a two-digit prefix would
+        // surface most of the contact book.
+        val contacts = listOf(contact(1, "Matti", "+358 40 123 4567"))
+        assertTrue(DialpadMatcher.filter(contacts, "04", ::fakeE164).isEmpty())
+    }
+
+    @Test
     fun historyIsSuggestedByTypedPrefix() {
         val entries = listOf(entry(1, "0401234567"))
         assertEquals(listOf("0401234567"), filterHistory(entries, query = "040"))
