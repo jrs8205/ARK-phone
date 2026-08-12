@@ -340,6 +340,52 @@ class VoipCallCoordinatorTest {
     }
 
     @Test
+    fun aRingingCallIsNotTornDownAtFifteenSeconds() = runTest {
+        // The callee's phone is audibly ringing; a normal answer takes
+        // 20-30 s. Cutting over to the carrier mid-ring turns one call into
+        // a confusing double ring on both ends.
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        session.peerRinging.value = true
+        runCurrent()
+        advanceTimeBy(VOIP_CONNECT_TIMEOUT_MS + 100)
+        runCurrent()
+        assertFalse(fellBack)
+    }
+
+    @Test
+    fun aRingingCallStillFallsBackOnceTheRingWindowCloses() = runTest {
+        var fellBack = false
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.startCall(link) { fellBack = true }
+        runCurrent()
+        session.peerRinging.value = true
+        runCurrent()
+        advanceTimeBy(VOIP_RING_TIMEOUT_MS + 100)
+        runCurrent()
+        assertTrue(fellBack)
+        assertTrue(session.calls.contains("hangUp"))
+    }
+
+    @Test
+    fun anUnansweredIncomingRingOutlivesTheCallersRingWindow() = runTest {
+        // The callee's own guard must fire only after the caller's ring
+        // window has closed — otherwise the callee hangs up first and the
+        // caller never falls back to the carrier.
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        advanceTimeBy(VOIP_RING_TIMEOUT_MS + 100)
+        runCurrent()
+        assertFalse(session.calls.contains("hangUp"))
+        advanceTimeBy(VOIP_INCOMING_RING_TIMEOUT_MS - VOIP_RING_TIMEOUT_MS)
+        runCurrent()
+        assertTrue(session.calls.contains("hangUp"))
+    }
+
+    @Test
     fun aConnectedCallIsNotTornDownByTheTimeout() = runTest {
         var fellBack = false
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))

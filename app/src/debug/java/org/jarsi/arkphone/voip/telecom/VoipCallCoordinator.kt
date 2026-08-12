@@ -28,6 +28,15 @@ const val VOIP_REACH_TIMEOUT_MS: Long = 7_000L
 /** How long a VoIP attempt may sit unanswered before the carrier takes over. */
 const val VOIP_CONNECT_TIMEOUT_MS: Long = 15_000L
 
+/** Once the callee's surfaces are provably up (the call-ringing frame), the
+ *  attempt has earned a human answer window: a normal pick-up takes 20-30 s,
+ *  and cutting over to the carrier mid-ring double-rings both ends. */
+const val VOIP_RING_TIMEOUT_MS: Long = 30_000L
+
+/** The callee's guard on a ring nothing ever ends. It must outlive the
+ *  caller's ring window, so the caller decides carrier fallback first. */
+const val VOIP_INCOMING_RING_TIMEOUT_MS: Long = 35_000L
+
 /** End reasons that are a deliberate outcome, not a failure to route around. */
 private val DELIBERATE_END_REASONS =
     setOf("local-hangup", "local-reject", "rejected", "peer-hangup")
@@ -260,7 +269,7 @@ class VoipCallCoordinator(
         ui.openCallScreen()
         Log.i(TAG, "ARK incoming ringing id=$id")
         observe(activeCall)
-        armConnectTimeout(activeCall)
+        armConnectTimeout(activeCall, VOIP_INCOMING_RING_TIMEOUT_MS)
     }
 
     /**
@@ -311,7 +320,14 @@ class VoipCallCoordinator(
         if (call.direction == VoipCallDirection.OUTGOING) {
             call.ringbackJob = scope.launch {
                 call.session.peerRinging.collect { ringing ->
-                    if (ringing) ringback.start() else ringback.stop()
+                    if (ringing) {
+                        ringback.start()
+                        // An audibly ringing call has earned a human answer
+                        // window; the connect timeout would cut it mid-ring.
+                        armConnectTimeout(call, VOIP_RING_TIMEOUT_MS)
+                    } else {
+                        ringback.stop()
+                    }
                 }
             }
         }
@@ -350,10 +366,10 @@ class VoipCallCoordinator(
             !call.answered &&
             reason !in DELIBERATE_END_REASONS
 
-    private fun armConnectTimeout(call: ActiveCall) {
+    private fun armConnectTimeout(call: ActiveCall, timeoutMs: Long = VOIP_CONNECT_TIMEOUT_MS) {
         call.timeoutJob?.cancel()
         call.timeoutJob = scope.launch {
-            delay(VOIP_CONNECT_TIMEOUT_MS)
+            delay(timeoutMs)
             if (active !== call || call.answered) return@launch
             call.session.hangUp()
             fallBack(call)
