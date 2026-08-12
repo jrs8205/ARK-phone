@@ -224,6 +224,7 @@ class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
         val body: String,
         val timestampMillis: Long,
         val subscriptionId: Int,
+        val conversationTitle: String? = null,
     )
     val notified = mutableListOf<Notified>()
     val cancelledThreads = mutableListOf<Long>()
@@ -234,8 +235,12 @@ class FakeMessageNotifier : org.jarsi.arkphone.messaging.MessageNotifier {
         body: String,
         timestampMillis: Long,
         subscriptionId: Int,
+        conversationTitle: String?,
     ) {
-        notified += Notified(threadId, address, displayName, body, timestampMillis, subscriptionId)
+        notified += Notified(
+            threadId, address, displayName, body, timestampMillis, subscriptionId,
+            conversationTitle,
+        )
     }
     override fun cancelThread(threadId: Long) {
         cancelledThreads += threadId

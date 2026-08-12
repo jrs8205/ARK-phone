@@ -339,6 +339,9 @@ class MmsDownloader @Inject constructor(
             ?: System.currentTimeMillis()
         val subscriptionId =
             queryColumn(messageId, Telephony.Mms.SUBSCRIPTION_ID)?.toIntOrNull() ?: -1
+        val conversationTitle = groupRecipients(conf, sender)
+            ?.map { member -> contactsRepository.lookupContact(member)?.displayName ?: member }
+            ?.joinToString(", ")
         messageNotifier.notifyMessage(
             threadId,
             sender,
@@ -346,6 +349,7 @@ class MmsDownloader @Inject constructor(
             body,
             timestampMillis,
             subscriptionId,
+            conversationTitle,
         )
     }
 

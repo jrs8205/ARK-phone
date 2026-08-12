@@ -26,6 +26,8 @@ interface MessageNotifier {
         body: String,
         timestampMillis: Long,
         subscriptionId: Int = -1,
+        /** The member roster of a group thread; null for a 1:1. */
+        conversationTitle: String? = null,
     )
 
     fun cancelThread(threadId: Long)
@@ -49,6 +51,7 @@ class AndroidMessageNotifier @Inject constructor(
         body: String,
         timestampMillis: Long,
         subscriptionId: Int,
+        conversationTitle: String?,
     ) {
         ensureChannel()
         val self = Person.Builder()
@@ -59,6 +62,12 @@ class AndroidMessageNotifier @Inject constructor(
             .build()
         val style = NotificationCompat.MessagingStyle(self)
             .addMessage(body, timestampMillis, sender)
+        conversationTitle?.let {
+            // Without the group flag the notification presents as a plain
+            // 1:1 from the sender and every other member stays invisible.
+            style.setConversationTitle(it)
+            style.setGroupConversation(true)
+        }
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setStyle(style)

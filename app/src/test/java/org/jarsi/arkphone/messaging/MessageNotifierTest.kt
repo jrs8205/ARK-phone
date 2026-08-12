@@ -2,8 +2,10 @@ package org.jarsi.arkphone.messaging
 
 import android.app.Application
 import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -64,6 +66,30 @@ class MessageNotifierTest {
             5,
             replyIntent.getIntExtra(MessageActionReceiver.EXTRA_SUBSCRIPTION_ID, -1),
         )
+    }
+
+    @Test
+    fun `a group notification carries the group title and flag`() {
+        notifier.notifyMessage(
+            3L, "+358441234567", "Matti", "Moro", 1_000L,
+            conversationTitle = "Matti, +358400000000",
+        )
+        val notification =
+            shadowManager.getNotification(AndroidMessageNotifier.notificationIdFor(3L))
+        val style =
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)!!
+        assertTrue(style.isGroupConversation)
+        assertEquals("Matti, +358400000000", style.conversationTitle.toString())
+    }
+
+    @Test
+    fun `a one to one notification stays a plain conversation`() {
+        notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
+        val notification =
+            shadowManager.getNotification(AndroidMessageNotifier.notificationIdFor(3L))
+        val style =
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)!!
+        assertFalse(style.isGroupConversation)
     }
 
     @Test

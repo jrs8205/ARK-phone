@@ -231,6 +231,29 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a group notification carries the member roster as its title`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("+358400000000", "+358411111111"),
+                    listOf(MmsPart("text/plain", "Ryhmälle".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(
+            "+358400000000, +358411111111, +358441234567",
+            notifier.notified.single().conversationTitle,
+        )
+    }
+
+    @Test
     fun `re-threading prunes the emptied placeholder thread`() = runTest {
         repository.emptyThreads = setOf(42L)
         downloader.onPush(pushPdu())
