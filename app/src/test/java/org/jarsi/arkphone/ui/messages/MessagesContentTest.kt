@@ -1,5 +1,8 @@
 package org.jarsi.arkphone.ui.messages
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -61,6 +64,38 @@ class MessagesContentTest {
         composeRule.onNodeWithText("Nähdään huomenna").assertIsDisplayed()
         composeRule.onNodeWithText("Matti").performClick()
         assertEquals(3L, openedThread)
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w400dp-h1000dp")
+    fun aConversationBumpedToTheTopIsRevealed() {
+        val many = (1L..30L).map { id ->
+            item(threadId = id, title = "Ketju $id", snippet = null)
+        }
+        var uiState by mutableStateOf(
+            MessagesUiState(
+                loading = false,
+                conversations = many,
+                hasReadSmsPermission = true,
+            ),
+        )
+        composeRule.setContent {
+            MessagesContent(
+                uiState = uiState,
+                onQueryChange = {},
+                onOpenThread = {},
+                onNewMessage = {},
+                onRequestPermission = {},
+            )
+        }
+        composeRule.onNodeWithText("Ketju 1").assertIsDisplayed()
+
+        // The last conversation gets a new message and jumps to the top.
+        uiState = uiState.copy(
+            conversations = listOf(many.last()) + many.dropLast(1),
+        )
+
+        composeRule.onNodeWithText("Ketju 30").assertIsDisplayed()
     }
 
     @Test

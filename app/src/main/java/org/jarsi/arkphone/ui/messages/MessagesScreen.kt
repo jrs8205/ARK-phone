@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -191,22 +193,37 @@ fun MessagesContent(
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
-                else -> LazyColumn(Modifier.fillMaxSize()) {
-                    items(uiState.conversations, key = { it.conversation.threadId }) { item ->
-                        val threadId = item.conversation.threadId
-                        ConversationRow(
-                            item = item,
-                            selectionActive = uiState.selectionActive,
-                            selected = threadId in uiState.selectedThreadIds,
-                            onClick = {
-                                if (uiState.selectionActive) {
-                                    onToggleSelection(threadId)
-                                } else {
-                                    onOpenThread(threadId)
-                                }
-                            },
-                            onLongPress = { onToggleSelection(threadId) },
-                        )
+                else -> {
+                    val listState = rememberLazyListState()
+                    val firstThreadId =
+                        uiState.conversations.firstOrNull()?.conversation?.threadId
+                    // The lazy list anchors to the previously first row's
+                    // key, so a conversation bumped to the top would hide
+                    // above the viewport. A list resting at the top follows
+                    // the newcomer; a reading position further down is left
+                    // alone.
+                    LaunchedEffect(firstThreadId) {
+                        if (listState.firstVisibleItemIndex <= 1) {
+                            listState.scrollToItem(0)
+                        }
+                    }
+                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                        items(uiState.conversations, key = { it.conversation.threadId }) { item ->
+                            val threadId = item.conversation.threadId
+                            ConversationRow(
+                                item = item,
+                                selectionActive = uiState.selectionActive,
+                                selected = threadId in uiState.selectedThreadIds,
+                                onClick = {
+                                    if (uiState.selectionActive) {
+                                        onToggleSelection(threadId)
+                                    } else {
+                                        onOpenThread(threadId)
+                                    }
+                                },
+                                onLongPress = { onToggleSelection(threadId) },
+                            )
+                        }
                     }
                 }
             }
