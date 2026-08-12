@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Telephony
 import android.telephony.CarrierConfigManager
+import android.telephony.PhoneNumberUtils
 import android.telephony.SmsManager
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
@@ -104,7 +105,12 @@ class AndroidMmsSender @Inject constructor(
         subscriptionId: Int,
     ): Uri? = withContext(ioDispatcher) {
         runCatching {
-            if (addresses.isEmpty()) return@runCatching null
+            // Contact cards carry display formatting, and an MMSC drops a
+            // To-address with separators in it without any error.
+            val recipients = addresses
+                .map(PhoneNumberUtils::normalizeNumber)
+                .filter { it.isNotEmpty() }
+            if (recipients.isEmpty()) return@runCatching null
             val imageBytes = imageUri?.let { uri ->
                 val budget = maxMessageBytes() * 9 / 10
                 imageShrinker.shrink(uri, budget) ?: return@runCatching null
@@ -116,8 +122,8 @@ class AndroidMmsSender @Inject constructor(
                 }
             }
             if (parts.isEmpty()) return@runCatching null
-            val pdu = composeSendReq(from = null, to = addresses, parts = parts)
-            val rowUri = storeOutboxRow(addresses, parts, subscriptionId)
+            val pdu = composeSendReq(from = null, to = recipients, parts = parts)
+            val rowUri = storeOutboxRow(recipients, parts, subscriptionId)
                 ?: return@runCatching null
             val messageId = ContentUris.parseId(rowUri)
             val file = sendPduFileFor(context, messageId).apply { parentFile?.mkdirs() }

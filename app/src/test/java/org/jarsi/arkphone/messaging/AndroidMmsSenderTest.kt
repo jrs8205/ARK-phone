@@ -141,6 +141,24 @@ class AndroidMmsSenderTest {
     }
 
     @Test
+    fun `a display formatted recipient is normalized before the send`() = runTest {
+        val rowUri = sender.send(
+            listOf("+358 44 5552841", "0443342131"),
+            "Moro",
+            imageUri = null,
+        )
+
+        assertNotNull(rowUri)
+        assertEquals(
+            listOf("+358445552841", "0443342131"),
+            provider.mmsAddrRows.map { it.second.getAsString("address") },
+        )
+        val pduText = transport.sent.single().file.readBytes().toString(Charsets.ISO_8859_1)
+        assertTrue("+358445552841/TYPE=PLMN" in pduText)
+        assertTrue("+358 44" !in pduText)
+    }
+
+    @Test
     fun `a send with neither text nor image starts nothing`() = runTest {
         assertEquals(null, sender.send(listOf("+358400000000"), "  ", imageUri = null))
         assertTrue(provider.mmsRows.isEmpty())
