@@ -47,6 +47,8 @@ fun MainScreen(
     onRequestDefaultDialer: () -> Unit,
     requestedNumber: String? = null,
     onRequestedNumberConsumed: () -> Unit = {},
+    messagesRequested: Boolean = false,
+    onMessagesRequestConsumed: () -> Unit = {},
     onVoicemail: () -> Unit = {},
     onOpenThread: (Long) -> Unit = {},
     onNewMessage: () -> Unit = {},
@@ -57,6 +59,13 @@ fun MainScreen(
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     LaunchedEffect(requestedNumber) {
         if (requestedNumber != null) selectedTab = MainTab.KEYPAD
+    }
+    // A tap on the Viestit launcher icon lands on the Messages tab.
+    LaunchedEffect(messagesRequested) {
+        if (messagesRequested) {
+            selectedTab = MainTab.MESSAGES
+            onMessagesRequestConsumed()
+        }
     }
     BackHandler(enabled = selectedTab != MainTab.HOME) {
         selectedTab = MainTab.HOME

@@ -33,6 +33,14 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** The launcher alias whose tap lands on the Messages tab. */
+        private const val MESSAGES_LAUNCHER = "org.jarsi.arkphone.MessagesLauncher"
+
+        internal fun opensMessages(intent: Intent?): Boolean =
+            intent?.component?.className == MESSAGES_LAUNCHER
+    }
+
     @Inject lateinit var callRouter: CallRouter
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
@@ -41,6 +49,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var messagesRepository: MessagesRepository
 
     private val dialRequest = mutableStateOf<String?>(null)
+    private val messagesRequest = mutableStateOf(false)
     private val isDefault = mutableStateOf(false)
     private val hasPermissions = mutableStateOf(false)
     private val unreadMessages = mutableStateOf(0)
@@ -101,6 +110,8 @@ class MainActivity : ComponentActivity() {
                         onRequestDefaultDialer = { roleLauncher.launch(defaultDialerManager.requestIntent()) },
                         requestedNumber = requestedNumber,
                         onRequestedNumberConsumed = { dialRequest.value = null },
+                        messagesRequested = messagesRequest.value,
+                        onMessagesRequestConsumed = { messagesRequest.value = false },
                         onRequestSmsPermission = {
                             smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
                         },
@@ -135,6 +146,9 @@ class MainActivity : ComponentActivity() {
     private fun readDialIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_DIAL || intent?.action == Intent.ACTION_VIEW) {
             dialRequest.value = intent.data?.schemeSpecificPart ?: ""
+        }
+        if (opensMessages(intent)) {
+            messagesRequest.value = true
         }
     }
 

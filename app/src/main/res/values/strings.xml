@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ARK-phone</string>
+    <string name="launcher_phone">Phone</string>
+    <string name="launcher_messages">Messages</string>
     <string name="recents_empty">No calls yet</string>
     <string name="recents_no_permission">ARK-phone needs access to your call log to show recent calls.</string>
     <string name="common_grant_access">Grant access</string>

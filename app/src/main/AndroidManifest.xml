@@ -50,6 +50,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:label="@string/launcher_phone"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -71,6 +72,22 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
+
+        <!-- A second launcher entry that lands on the Messages tab. The
+             launcher shows the alias label and icon; the app keeps its own
+             name everywhere else. -->
+        <activity-alias
+            android:name=".MessagesLauncher"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_messages"
+            android:roundIcon="@mipmap/ic_launcher_messages_round"
+            android:label="@string/launcher_messages">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.settings.SettingsActivity"
