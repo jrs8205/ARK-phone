@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -84,6 +85,10 @@ class DialpadViewModel @Inject constructor(
                     .map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
             )
         }.flowOn(matchDispatcher)
+            // The typed number must echo before the call-log query answers:
+            // returning to the dialpad restarts the upstream flows, and a
+            // combine without this seed swallows the first keystrokes.
+            .onStart { emit(Suggestions()) }
 
     val uiState: StateFlow<DialpadUiState> =
         combine(

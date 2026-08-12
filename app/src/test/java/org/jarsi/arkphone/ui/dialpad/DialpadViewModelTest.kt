@@ -82,8 +82,10 @@ class DialpadViewModelTest {
         val viewModel = viewModel()
         viewModel.setNumber("040")
         viewModel.uiState.test {
-            skipItems(1)
-            val state = awaitItem()
+            var state = awaitItem()
+            while (state.historySuggestions.isEmpty()) {
+                state = awaitItem()
+            }
             assertEquals(listOf("0407654321"), state.historySuggestions.map { it.number })
             assertEquals(
                 listOf(formatDialpadNumber("0407654321", "FI")),
@@ -106,11 +108,33 @@ class DialpadViewModelTest {
         val viewModel = viewModel()
         viewModel.setNumber("040")
         viewModel.uiState.test {
-            skipItems(1)
+            var state = awaitItem()
+            while (state.historySuggestions.isEmpty()) {
+                state = awaitItem()
+            }
             assertEquals(
                 listOf("+358407654321"),
-                awaitItem().historySuggestions.map { it.number },
+                state.historySuggestions.map { it.number },
             )
+        }
+    }
+
+    @Test
+    fun typingEchoesBeforeTheCallLogEverEmits() = runTest {
+        // Returning to the dialpad restarts the upstream flows; the first
+        // keystrokes must not wait for the call-log query to finish.
+        val silentLog = object : FakeCallLogRepository() {
+            override fun callLog(): kotlinx.coroutines.flow.Flow<List<CallLogEntry>> =
+                kotlinx.coroutines.flow.flow { kotlinx.coroutines.awaitCancellation() }
+        }
+        val viewModel =
+            DialpadViewModel(contacts, speedDial, silentLog, DialingRegion { "FI" }, mainDispatcherRule.dispatcher)
+        viewModel.setNumber("040")
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.number != "040") {
+                state = awaitItem()
+            }
         }
     }
 

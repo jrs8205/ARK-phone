@@ -26,7 +26,7 @@ import org.jarsi.arkphone.data.model.SimCard
 import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.util.PermissionChecker
 
-class FakeCallLogRepository : CallLogRepository {
+open class FakeCallLogRepository : CallLogRepository {
     val entries = MutableStateFlow<List<CallLogEntry>>(emptyList())
     val deletedNumbers = mutableListOf<String>()
     var refreshCalls = 0
