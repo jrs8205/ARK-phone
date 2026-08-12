@@ -22,6 +22,9 @@ class FakeTelephonyProvider : ContentProvider() {
     val mmsAddrRows = mutableListOf<Pair<Long, ContentValues>>()
     val deletedUris = mutableListOf<Uri>()
     val updatedUris = mutableListOf<Pair<Uri, ContentValues>>()
+
+    /** Every recipient set a threadID resolution was asked for, verbatim. */
+    val threadLookups = mutableListOf<List<String>>()
     private var nextSmsId = 100L
     private var nextMmsId = 500L
     private var nextPartId = 900L
@@ -48,7 +51,9 @@ class FakeTelephonyProvider : ContentProvider() {
                 // A multi-recipient (group) resolution answers a different
                 // thread per member count so tests can observe re-threading
                 // AND who was counted: two members = 77, three = 78, ...
-                val members = uri.getQueryParameters("recipient").size
+                val recipients = uri.getQueryParameters("recipient")
+                threadLookups += recipients
+                val members = recipients.size
                 val id = if (members > 1) 75L + members else 42L
                 MatrixCursor(arrayOf("_id")).apply { addRow(arrayOf(id)) }
             }

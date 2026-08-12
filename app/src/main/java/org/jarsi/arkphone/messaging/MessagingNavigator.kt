@@ -3,6 +3,7 @@ package org.jarsi.arkphone.messaging
 import android.content.Context
 import android.net.Uri
 import android.provider.Telephony
+import android.telephony.PhoneNumberUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,13 @@ class MessagingNavigator @Inject constructor(
         initialBody: String? = null,
         initialImage: Uri? = null,
     ) {
-        val recipients = numbers.filter { it.isNotBlank() }
+        // Contact cards hand over display formatting; the send side resolves
+        // its provider thread from normalized numbers, so the opened thread
+        // must come from the same set or the sent message lands in a
+        // parallel conversation.
+        val recipients = numbers
+            .map(PhoneNumberUtils::normalizeNumber)
+            .filter { it.isNotBlank() }
         if (recipients.isEmpty()) return
         scope.launch {
             val threadId = withContext(ioDispatcher) {
