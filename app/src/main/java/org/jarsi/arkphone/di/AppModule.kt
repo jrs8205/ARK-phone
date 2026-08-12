@@ -104,6 +104,10 @@ annotation class IoDispatcher
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
+annotation class DefaultDispatcher
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
 annotation class ApplicationScope
 
 @Module
@@ -261,6 +265,10 @@ abstract class AppModule {
         @Provides
         @IoDispatcher
         fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+        @Provides
+        @DefaultDispatcher
+        fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
 
         @Provides
         @Singleton

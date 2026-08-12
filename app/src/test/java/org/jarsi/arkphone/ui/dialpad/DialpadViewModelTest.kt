@@ -11,6 +11,7 @@ import org.jarsi.arkphone.testing.FakeSpeedDialRepository
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.DialingRegion
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,8 +28,9 @@ class DialpadViewModelTest {
     private val speedDial = FakeSpeedDialRepository()
     private val callLog = FakeCallLogRepository()
 
-    private fun viewModel() =
-        DialpadViewModel(contacts, speedDial, callLog, DialingRegion { "FI" })
+    private fun viewModel(
+        matchDispatcher: kotlinx.coroutines.CoroutineDispatcher = mainDispatcherRule.dispatcher,
+    ) = DialpadViewModel(contacts, speedDial, callLog, DialingRegion { "FI" }, matchDispatcher)
 
     @Test
     fun pasteKeepsOnlyPhoneCharacters() = runTest {
@@ -110,6 +112,34 @@ class DialpadViewModelTest {
                 awaitItem().historySuggestions.map { it.number },
             )
         }
+    }
+
+    @Test
+    fun suggestionMatchingRunsOnTheInjectedBackgroundDispatcher() = runTest {
+        // A multi-year call log times libphonenumber per entry; on the main
+        // dispatcher every keystroke would drop dialpad frames.
+        var dispatches = 0
+        val counting = object : kotlinx.coroutines.CoroutineDispatcher() {
+            override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) {
+                dispatches++
+                mainDispatcherRule.dispatcher.dispatch(context, block)
+            }
+        }
+        callLog.entries.value = listOf(
+            CallLogEntry(
+                id = 1, number = "0407654321", displayName = null,
+                type = CallType.OUTGOING, timestampMillis = 5, durationSeconds = 10,
+            ),
+        )
+        val viewModel = viewModel(matchDispatcher = counting)
+        viewModel.setNumber("040")
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.historySuggestions.isEmpty()) {
+                state = awaitItem()
+            }
+        }
+        assertTrue(dispatches > 0)
     }
 
     @Test
