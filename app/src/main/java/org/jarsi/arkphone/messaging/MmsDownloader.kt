@@ -216,28 +216,31 @@ class MmsDownloader @Inject constructor(
 
     /** The sender plus the To recipients that are not this phone's own
      *  numbers; null when that resolves to a plain 1:1 conversation.
-     *  When the SIM does not expose its own number a lone To entry is this
-     *  phone itself, so only two or more other recipients count as a group. */
+     *  While any active SIM keeps its own number to itself, a lone To entry
+     *  can be this phone, so only two or more other recipients count as a
+     *  group — one known number must not pass for knowing them all. */
     private fun groupRecipients(conf: RetrieveConf): Set<String>? {
         val sender = conf.from ?: return null
         val own = ownNumbers()
         val others = conf.to
             .filter { it.isNotBlank() }
             .filterNot { PhoneNumberUtils.compare(it, sender) }
-            .filterNot { candidate -> own.any { PhoneNumberUtils.compare(candidate, it) } }
-        val isGroup = if (own.isEmpty()) others.size >= 2 else others.isNotEmpty()
+            .filterNot { candidate -> own.numbers.any { PhoneNumberUtils.compare(candidate, it) } }
+        val isGroup = if (own.complete) others.isNotEmpty() else others.size >= 2
         if (!isGroup) return null
         return (others + sender).toSet()
     }
 
+    private class OwnNumbers(val numbers: Set<String>, val complete: Boolean)
+
     // READ_PHONE_STATE is granted with the core call permissions; runCatching
-    // answers a refusal with the empty set.
+    // answers a refusal with the empty, incomplete set.
     @SuppressLint("MissingPermission")
-    private fun ownNumbers(): Set<String> = runCatching {
+    private fun ownNumbers(): OwnNumbers = runCatching {
         val manager = context.getSystemService(SubscriptionManager::class.java)
-            ?: return@runCatching emptySet()
-        manager.activeSubscriptionInfoList
-            .orEmpty()
+            ?: return@runCatching OwnNumbers(emptySet(), complete = false)
+        val subscriptions = manager.activeSubscriptionInfoList.orEmpty()
+        val numbers = subscriptions
             .mapNotNull { info ->
                 // getPhoneNumber also asks the carrier and IMS; the legacy
                 // SIM-record number is blank on many operators, and a missed
@@ -252,7 +255,8 @@ class MmsDownloader @Inject constructor(
                 (modern?.takeIf { it.isNotBlank() } ?: info.number)?.takeIf { it.isNotBlank() }
             }
             .toSet()
-    }.getOrDefault(emptySet())
+        OwnNumbers(numbers, complete = subscriptions.isNotEmpty() && numbers.size == subscriptions.size)
+    }.getOrDefault(OwnNumbers(emptySet(), complete = false))
 
     private fun insertAddr(messageId: Long, address: String, type: Int) {
         runCatching {

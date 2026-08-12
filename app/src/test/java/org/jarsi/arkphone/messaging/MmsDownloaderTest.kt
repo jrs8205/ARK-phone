@@ -246,6 +246,44 @@ class MmsDownloaderTest {
     }
 
     @Test
+    @Config(sdk = [35])
+    fun `a lone recipient on a sim with an unknown number stays a 1 to 1 thread`() = runTest {
+        // Dual SIM where only one subscription exposes its number: the To
+        // entry is this phone's other SIM, but nothing can prove it. Partial
+        // knowledge must fall back to the two-or-more heuristic instead of
+        // minting a "group" out of {self, sender}.
+        val subscriptionManager = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(SubscriptionManager::class.java)
+        shadowOf(subscriptionManager).setActiveSubscriptionInfoList(
+            listOf(
+                ShadowSubscriptionManager.SubscriptionInfoBuilder.newBuilder()
+                    .setId(1)
+                    .buildSubscriptionInfo(),
+                ShadowSubscriptionManager.SubscriptionInfoBuilder.newBuilder()
+                    .setId(2)
+                    .buildSubscriptionInfo(),
+            ),
+        )
+        shadowOf(subscriptionManager).setPhoneNumber(1, "0441111111")
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("0407777777"),
+                    listOf(MmsPart("text/plain", "Kahden kesken".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(42L, provider.mmsRows.single().getAsLong("thread_id"))
+    }
+
+    @Test
     fun `a download that parses to zero parts keeps the placeholder too`() = runTest {
         downloader.onPush(pushPdu())
         val messageId = provider.mmsRows.single().getAsLong("_id")
