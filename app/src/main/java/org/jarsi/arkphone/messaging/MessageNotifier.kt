@@ -65,8 +65,8 @@ class AndroidMessageNotifier @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(openThreadIntent(threadId))
-            .addAction(replyAction(threadId, address, subscriptionId))
-            .addAction(markReadAction(threadId, address))
+            .addAction(replyAction(threadId, subscriptionId))
+            .addAction(markReadAction(threadId))
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             @Suppress("MissingPermission")
             NotificationManagerCompat.from(context)
@@ -89,18 +89,14 @@ class AndroidMessageNotifier @Inject constructor(
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
 
-    private fun replyAction(
-        threadId: Long,
-        address: String,
-        subscriptionId: Int,
-    ): NotificationCompat.Action {
+    private fun replyAction(threadId: Long, subscriptionId: Int): NotificationCompat.Action {
         val remoteInput = RemoteInput.Builder(MessageActionReceiver.KEY_REPLY_TEXT)
             .setLabel(context.getString(R.string.message_reply))
             .build()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             "reply-$threadId".hashCode(),
-            actionIntent(MessageActionReceiver.ACTION_MESSAGE_REPLY, threadId, address)
+            actionIntent(MessageActionReceiver.ACTION_MESSAGE_REPLY, threadId)
                 // The reply must leave over the SIM the message arrived on;
                 // the default messaging SIM can be the other one.
                 .putExtra(MessageActionReceiver.EXTRA_SUBSCRIPTION_ID, subscriptionId),
@@ -117,11 +113,11 @@ class AndroidMessageNotifier @Inject constructor(
             .build()
     }
 
-    private fun markReadAction(threadId: Long, address: String): NotificationCompat.Action {
+    private fun markReadAction(threadId: Long): NotificationCompat.Action {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             "mark-read-$threadId".hashCode(),
-            actionIntent(MessageActionReceiver.ACTION_MESSAGE_MARK_READ, threadId, address),
+            actionIntent(MessageActionReceiver.ACTION_MESSAGE_MARK_READ, threadId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Action.Builder(
@@ -133,11 +129,10 @@ class AndroidMessageNotifier @Inject constructor(
             .build()
     }
 
-    private fun actionIntent(action: String, threadId: Long, address: String): Intent =
+    private fun actionIntent(action: String, threadId: Long): Intent =
         Intent(context, MessageActionReceiver::class.java)
             .setAction(action)
             .putExtra(MessageActionReceiver.EXTRA_THREAD_ID, threadId)
-            .putExtra(MessageActionReceiver.EXTRA_ADDRESS, address)
 
     /** Back from the opened thread lands on the app's main screen. */
     private fun openThreadIntent(threadId: Long): PendingIntent =

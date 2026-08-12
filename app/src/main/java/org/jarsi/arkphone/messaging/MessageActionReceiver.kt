@@ -22,7 +22,6 @@ class MessageActionHandler @Inject constructor(
     suspend fun handle(
         action: String?,
         threadId: Long,
-        address: String?,
         replyText: String?,
         subscriptionId: Int = -1,
     ) {
@@ -41,8 +40,11 @@ class MessageActionHandler @Inject constructor(
                 // conversation (same rule as the in-app reply).
                 recipients.size > 1 ->
                     mmsSender.send(recipients, replyText.trim(), null, subscriptionId)
-                !address.isNullOrBlank() -> smsSender.send(address, replyText.trim())
                 recipients.size == 1 -> smsSender.send(recipients.single(), replyText.trim())
+                // The membership lookup failed: a blind SMS to the sender
+                // forks a group into a 1:1 thread, and clearing the
+                // notification would pass the swallowed reply off as sent.
+                else -> return
             }
         }
         messagesRepository.markThreadRead(threadId)
@@ -65,7 +67,6 @@ class MessageActionReceiver : BroadcastReceiver() {
         const val ACTION_MESSAGE_REPLY = "org.jarsi.arkphone.action.MESSAGE_REPLY"
         const val ACTION_MESSAGE_MARK_READ = "org.jarsi.arkphone.action.MESSAGE_MARK_READ"
         const val EXTRA_THREAD_ID = "org.jarsi.arkphone.extra.THREAD_ID"
-        const val EXTRA_ADDRESS = "org.jarsi.arkphone.extra.ADDRESS"
         const val EXTRA_SUBSCRIPTION_ID = "org.jarsi.arkphone.extra.SUBSCRIPTION_ID"
         const val KEY_REPLY_TEXT = "org.jarsi.arkphone.extra.REPLY_TEXT"
     }
@@ -81,7 +82,6 @@ class MessageActionReceiver : BroadcastReceiver() {
                 handler.handle(
                     action = intent.action,
                     threadId = intent.getLongExtra(EXTRA_THREAD_ID, -1L),
-                    address = intent.getStringExtra(EXTRA_ADDRESS),
                     replyText = replyTextFrom(intent),
                     subscriptionId = intent.getIntExtra(EXTRA_SUBSCRIPTION_ID, -1),
                 )

@@ -31,10 +31,10 @@ class MessageActionReceiverTest {
 
     @Test
     fun `reply sends the text and marks the thread read`() = runTest {
+        fakeRepository.recipientsByThread[3L] = listOf("+358441234567")
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
-            address = "+358441234567",
             replyText = " Takaisin ",
         )
 
@@ -44,12 +44,29 @@ class MessageActionReceiverTest {
     }
 
     @Test
+    fun `a reply is never sent blind when the thread lookup comes back empty`() = runTest {
+        // The recipients query failed or found nothing: an SMS to the
+        // notification's sender would fork a group into a 1:1 thread, and
+        // pretending success would silently swallow the typed reply. The
+        // notification must survive for the user to try again.
+        handler.handle(
+            action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
+            threadId = 3L,
+            replyText = "Moro",
+        )
+
+        assertTrue(fakeSender.sent.isEmpty())
+        assertTrue(fakeMmsSender.sent.isEmpty())
+        assertTrue(fakeRepository.markedRead.isEmpty())
+        assertTrue(fakeNotifier.cancelledThreads.isEmpty())
+    }
+
+    @Test
     fun `a reply on a group thread goes to the whole group as one MMS`() = runTest {
         fakeRepository.recipientsByThread[3L] = listOf("+358441111111", "+358442222222")
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
-            address = "+358441111111",
             replyText = "Moro kaikille",
         )
 
@@ -67,7 +84,6 @@ class MessageActionReceiverTest {
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
-            address = "+358441111111",
             replyText = "Moro",
             subscriptionId = 5,
         )
@@ -81,7 +97,6 @@ class MessageActionReceiverTest {
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
-            address = "+358441234567",
             replyText = "Takaisin",
         )
 
@@ -94,7 +109,6 @@ class MessageActionReceiverTest {
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_MARK_READ,
             threadId = 3L,
-            address = "+358441234567",
             replyText = null,
         )
 
@@ -108,7 +122,6 @@ class MessageActionReceiverTest {
         handler.handle(
             action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
             threadId = 3L,
-            address = "+358441234567",
             replyText = null,
         )
 
@@ -121,7 +134,6 @@ class MessageActionReceiverTest {
         handler.handle(
             action = "org.example.SOMETHING_ELSE",
             threadId = 3L,
-            address = "+358441234567",
             replyText = "Moro",
         )
 
