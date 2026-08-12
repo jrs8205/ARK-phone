@@ -9,6 +9,7 @@ import org.jarsi.arkphone.data.model.MessageStatus
 import org.jarsi.arkphone.data.model.MmsAttachment
 import org.jarsi.arkphone.util.PermissionChecker
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -321,6 +322,26 @@ class SystemMessagesRepositoryTest {
     @Test
     fun `escape like query escapes the escape char and both wildcards`() {
         assertEquals("""a\%b\_c\\d""", escapeLikeQuery("""a%b_c\d"""))
+    }
+
+    @Test
+    fun `an emptied thread is pruned`() = runTest {
+        assertTrue(repository.pruneEmptyThread(93L))
+        assertEquals(
+            listOf("content://mms-sms/conversations/93"),
+            provider.deletedUris.map { it.toString() },
+        )
+    }
+
+    @Test
+    fun `a thread with a remaining message is not pruned`() = runTest {
+        provider.smsRows += smsRow(
+            id = 1, threadId = 93, address = "+358441234567", body = "Jäljellä",
+            date = 1000L, type = Telephony.Sms.MESSAGE_TYPE_INBOX,
+            status = Telephony.Sms.STATUS_NONE, subId = 1,
+        )
+        assertFalse(repository.pruneEmptyThread(93L))
+        assertTrue(provider.deletedUris.isEmpty())
     }
 
     private fun smsRow(

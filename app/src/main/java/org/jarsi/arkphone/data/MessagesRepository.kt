@@ -31,6 +31,11 @@ interface MessagesRepository {
      */
     suspend fun recomputeThreadRead(threadId: Long)
 
+    /** Deletes the thread when nothing is left in it; returns whether it was
+     *  deleted. A thread abandoned by a re-threaded message otherwise
+     *  lingers in the conversation list as an empty conversation. */
+    suspend fun pruneEmptyThread(threadId: Long): Boolean
+
     /** Deletes one message. Returns false when the delete failed. */
     suspend fun deleteMessage(messageId: Long, isMms: Boolean): Boolean
 

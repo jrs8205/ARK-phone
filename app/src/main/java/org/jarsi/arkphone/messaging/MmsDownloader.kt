@@ -136,10 +136,15 @@ class MmsDownloader @Inject constructor(
                 if (conf == null || conf.parts.isEmpty()) return@runCatching
                 val movedFromThread = storeRetrieved(messageId, conf)
                 messagesRepository.refresh()
-                // The push filed the message under the sender's 1:1 thread;
-                // moving it to the group thread leaves that thread's cached
-                // unread flag stale with nothing left to recompute it.
-                movedFromThread?.let { messagesRepository.recomputeThreadRead(it) }
+                // The push filed the message under the sender's 1:1 thread.
+                // When the move emptied that thread it would linger as a
+                // ghost conversation; when messages remain, its cached
+                // unread flag is stale and needs the recompute.
+                movedFromThread?.let {
+                    if (!messagesRepository.pruneEmptyThread(it)) {
+                        messagesRepository.recomputeThreadRead(it)
+                    }
+                }
                 notifyUnlessBlocked(messageId, conf)
             }
         }

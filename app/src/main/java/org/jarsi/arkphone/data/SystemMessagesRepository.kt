@@ -363,6 +363,26 @@ class SystemMessagesRepository @Inject constructor(
             null
         }
 
+    override suspend fun pruneEmptyThread(threadId: Long): Boolean = withContext(ioDispatcher) {
+        runCatching {
+            if (threadHasMessages(threadId)) return@runCatching false
+            context.contentResolver.delete(
+                "content://mms-sms/conversations/$threadId".toUri(),
+                null, null,
+            ) > 0
+        }.getOrDefault(false)
+    }
+
+    private fun threadHasMessages(threadId: Long): Boolean {
+        val selection = Telephony.Sms.THREAD_ID + " = ?"
+        val args = arrayOf(threadId.toString())
+        listOf(Telephony.Sms.CONTENT_URI, Telephony.Mms.CONTENT_URI).forEach { uri ->
+            context.contentResolver.query(uri, arrayOf(Telephony.Sms._ID), selection, args, null)
+                ?.use { if (it.count > 0) return true }
+        }
+        return false
+    }
+
     override suspend fun deleteThread(threadId: Long): Boolean = withContext(ioDispatcher) {
         runCatching {
             context.contentResolver.delete(
