@@ -157,10 +157,12 @@ class MessagesViewModel @Inject constructor(
         if (targets.isEmpty()) return
         viewModelScope.launch {
             targets.forEach {
-                repository.deleteThread(it)
                 // The conversation screen was never opened, so nothing else
-                // ever cancels a deleted thread's notification.
-                messageNotifier.cancelThread(it)
+                // ever cancels a deleted thread's notification. A failed
+                // delete keeps it: the unread messages still exist.
+                if (repository.deleteThread(it)) {
+                    messageNotifier.cancelThread(it)
+                }
             }
             selected.value = emptySet()
             repository.refresh()

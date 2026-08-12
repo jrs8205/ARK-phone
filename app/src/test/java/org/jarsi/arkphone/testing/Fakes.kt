@@ -310,7 +310,9 @@ class FakeMessagesRepository : MessagesRepository {
         deletedMessages += messageId to isMms
         return true
     }
+    var failingThreadDeletes = setOf<Long>()
     override suspend fun deleteThread(threadId: Long): Boolean {
+        if (threadId in failingThreadDeletes) return false
         deletedThreads += threadId
         return true
     }

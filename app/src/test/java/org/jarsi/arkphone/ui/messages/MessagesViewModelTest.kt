@@ -246,6 +246,34 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun aFailedThreadDeleteKeepsItsNotification() = runTest {
+        // The provider refused the delete: the thread still exists with its
+        // unread messages, and cancelling the notification anyway would
+        // silently hide them until the app is next opened.
+        permissions.grant(Manifest.permission.READ_SMS)
+        repository.conversationsState.value = listOf(
+            conversation(3, listOf("+358441234567")),
+            conversation(4, listOf("+358400000000")),
+        )
+        repository.failingThreadDeletes = setOf(3L)
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            skipItems(1)
+            awaitItem()
+            viewModel.onToggleSelection(3L)
+            awaitItem()
+            viewModel.onToggleSelection(4L)
+            awaitItem()
+            viewModel.onDeleteSelected()
+            var state = awaitItem()
+            while (state.selectedThreadIds.isNotEmpty()) {
+                state = awaitItem()
+            }
+            assertEquals(setOf(4L), notifier.cancelledThreads.toSet())
+        }
+    }
+
+    @Test
     fun selectionDropsConversationsThatDisappear() = runTest {
         permissions.grant(Manifest.permission.READ_SMS)
         repository.conversationsState.value = listOf(
