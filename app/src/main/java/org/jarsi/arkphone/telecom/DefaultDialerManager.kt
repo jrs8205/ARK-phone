@@ -34,6 +34,9 @@ class DefaultDialerManager @Inject constructor(
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.CALL_PHONE,
             Manifest.permission.READ_PHONE_STATE,
+            // Own-number lookup for group-MMS threading: READ_PHONE_STATE
+            // alone leaves SubscriptionManager.getPhoneNumber throwing.
+            Manifest.permission.READ_PHONE_NUMBERS,
         )
         if (Build.VERSION.SDK_INT >= 33) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
