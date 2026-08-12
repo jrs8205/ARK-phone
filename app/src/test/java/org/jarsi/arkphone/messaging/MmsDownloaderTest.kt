@@ -246,6 +246,36 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a group addressed through cc gets the group thread`() = runTest {
+        downloader.onPush(pushPdu())
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
+        fun textBytes(text: String) = text.toByteArray(Charsets.UTF_8) + 0
+        val headers = textBytes("text/plain")
+        val data = "Ryhmälle".toByteArray()
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                bytes(0x8C, 0x84) +
+                    bytes(0x89, 0x19, 0x80) + textBytes("+358441234567/TYPE=PLMN") +
+                    bytes(0x97) + textBytes("+358400000000/TYPE=PLMN") +
+                    bytes(0x82) + textBytes("+358411111111/TYPE=PLMN") +
+                    bytes(0x84, 0xA3) +
+                    bytes(0x01) +
+                    bytes(headers.size, data.size) + headers + data,
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        // Sender + To + Cc make a three-member group thread; the Cc
+        // recipient is stored on the row like any other.
+        assertEquals(78L, provider.mmsRows.single().getAsLong("thread_id"))
+        val addresses = provider.mmsAddrRows.map { it.second.getAsString("address") }
+        assertTrue("+358411111111" in addresses)
+    }
+
+    @Test
     @Config(sdk = [35])
     fun `a lone recipient on a sim with an unknown number stays a 1 to 1 thread`() = runTest {
         // Dual SIM where only one subscription exposes its number: the To

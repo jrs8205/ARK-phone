@@ -56,6 +56,7 @@ class MmsDownloader @Inject constructor(
         /** m-retrieve-conf: the fully downloaded message. */
         const val MESSAGE_TYPE_RETRIEVED = 132
 
+        private const val ADDRESS_TYPE_CC = 130
         private const val ADDRESS_TYPE_FROM = 137
         private const val ADDRESS_TYPE_TO = 151
         private const val CHARSET_UTF8 = 106
@@ -210,6 +211,7 @@ class MmsDownloader @Inject constructor(
             null,
         )
         conf.to.forEach { recipient -> insertAddr(messageId, recipient, ADDRESS_TYPE_TO) }
+        conf.cc.forEach { recipient -> insertAddr(messageId, recipient, ADDRESS_TYPE_CC) }
         conf.parts.forEach { part -> insertPart(messageId, part) }
         return originalThreadId?.takeIf { newThreadId != null && newThreadId != it }
     }
@@ -222,7 +224,7 @@ class MmsDownloader @Inject constructor(
     private fun groupRecipients(conf: RetrieveConf): Set<String>? {
         val sender = conf.from ?: return null
         val own = ownNumbers()
-        val others = conf.to
+        val others = (conf.to + conf.cc)
             .filter { it.isNotBlank() }
             .filterNot { PhoneNumberUtils.compare(it, sender) }
             .filterNot { candidate -> own.numbers.any { PhoneNumberUtils.compare(candidate, it) } }

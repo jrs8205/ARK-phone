@@ -68,6 +68,27 @@ class MmsPduTest {
         assertEquals(listOf("+358400000000", "+358411111111"), conf.to)
     }
 
+    @Test
+    fun `a retrieve conf collects cc and bcc recipients too`() {
+        // iPhone clients and MMSC rewrites list group members in Cc; a
+        // parser that only reads To loses them and the group looks 1:1.
+        val headers = textBytes("text/plain")
+        val data = "Kaikille".toByteArray()
+        val pdu = bytes(0x8C, 0x84) +
+            bytes(0x89, 0x19, 0x80) + textBytes("+358441234567/TYPE=PLMN") +
+            bytes(0x97) + textBytes("+358400000000/TYPE=PLMN") +
+            bytes(0x82) + textBytes("+358411111111/TYPE=PLMN") +
+            bytes(0x81) + textBytes("+358422222222/TYPE=PLMN") +
+            bytes(0x84, 0xA3) +
+            bytes(0x01) +
+            bytes(headers.size, data.size) + headers + data
+
+        val conf = parseRetrieveConf(pdu)!!
+
+        assertEquals(listOf("+358400000000"), conf.to)
+        assertEquals(listOf("+358411111111", "+358422222222"), conf.cc)
+    }
+
     /** A carrier-shaped m-retrieve-conf: multipart.related with start/type
      *  parameters, a SMIL part, per-part content-type parameters and
      *  Content-ID/Content-Location headers — none of which our own

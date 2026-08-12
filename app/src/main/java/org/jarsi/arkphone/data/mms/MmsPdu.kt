@@ -23,10 +23,13 @@ class MmsPart(
 data class RetrieveConf(
     val from: String?,
     val to: List<String>,
+    val cc: List<String> = emptyList(),
     val timestampSeconds: Long,
     val parts: List<MmsPart>,
 )
 
+private const val HEADER_BCC = 0x81
+private const val HEADER_CC = 0x82
 private const val HEADER_CONTENT_LOCATION = 0x83
 private const val HEADER_CONTENT_TYPE = 0x84
 private const val HEADER_DATE = 0x85
@@ -90,6 +93,7 @@ internal fun parseRetrieveConf(pdu: ByteArray): RetrieveConf? = runCatching {
     var messageType = -1
     var from: String? = null
     val to = mutableListOf<String>()
+    val cc = mutableListOf<String>()
     var dateSeconds = 0L
     var parts: List<MmsPart>? = null
     while (reader.hasMore()) {
@@ -99,6 +103,9 @@ internal fun parseRetrieveConf(pdu: ByteArray): RetrieveConf? = runCatching {
             HEADER_MESSAGE_TYPE -> messageType = reader.readByte()
             HEADER_FROM -> from = reader.readFromValue()
             HEADER_TO -> to += reader.readEncodedString().removeSuffix(PLMN_SUFFIX)
+            // One list for both: the Cc/Bcc split changes nothing about
+            // which thread the message belongs to.
+            HEADER_CC, HEADER_BCC -> cc += reader.readEncodedString().removeSuffix(PLMN_SUFFIX)
             HEADER_DATE -> dateSeconds = reader.readLongInteger()
             HEADER_CONTENT_TYPE -> {
                 reader.skipContentTypeValue()
@@ -114,6 +121,7 @@ internal fun parseRetrieveConf(pdu: ByteArray): RetrieveConf? = runCatching {
     RetrieveConf(
         from = from?.removeSuffix(PLMN_SUFFIX),
         to = to,
+        cc = cc,
         timestampSeconds = dateSeconds,
         parts = parts ?: return@runCatching null,
     )
