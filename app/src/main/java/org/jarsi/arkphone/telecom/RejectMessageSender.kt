@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.data.SimAccountRepository
@@ -41,11 +42,35 @@ class SmsRejectMessageSender @Inject constructor(
     @SuppressLint("MissingPermission")
     private fun subscriptionIdFor(simAccountId: String?): Int {
         simAccountId ?: return -1
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return -1
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return legacySubscriptionIdFor(simAccountId)
+        }
         val handle = simAccountRepository.handleFor(simAccountId) ?: return -1
         return runCatching {
             context.getSystemService(TelephonyManager::class.java)?.getSubscriptionId(handle)
         }.getOrNull() ?: -1
+    }
+
+    /** TelephonyManager.getSubscriptionId(handle) is API 30. Below it the
+     *  platform convention makes the account id the subscription id itself,
+     *  and some vendors use the ICC id — both resolve against the active
+     *  subscription list, anything else falls back to the default SIM. */
+    @SuppressLint("MissingPermission")
+    private fun legacySubscriptionIdFor(simAccountId: String): Int {
+        val subscriptions = runCatching {
+            context.getSystemService(SubscriptionManager::class.java)
+                ?.activeSubscriptionInfoList
+        }.getOrNull().orEmpty()
+        simAccountId.toIntOrNull()
+            ?.takeIf { id -> subscriptions.any { it.subscriptionId == id } }
+            ?.let { return it }
+        return subscriptions
+            .firstOrNull { info ->
+                info.iccId?.takeIf { it.isNotBlank() }
+                    ?.let { simAccountId == it || simAccountId.startsWith(it) } == true
+            }
+            ?.subscriptionId
+            ?: -1
     }
 
     private fun smsManagerFor(subscriptionId: Int): SmsManager? =
