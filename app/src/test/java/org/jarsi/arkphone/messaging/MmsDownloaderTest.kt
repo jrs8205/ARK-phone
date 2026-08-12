@@ -246,6 +246,40 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a download on a dead subscription falls back to the default sms subscription`() {
+        // The notification arrived on a SIM that has since been removed; a
+        // retry pinned to the dead subscription id can never succeed.
+        val subscriptionManager = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(SubscriptionManager::class.java)
+        shadowOf(subscriptionManager).setActiveSubscriptionInfoList(
+            listOf(
+                ShadowSubscriptionManager.SubscriptionInfoBuilder.newBuilder()
+                    .setId(1)
+                    .buildSubscriptionInfo(),
+            ),
+        )
+        ShadowSubscriptionManager.setDefaultSmsSubscriptionId(1)
+
+        assertEquals(1, downloader.validSubscriptionOrDefault(7))
+    }
+
+    @Test
+    fun `a download on a still active subscription keeps riding it`() {
+        val subscriptionManager = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(SubscriptionManager::class.java)
+        shadowOf(subscriptionManager).setActiveSubscriptionInfoList(
+            listOf(
+                ShadowSubscriptionManager.SubscriptionInfoBuilder.newBuilder()
+                    .setId(7)
+                    .buildSubscriptionInfo(),
+            ),
+        )
+        ShadowSubscriptionManager.setDefaultSmsSubscriptionId(1)
+
+        assertEquals(7, downloader.validSubscriptionOrDefault(7))
+    }
+
+    @Test
     fun `a retrieve conf without a sender still re-threads through the pushed one`() = runTest {
         // Some MMSCs deliver the retrieve-conf with the insert-address-token
         // From form; the push already stored the real sender on the row.

@@ -171,8 +171,27 @@ class MmsDownloader @Inject constructor(
         )
         val subscriptionId =
             queryColumn(messageId, Telephony.Mms.SUBSCRIPTION_ID)?.toIntOrNull() ?: -1
-        smsManager(subscriptionId)
+        smsManager(validSubscriptionOrDefault(subscriptionId))
             .downloadMultimediaMessage(context, contentLocation, fileUri, null, downloaded)
+    }
+
+    /** A row can outlive its SIM: a retry pinned to a removed or swapped
+     *  subscription fails forever, so a provably dead id degrades to the
+     *  default manager. An unreadable subscription list proves nothing and
+     *  keeps the stored id. */
+    @SuppressLint("MissingPermission")
+    internal fun validSubscriptionOrDefault(subscriptionId: Int): Int {
+        if (subscriptionId < 0) return subscriptionId
+        val active = runCatching {
+            context.getSystemService(SubscriptionManager::class.java)
+                ?.activeSubscriptionInfoList
+                ?.map { it.subscriptionId }
+        }.getOrNull() ?: return subscriptionId
+        return if (active.isEmpty() || subscriptionId in active) {
+            subscriptionId
+        } else {
+            SubscriptionManager.getDefaultSmsSubscriptionId()
+        }
     }
 
     /** The download must ride the SIM the notification arrived on: the
