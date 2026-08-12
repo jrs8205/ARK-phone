@@ -124,6 +124,26 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `a finished download notifies with the sim it arrived on`() = runTest {
+        downloader.onPush(pushPdu(), subscriptionId = 7)
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358441234567",
+                    listOf("+358400000000"),
+                    listOf(MmsPart("text/plain", "Kuvan saate".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(7, notifier.notified.single().subscriptionId)
+    }
+
+    @Test
     fun `a download finishing into an already read row does not notify`() = runTest {
         // The thread was open on screen when the content landed (or the user
         // tapped retry): the row is already read and a notification would

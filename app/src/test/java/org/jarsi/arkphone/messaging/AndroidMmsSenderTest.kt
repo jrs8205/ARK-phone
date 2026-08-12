@@ -25,10 +25,10 @@ import java.io.File
 class AndroidMmsSenderTest {
 
     private class RecordingTransport : MmsTransport {
-        data class SentPdu(val file: File, val rowUri: Uri)
+        data class SentPdu(val file: File, val rowUri: Uri, val subscriptionId: Int)
         val sent = mutableListOf<SentPdu>()
-        override fun sendPdu(pduFile: File, rowUri: Uri) {
-            sent += SentPdu(pduFile, rowUri)
+        override fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int) {
+            sent += SentPdu(pduFile, rowUri, subscriptionId)
         }
     }
 
@@ -56,7 +56,7 @@ class AndroidMmsSenderTest {
         val failing = AndroidMmsSender(
             context = context,
             imageShrinker = ImageShrinker(context),
-            transport = { _, _ -> throw IllegalStateException("no mms service") },
+            transport = { _, _, _ -> throw IllegalStateException("no mms service") },
             ioDispatcher = Dispatchers.Unconfined,
         )
 
@@ -124,6 +124,20 @@ class AndroidMmsSenderTest {
         assertEquals("text/plain", part.getAsString("ct"))
         assertEquals("Moro kaikille", part.getAsString("text"))
         assertEquals(rowUri, transport.sent.single().rowUri)
+    }
+
+    @Test
+    fun `a send on a chosen sim stores it and rides it to the transport`() = runTest {
+        val rowUri = sender.send(
+            listOf("+358400000000", "+358411111111"),
+            "Moro",
+            imageUri = null,
+            subscriptionId = 5,
+        )
+
+        assertNotNull(rowUri)
+        assertEquals(5, provider.mmsRows.single().getAsInteger("sub_id"))
+        assertEquals(5, transport.sent.single().subscriptionId)
     }
 
     @Test

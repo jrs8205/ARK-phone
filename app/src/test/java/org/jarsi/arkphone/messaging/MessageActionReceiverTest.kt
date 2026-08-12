@@ -62,6 +62,20 @@ class MessageActionReceiverTest {
     }
 
     @Test
+    fun `a group reply rides the sim the notification arrived on`() = runTest {
+        fakeRepository.recipientsByThread[3L] = listOf("+358441111111", "+358442222222")
+        handler.handle(
+            action = MessageActionReceiver.ACTION_MESSAGE_REPLY,
+            threadId = 3L,
+            address = "+358441111111",
+            replyText = "Moro",
+            subscriptionId = 5,
+        )
+
+        assertEquals(5, fakeMmsSender.sent.single().subscriptionId)
+    }
+
+    @Test
     fun `a reply on a single thread stays a plain SMS`() = runTest {
         fakeRepository.recipientsByThread[3L] = listOf("+358441234567")
         handler.handle(

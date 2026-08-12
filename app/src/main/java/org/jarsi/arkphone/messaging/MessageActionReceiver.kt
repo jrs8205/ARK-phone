@@ -19,7 +19,13 @@ class MessageActionHandler @Inject constructor(
     private val messageNotifier: MessageNotifier,
 ) {
 
-    suspend fun handle(action: String?, threadId: Long, address: String?, replyText: String?) {
+    suspend fun handle(
+        action: String?,
+        threadId: Long,
+        address: String?,
+        replyText: String?,
+        subscriptionId: Int = -1,
+    ) {
         if (action != MessageActionReceiver.ACTION_MESSAGE_REPLY &&
             action != MessageActionReceiver.ACTION_MESSAGE_MARK_READ
         ) {
@@ -33,7 +39,8 @@ class MessageActionHandler @Inject constructor(
                 // A group reply is a group MMS even when it is only text — an
                 // SMS to one member would fork the thread into a 1:1
                 // conversation (same rule as the in-app reply).
-                recipients.size > 1 -> mmsSender.send(recipients, replyText.trim(), null)
+                recipients.size > 1 ->
+                    mmsSender.send(recipients, replyText.trim(), null, subscriptionId)
                 !address.isNullOrBlank() -> smsSender.send(address, replyText.trim())
                 recipients.size == 1 -> smsSender.send(recipients.single(), replyText.trim())
             }
@@ -59,6 +66,7 @@ class MessageActionReceiver : BroadcastReceiver() {
         const val ACTION_MESSAGE_MARK_READ = "org.jarsi.arkphone.action.MESSAGE_MARK_READ"
         const val EXTRA_THREAD_ID = "org.jarsi.arkphone.extra.THREAD_ID"
         const val EXTRA_ADDRESS = "org.jarsi.arkphone.extra.ADDRESS"
+        const val EXTRA_SUBSCRIPTION_ID = "org.jarsi.arkphone.extra.SUBSCRIPTION_ID"
         const val KEY_REPLY_TEXT = "org.jarsi.arkphone.extra.REPLY_TEXT"
     }
 
@@ -75,6 +83,7 @@ class MessageActionReceiver : BroadcastReceiver() {
                     threadId = intent.getLongExtra(EXTRA_THREAD_ID, -1L),
                     address = intent.getStringExtra(EXTRA_ADDRESS),
                     replyText = replyTextFrom(intent),
+                    subscriptionId = intent.getIntExtra(EXTRA_SUBSCRIPTION_ID, -1),
                 )
             } finally {
                 pendingResult?.finish()

@@ -25,6 +25,7 @@ interface MessageNotifier {
         displayName: String?,
         body: String,
         timestampMillis: Long,
+        subscriptionId: Int = -1,
     )
 
     fun cancelThread(threadId: Long)
@@ -47,6 +48,7 @@ class AndroidMessageNotifier @Inject constructor(
         displayName: String?,
         body: String,
         timestampMillis: Long,
+        subscriptionId: Int,
     ) {
         ensureChannel()
         val self = Person.Builder()
@@ -63,7 +65,7 @@ class AndroidMessageNotifier @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(openThreadIntent(threadId))
-            .addAction(replyAction(threadId, address))
+            .addAction(replyAction(threadId, address, subscriptionId))
             .addAction(markReadAction(threadId, address))
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             @Suppress("MissingPermission")
@@ -87,14 +89,21 @@ class AndroidMessageNotifier @Inject constructor(
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
 
-    private fun replyAction(threadId: Long, address: String): NotificationCompat.Action {
+    private fun replyAction(
+        threadId: Long,
+        address: String,
+        subscriptionId: Int,
+    ): NotificationCompat.Action {
         val remoteInput = RemoteInput.Builder(MessageActionReceiver.KEY_REPLY_TEXT)
             .setLabel(context.getString(R.string.message_reply))
             .build()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             "reply-$threadId".hashCode(),
-            actionIntent(MessageActionReceiver.ACTION_MESSAGE_REPLY, threadId, address),
+            actionIntent(MessageActionReceiver.ACTION_MESSAGE_REPLY, threadId, address)
+                // The reply must leave over the SIM the message arrived on;
+                // the default messaging SIM can be the other one.
+                .putExtra(MessageActionReceiver.EXTRA_SUBSCRIPTION_ID, subscriptionId),
             // Mutability is what lets the system attach the typed reply.
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )

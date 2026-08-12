@@ -23,17 +23,23 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Sends one MMS — an image, a text, or both — to one or more recipients
- *  with the device's default messaging SIM. A multi-recipient send is a
- *  group MMS: every receiver sees the whole group. */
-fun interface MmsSender {
+/** Sends one MMS — an image, a text, or both — to one or more recipients.
+ *  A multi-recipient send is a group MMS: every receiver sees the whole
+ *  group. The subscription id picks the SIM; -1 is the default messaging
+ *  SIM. */
+interface MmsSender {
     /** Returns the provider row URI, or null when the send could not start. */
-    suspend fun send(addresses: List<String>, text: String?, imageUri: Uri?): Uri?
+    suspend fun send(
+        addresses: List<String>,
+        text: String?,
+        imageUri: Uri?,
+        subscriptionId: Int = -1,
+    ): Uri?
 }
 
 /** Hands one composed PDU file to the platform MMS service. */
 fun interface MmsTransport {
-    fun sendPdu(pduFile: File, rowUri: Uri)
+    fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int)
 }
 
 @Singleton
@@ -41,7 +47,7 @@ class PlatformMmsTransport @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : MmsTransport {
 
-    override fun sendPdu(pduFile: File, rowUri: Uri) {
+    override fun sendPdu(pduFile: File, rowUri: Uri, subscriptionId: Int) {
         val fileUri = FileProvider.getUriForFile(context, MmsFileProvider.AUTHORITY, pduFile)
         // The platform mms service reads the PDU through this grant.
         listOf("com.android.phone", "com.android.mms.service").forEach { pkg ->
@@ -61,7 +67,8 @@ class PlatformMmsTransport @Inject constructor(
                 PendingIntent.FLAG_IMMUTABLE or
                 PendingIntent.FLAG_ONE_SHOT,
         )
-        context.defaultSmsManager().sendMultimediaMessage(context, fileUri, null, null, sent)
+        context.smsManagerFor(subscriptionId)
+            .sendMultimediaMessage(context, fileUri, null, null, sent)
     }
 }
 
@@ -94,6 +101,7 @@ class AndroidMmsSender @Inject constructor(
         addresses: List<String>,
         text: String?,
         imageUri: Uri?,
+        subscriptionId: Int,
     ): Uri? = withContext(ioDispatcher) {
         runCatching {
             if (addresses.isEmpty()) return@runCatching null
@@ -109,11 +117,12 @@ class AndroidMmsSender @Inject constructor(
             }
             if (parts.isEmpty()) return@runCatching null
             val pdu = composeSendReq(from = null, to = addresses, parts = parts)
-            val rowUri = storeOutboxRow(addresses, parts) ?: return@runCatching null
+            val rowUri = storeOutboxRow(addresses, parts, subscriptionId)
+                ?: return@runCatching null
             val messageId = ContentUris.parseId(rowUri)
             val file = sendPduFileFor(context, messageId).apply { parentFile?.mkdirs() }
             file.writeBytes(pdu)
-            runCatching { transport.sendPdu(file, rowUri) }
+            runCatching { transport.sendPdu(file, rowUri, subscriptionId) }
                 .onFailure {
                     // The platform never took the file, so no status broadcast
                     // will come to clean it up.
@@ -132,7 +141,11 @@ class AndroidMmsSender @Inject constructor(
         }.getOrNull()
     }
 
-    private fun storeOutboxRow(addresses: List<String>, parts: List<MmsPart>): Uri? {
+    private fun storeOutboxRow(
+        addresses: List<String>,
+        parts: List<MmsPart>,
+        subscriptionId: Int,
+    ): Uri? {
         val values = ContentValues().apply {
             put(
                 Telephony.Mms.THREAD_ID,
@@ -143,6 +156,9 @@ class AndroidMmsSender @Inject constructor(
             put(Telephony.Mms.SEEN, 1)
             put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_OUTBOX)
             put(Telephony.Mms.MESSAGE_TYPE, MESSAGE_TYPE_RETRIEVED)
+            if (subscriptionId >= 0) {
+                put(Telephony.Mms.SUBSCRIPTION_ID, subscriptionId)
+            }
         }
         val rowUri = context.contentResolver.insert(Telephony.Mms.CONTENT_URI, values)
             ?: return null

@@ -55,6 +55,18 @@ class MessageNotifierTest {
     }
 
     @Test
+    fun `the reply action carries the sim the message arrived on`() {
+        notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L, subscriptionId = 5)
+        val notification =
+            shadowManager.getNotification(AndroidMessageNotifier.notificationIdFor(3L))
+        val replyIntent = shadowOf(notification.actions.first().actionIntent).savedIntent
+        assertEquals(
+            5,
+            replyIntent.getIntExtra(MessageActionReceiver.EXTRA_SUBSCRIPTION_ID, -1),
+        )
+    }
+
+    @Test
     fun `cancelling a thread removes only its notification`() {
         notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
         notifier.notifyMessage(4L, "+358400000000", null, "Terve", 2_000L)

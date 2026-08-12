@@ -49,7 +49,14 @@ class IncomingSmsHandler @Inject constructor(
             messagesRepository.refresh()
             if (rowUri != null && !blocked) {
                 val displayName = contactsRepository.lookupContact(address)?.displayName
-                messageNotifier.notifyMessage(threadId, address, displayName, body, timestampMillis)
+                messageNotifier.notifyMessage(
+                    threadId,
+                    address,
+                    displayName,
+                    body,
+                    timestampMillis,
+                    subscriptionId,
+                )
             }
             rowUri
         }.getOrNull()

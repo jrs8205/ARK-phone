@@ -68,6 +68,7 @@ class IncomingSmsHandlerTest {
             assertEquals(42L, threadId)
             assertEquals("Matti", displayName)
             assertEquals("Moro", body)
+            assertEquals(1, subscriptionId)
         }
         assertTrue(repository.refreshCalls > 0)
     }

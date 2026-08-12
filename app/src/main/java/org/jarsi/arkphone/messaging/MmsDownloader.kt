@@ -332,7 +332,16 @@ class MmsDownloader @Inject constructor(
             .takeIf { it > 0 }
             ?.times(1000)
             ?: System.currentTimeMillis()
-        messageNotifier.notifyMessage(threadId, sender, displayName, body, timestampMillis)
+        val subscriptionId =
+            queryColumn(messageId, Telephony.Mms.SUBSCRIPTION_ID)?.toIntOrNull() ?: -1
+        messageNotifier.notifyMessage(
+            threadId,
+            sender,
+            displayName,
+            body,
+            timestampMillis,
+            subscriptionId,
+        )
     }
 
     private fun querySender(messageId: Long): String? =
