@@ -158,6 +158,27 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun groupTitleListsTheMembersNotTheOnlySendersCard() = runTest {
+        repository.recipientsByThread[3L] = listOf("+358441234567", "+358400000000")
+        seedThread(3L, listOf(message(1, 1000)))
+        contacts.matchesByNumber["+358441234567"] =
+            ContactMatch(displayName = "Matti", photoUri = "photo://x", contactId = 9L)
+        val viewModel = viewModel()
+        viewModel.open(3L)
+        advanceUntilIdle()
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.loading) {
+                state = awaitItem()
+            }
+            assertTrue(state.isGroup)
+            assertEquals("+358441234567, +358400000000", state.title)
+            assertEquals(null, state.photoUri)
+            assertEquals(null, state.contactId)
+        }
+    }
+
+    @Test
     fun blockedReflectsTheBlockList() = runTest {
         blockedNumbers.blocked += "+358441234567"
         seedThread(3L, listOf(message(1, 1000)))

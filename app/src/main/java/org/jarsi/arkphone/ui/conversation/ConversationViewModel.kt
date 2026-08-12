@@ -154,12 +154,16 @@ class ConversationViewModel @Inject constructor(
         val addresses = threadRecipients.ifEmpty {
             messages.map { it.address }.filter { it.isNotBlank() }.distinct()
         }
+        // The match comes from the messages' single distinct sender; in a
+        // group where only one member has written it must not stand in for
+        // the whole conversation.
+        val soloMatch = match.takeIf { addresses.size <= 1 }
         ConversationUiState(
             loading = false,
             messages = messages,
-            title = match?.displayName ?: conversationTitle(addresses, contacts),
-            photoUri = match?.photoUri,
-            contactId = match?.contactId,
+            title = soloMatch?.displayName ?: conversationTitle(addresses, contacts),
+            photoUri = soloMatch?.photoUri,
+            contactId = soloMatch?.contactId,
             address = addresses.singleOrNull(),
             isGroup = addresses.size > 1,
             blocked = panel.blocked,
