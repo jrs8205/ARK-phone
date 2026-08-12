@@ -73,7 +73,10 @@ class MmsDownloader @Inject constructor(
                 if (transactionExists(notification.transactionId)) return@runCatching
                 val blocked = blockedNumbers.isBlocked(sender)
                 val values = ContentValues().apply {
-                    put(Telephony.Mms.THREAD_ID, Telephony.Threads.getOrCreateThreadId(context, sender))
+                    put(
+                        Telephony.Mms.THREAD_ID,
+                        Telephony.Threads.getOrCreateThreadId(context, dialable(sender)),
+                    )
                     put(Telephony.Mms.DATE, System.currentTimeMillis() / 1000)
                     put(Telephony.Mms.READ, if (blocked) 1 else 0)
                     put(Telephony.Mms.SEEN, if (blocked) 1 else 0)
@@ -227,7 +230,10 @@ class MmsDownloader @Inject constructor(
             groupRecipients(conf, sender)?.let { group ->
                 // A group MMS belongs to the thread of the whole group, not
                 // to the 1:1 thread of its sender the push was filed under.
-                newThreadId = Telephony.Threads.getOrCreateThreadId(context, group)
+                newThreadId = Telephony.Threads.getOrCreateThreadId(
+                    context,
+                    group.mapTo(mutableSetOf(), ::dialable),
+                )
                 put(Telephony.Mms.THREAD_ID, newThreadId)
             }
         }
@@ -259,6 +265,17 @@ class MmsDownloader @Inject constructor(
         if (!isGroup) return null
         return (others + sender).toSet()
     }
+
+    /** Thread resolution must see one spelling per member: an MMSC delivers
+     *  display-formatted or suffixed forms that would mint a parallel
+     *  canonical row next to the clean one. An email originator is left
+     *  alone — digit-normalizing it would corrupt it. */
+    private fun dialable(address: String): String =
+        if ('@' in address) {
+            address
+        } else {
+            PhoneNumberUtils.normalizeNumber(address).ifEmpty { address }
+        }
 
     private class OwnNumbers(val numbers: Set<String>, val complete: Boolean)
 

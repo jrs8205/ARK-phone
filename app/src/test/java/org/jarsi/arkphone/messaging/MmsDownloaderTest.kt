@@ -231,6 +231,38 @@ class MmsDownloaderTest {
     }
 
     @Test
+    fun `thread resolution normalizes carrier supplied member formats`() = runTest {
+        fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
+        fun textBytes(text: String) = text.toByteArray(Charsets.UTF_8) + 0
+        val push = bytes(0x8C, 0x82) +
+            bytes(0x98) + textBytes("T1") +
+            bytes(0x89, 0x1B, 0x80) + textBytes("+358 44 1234567/TYPE=PLMN") +
+            bytes(0x83) + textBytes("http://mmsc/x")
+        downloader.onPush(push)
+        val messageId = provider.mmsRows.single().getAsLong("_id")
+        downloader.downloadFileFor(messageId).apply {
+            parentFile?.mkdirs()
+            writeBytes(
+                composeSendReq(
+                    "+358 44 1234567",
+                    listOf("+358 40 0000000", "+358411111111"),
+                    listOf(MmsPart("text/plain", "Ryhmälle".toByteArray(), null)),
+                ),
+            )
+        }
+
+        downloader.onDownloaded(messageId)
+
+        assertEquals(
+            listOf(
+                listOf("+358441234567"),
+                listOf("+358400000000", "+358411111111", "+358441234567"),
+            ),
+            provider.threadLookups,
+        )
+    }
+
+    @Test
     fun `a group notification carries the member roster as its title`() = runTest {
         downloader.onPush(pushPdu())
         val messageId = provider.mmsRows.single().getAsLong("_id")
