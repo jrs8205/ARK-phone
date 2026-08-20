@@ -55,6 +55,10 @@ class SystemMessagesRepository @Inject constructor(
                 null, null, "date DESC",
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
+                    // A thread row exists as soon as a composer opens it;
+                    // with no messages it is an abandoned placeholder, not
+                    // a conversation the list should show.
+                    if (cursor.getLong(2) == 0L) continue
                     val recipientIds = cursor.getString(3).orEmpty()
                         .split(' ').mapNotNull { it.toLongOrNull() }
                     conversations += Conversation(

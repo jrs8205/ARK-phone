@@ -76,6 +76,15 @@ class SystemMessagesRepositoryTest {
     }
 
     @Test
+    fun `a thread with no messages is hidden from the list`() = runTest {
+        // Opening a composer creates the thread row before anything is
+        // sent; an abandoned thread must not show as an empty conversation.
+        provider.canonicalAddresses[7L] = "+358441234567"
+        provider.conversationRows += arrayOf<Any?>(3L, 1_722_000_000_000L, 0, "7", null, 1)
+        assertTrue(repository.conversations().first().isEmpty())
+    }
+
+    @Test
     fun `group thread carries every address`() = runTest {
         provider.canonicalAddresses[1L] = "+358401111111"
         provider.canonicalAddresses[2L] = "+358402222222"
