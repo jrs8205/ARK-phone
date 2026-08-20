@@ -137,11 +137,51 @@ class CallControllerTest {
     fun muteTogglesThroughAudioController() {
         val controller = CallController()
         val audio = FakeAudioController()
-        controller.audioController = audio
+        controller.attachAudioController(AudioControllerOwner.CARRIER, audio)
         controller.toggleMute()
         assertTrue(audio.muted)
         controller.onAudioStateChanged(muted = true, speakerOn = false)
         assertTrue(controller.audio.value.muted)
+    }
+
+    @Test
+    fun anEndedArkCallHandsAudioBackToTheCarrierController() {
+        // A carrier call must not lose its mute and speaker buttons when a
+        // concurrent ARK call attaches its own audio surface and then ends.
+        val controller = CallController()
+        val carrier = FakeAudioController()
+        val ark = FakeAudioController()
+        controller.attachAudioController(AudioControllerOwner.CARRIER, carrier)
+        controller.attachAudioController(AudioControllerOwner.ARK, ark)
+        controller.toggleMute()
+        assertTrue(ark.muted)
+        assertEquals(false, carrier.muted)
+        controller.detachAudioController(AudioControllerOwner.ARK)
+        controller.toggleMute()
+        assertTrue(carrier.muted)
+    }
+
+    @Test
+    fun aDestroyedCarrierServiceLeavesTheArkControllerAttached() {
+        val controller = CallController()
+        val carrier = FakeAudioController()
+        val ark = FakeAudioController()
+        controller.attachAudioController(AudioControllerOwner.CARRIER, carrier)
+        controller.attachAudioController(AudioControllerOwner.ARK, ark)
+        controller.detachAudioController(AudioControllerOwner.CARRIER)
+        controller.toggleSpeaker()
+        assertTrue(ark.speaker)
+        assertEquals(false, carrier.speaker)
+    }
+
+    @Test
+    fun detachingTheLastControllerLeavesTogglesInert() {
+        val controller = CallController()
+        val carrier = FakeAudioController()
+        controller.attachAudioController(AudioControllerOwner.CARRIER, carrier)
+        controller.detachAudioController(AudioControllerOwner.CARRIER)
+        controller.toggleMute()
+        assertEquals(false, carrier.muted)
     }
 
     @Test

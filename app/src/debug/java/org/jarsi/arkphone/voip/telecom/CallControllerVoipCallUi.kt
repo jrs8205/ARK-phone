@@ -4,6 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.data.model.AnnounceMode
+import org.jarsi.arkphone.telecom.AudioControllerOwner
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallNotifications
 import org.jarsi.arkphone.telecom.CallerAnnouncer
@@ -89,14 +90,15 @@ class CallControllerVoipCallUi @Inject constructor(
 
     // The carrier path's controller is set by ArkInCallService, which never
     // binds for a self-managed ARK call — without this the mute and speaker
-    // buttons act on null or on a stale carrier controller.
+    // buttons act on null or on a stale carrier controller. Detaching by
+    // owner hands the surface back to a still-active carrier call.
     override fun attachAudioControls(controller: org.jarsi.arkphone.telecom.InCallAudioController) {
-        callController.audioController = controller
+        callController.attachAudioController(AudioControllerOwner.ARK, controller)
         callController.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
     }
 
     override fun detachAudioControls() {
-        callController.audioController = null
+        callController.detachAudioController(AudioControllerOwner.ARK)
     }
 
     override fun audioStateChanged(muted: Boolean, speakerOn: Boolean) {

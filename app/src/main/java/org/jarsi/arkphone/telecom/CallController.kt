@@ -11,6 +11,10 @@ import javax.inject.Singleton
 
 private const val DTMF_TONE_MILLIS = 150L
 
+/** Who supplied the audio surface: the system-bound in-call service for
+ *  carrier calls, or the self-managed ARK call path. */
+enum class AudioControllerOwner { CARRIER, ARK }
+
 @Singleton
 class CallController @Inject constructor() {
 
@@ -38,7 +42,23 @@ class CallController @Inject constructor() {
     private val _audio = MutableStateFlow(CallAudioUiState())
     val audio: StateFlow<CallAudioUiState> = _audio.asStateFlow()
 
-    var audioController: InCallAudioController? = null
+    // Keyed by owner so the surfaces never stomp each other: the newest
+    // attach wins, and a detach falls back to the survivor — an ended ARK
+    // call must not strand an ongoing carrier call without working mute
+    // and speaker buttons, or the other way around.
+    private val audioControllers = LinkedHashMap<AudioControllerOwner, InCallAudioController>()
+
+    private val audioController: InCallAudioController?
+        get() = audioControllers.values.lastOrNull()
+
+    fun attachAudioController(owner: AudioControllerOwner, controller: InCallAudioController) {
+        audioControllers.remove(owner)
+        audioControllers[owner] = controller
+    }
+
+    fun detachAudioController(owner: AudioControllerOwner) {
+        audioControllers.remove(owner)
+    }
 
     private val _inCallUiVisible = MutableStateFlow(false)
 

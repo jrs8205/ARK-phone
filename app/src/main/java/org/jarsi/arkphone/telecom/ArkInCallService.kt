@@ -42,16 +42,23 @@ class ArkInCallService : InCallService() {
 
     override fun onCreate() {
         super.onCreate()
-        callController.audioController = object : InCallAudioController {
-            override fun applyMuted(muted: Boolean) = setMuted(muted)
-            override fun applyRoute(speaker: Boolean) = setAudioRoute(
-                if (speaker) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_WIRED_OR_EARPIECE,
-            )
-        }
+        callController.attachAudioController(
+            AudioControllerOwner.CARRIER,
+            object : InCallAudioController {
+                override fun applyMuted(muted: Boolean) = setMuted(muted)
+                override fun applyRoute(speaker: Boolean) = setAudioRoute(
+                    if (speaker) {
+                        CallAudioState.ROUTE_SPEAKER
+                    } else {
+                        CallAudioState.ROUTE_WIRED_OR_EARPIECE
+                    },
+                )
+            },
+        )
     }
 
     override fun onDestroy() {
-        callController.audioController = null
+        callController.detachAudioController(AudioControllerOwner.CARRIER)
         super.onDestroy()
     }
 
