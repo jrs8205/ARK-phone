@@ -60,7 +60,11 @@ android {
         // The VoIP engine reaches the network only from debug builds; the
         // worker URL comes from local.properties, never the repo. Per-device
         // bearer tokens are issued at registration and live in DataStore.
+        // Every variant names itself in versionName so the settings page
+        // always tells which build is installed (field confusion 2026-08-20:
+        // debug and release both read as a bare "1.26").
         debug {
+            versionNameSuffix = "-debug"
             buildConfigField(
                 "String",
                 "VOIP_WORKER_URL",
@@ -68,6 +72,7 @@ android {
             )
         }
         release {
+            versionNameSuffix = "-release"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
