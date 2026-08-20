@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.junit.Assert.assertEquals
@@ -43,6 +44,12 @@ class MissedCallNotifierTest {
     private fun postedNotification() = shadowOf(
         context.getSystemService(NotificationManager::class.java),
     ).getNotification(MissedCallNotifier.NOTIFICATION_ID)
+
+    @Test
+    fun showsThePhoneIconNotTheAppBubble() = runTest {
+        notifier().onMissedCallsChanged(1, "0401234567")
+        assertEquals(R.drawable.ic_notification_call, postedNotification().smallIcon.resId)
+    }
 
     @Test
     fun postsNotificationWithResolvedContactName() = runTest {

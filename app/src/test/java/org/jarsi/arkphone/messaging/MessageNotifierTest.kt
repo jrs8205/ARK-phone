@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
+import org.jarsi.arkphone.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -27,6 +28,13 @@ class MessageNotifierTest {
         shadowManager = shadowOf(
             context.getSystemService(NotificationManager::class.java),
         )
+    }
+
+    @Test
+    fun `message notifications carry the message icon`() {
+        notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
+        val notification = shadowManager.allNotifications.single()
+        assertEquals(R.drawable.ic_notification_message, notification.smallIcon.resId)
     }
 
     @Test

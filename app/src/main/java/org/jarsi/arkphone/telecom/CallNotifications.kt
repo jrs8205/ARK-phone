@@ -220,18 +220,18 @@ class CallNotifications @Inject constructor(
         // full-screen intent that IS the platform's way to ring a locked
         // phone.
         return NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_call)
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))
             .apply {
                 if (!quiet) {
                     addAction(
-                        R.drawable.ic_notification,
+                        R.drawable.ic_notification_call,
                         context.getString(R.string.incall_decline),
                         declineIntent(info.id),
                     )
                     addAction(
-                        R.drawable.ic_notification,
+                        R.drawable.ic_notification_call,
                         context.getString(R.string.incall_answer),
                         answerIntent(info.id),
                     )
@@ -261,7 +261,7 @@ class CallNotifications @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(context, CHANNEL_ONGOING)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_call)
             .setContentTitle(context.getString(R.string.notification_ongoing_title))
             .setContentText(
                 info?.displayName ?: info?.number

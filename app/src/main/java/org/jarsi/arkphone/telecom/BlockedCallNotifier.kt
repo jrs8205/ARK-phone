@@ -79,7 +79,7 @@ class BlockedCallNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_BLOCKED)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_call)
             .setContentTitle(
                 context.resources.getQuantityString(
                     R.plurals.notification_blocked_calls_title, count, count,

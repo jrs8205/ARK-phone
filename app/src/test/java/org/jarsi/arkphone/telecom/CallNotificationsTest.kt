@@ -8,6 +8,7 @@ import android.content.ComponentName
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.incall.InCallActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -31,6 +32,19 @@ class CallNotificationsTest {
         status = CallStatus.RINGING,
         connectedAtMillis = null,
     )
+
+    @Test
+    fun callNotificationsCarryThePhoneIconNotTheAppBubble() {
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
+        assertEquals(
+            R.drawable.ic_notification_call,
+            notifications.buildIncomingCall(incomingCall()).smallIcon.resId,
+        )
+        assertEquals(
+            R.drawable.ic_notification_call,
+            notifications.buildOngoingCall(null).smallIcon.resId,
+        )
+    }
 
     @Test
     fun ensureChannelsDeletesTheLegacyVoipServiceChannel() {

@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.ContactMatch
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.util.Clock
@@ -49,6 +50,14 @@ class BlockedCallNotifierTest {
         val channel = context.getSystemService(NotificationManager::class.java)
             .getNotificationChannel(BlockedCallNotifier.CHANNEL_BLOCKED)
         assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
+    }
+
+    @Test
+    fun showsThePhoneIconNotTheAppBubble() = runTest {
+        // The shared bubble logo reads as a text message in the status bar
+        // (field report 2026-08-20): call notifications carry a handset.
+        notifier().onCallBlocked("0401234567")
+        assertEquals(R.drawable.ic_notification_call, postedNotification().smallIcon.resId)
     }
 
     @Test

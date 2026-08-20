@@ -69,7 +69,7 @@ class AndroidMessageNotifier @Inject constructor(
             style.setGroupConversation(true)
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_message)
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)

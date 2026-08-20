@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher bubble with the Messages entry's dots instead of the
+     handset, so a message notification reads as a message in the status
+     bar while call notifications carry the plain handset. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2zM9,11H7V9h2v2zM13,11h-2V9h2v2zM17,11h-2V9h2v2z" />
+</vector>
