@@ -55,16 +55,19 @@ private fun matchesBlockedPrefix(number: String, prefix: String): Boolean {
     val cleanPrefix = prefix.filter { it.isDigit() || it == '+' }
     if (cleanPrefix.none { it.isDigit() }) return false
     if (cleanNumber.startsWith(cleanPrefix)) return true
+    val numberIntl = internationalDigits(number)
+    val prefixIntl = internationalDigits(prefix)
+    // "+44" and "0044" spell the same international prefix, so the two
+    // forms must also be compared digits-to-digits.
+    if (numberIntl != null && prefixIntl != null && numberIntl.startsWith(prefixIntl)) return true
     // "0700" must also catch "+358 700…" and "+358700" must catch "0700…".
     // The country-code length is unknown, so try one to three digits.
-    val numberIntl = internationalDigits(number)
     val prefixSignificant = nationalSignificantDigits(prefix)
     if (numberIntl != null && prefixSignificant != null && prefixSignificant.length >= 2 &&
         (1..3).any { numberIntl.drop(it).startsWith(prefixSignificant) }
     ) {
         return true
     }
-    val prefixIntl = internationalDigits(prefix)
     val numberSignificant = nationalSignificantDigits(number)
     return prefixIntl != null && numberSignificant != null &&
         (1..3).any { countryCodeLength ->

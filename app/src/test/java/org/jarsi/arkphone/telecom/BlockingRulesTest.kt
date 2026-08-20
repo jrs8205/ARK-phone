@@ -212,6 +212,18 @@ class BlockingRulesTest {
     }
 
     @Test
+    fun prefixesMatchAcrossPlusAndDoubleZeroForms() {
+        // "+44" and "0044" spell the same international prefix; either
+        // spelling must catch a call arriving in the other one.
+        val plus = Settings(blockedPrefixes = setOf("+44"))
+        assertTrue(blocked(number = "0044 1234 5678", settings = plus))
+        assertFalse(blocked(number = "0045 1234 5678", settings = plus))
+        val doubleZero = Settings(blockedPrefixes = setOf("0044"))
+        assertTrue(blocked(number = "+44 1234 5678", settings = doubleZero))
+        assertFalse(blocked(number = "+45 1234 5678", settings = doubleZero))
+    }
+
+    @Test
     fun scheduleLimitsBlockingToItsWindow() {
         val settings = Settings(
             blockUnknownCallers = true,
