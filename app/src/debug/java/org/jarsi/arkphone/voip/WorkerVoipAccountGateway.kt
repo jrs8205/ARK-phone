@@ -22,8 +22,8 @@ class WorkerVoipAccountGateway @Inject constructor(
         return accountClient.register(nickname, publicKey, fcmToken)
     }
 
-    override suspend fun lookUp(code: String): ArkAccount? {
-        val identity = identityRepository.identity.first() ?: return null
+    override suspend fun lookUp(code: String): ArkLookupResult {
+        val identity = identityRepository.identity.first() ?: return ArkLookupResult.Failed
         return accountClient.lookUp(code, "${identity.code}.${identity.deviceToken}")
     }
 }

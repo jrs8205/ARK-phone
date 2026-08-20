@@ -44,9 +44,14 @@ fun ArkLinkDialog(
                                     stringResource(R.string.ark_link_invalid),
                                     color = MaterialTheme.colorScheme.error,
                                 )
-                            ArkLinkError.NOT_FOUND, ArkLinkError.LOOKUP_FAILED ->
+                            ArkLinkError.NOT_FOUND ->
                                 Text(
                                     stringResource(R.string.ark_link_not_found),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            ArkLinkError.LOOKUP_FAILED ->
+                                Text(
+                                    stringResource(R.string.ark_link_lookup_failed),
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             null -> Unit

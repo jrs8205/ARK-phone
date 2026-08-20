@@ -6,6 +6,14 @@ data class ArkRegistration(val code: String, val deviceToken: String)
 /** What `GET /account/<code>` returns. */
 data class ArkAccount(val code: String, val nickname: String, val publicKey: String)
 
+/** Outcome of a directory lookup: the worker answering that no such code
+ *  exists is not the same thing as never reaching the worker at all. */
+sealed interface ArkLookupResult {
+    data class Found(val account: ArkAccount) : ArkLookupResult
+    data object NotFound : ArkLookupResult
+    data object Failed : ArkLookupResult
+}
+
 /**
  * Identity and directory operations. Bound only in builds that carry the VoIP
  * engine; a release build resolves `Optional.empty()` and every ARK surface
@@ -15,8 +23,8 @@ interface VoipAccountGateway {
     /** Registers this device, persists the device token, returns null on failure. */
     suspend fun register(nickname: String): ArkRegistration?
 
-    /** Directory lookup for a code the user typed; null when unknown. */
-    suspend fun lookUp(code: String): ArkAccount?
+    /** Directory lookup for a code the user typed. */
+    suspend fun lookUp(code: String): ArkLookupResult
 }
 
 /**

@@ -37,17 +37,26 @@ class ArkAccountClient(
         return ArkRegistration(code, deviceToken)
     }
 
-    /** `GET /account/<code>` — the only way to prove an account exists. */
-    suspend fun lookUp(code: String, bearer: String): ArkAccount? {
+    /** `GET /account/<code>` — the only way to prove an account exists.
+     *  Only a 404 means the code is unknown; no response, a server error or
+     *  an unparseable body are lookup failures, not a missing account. */
+    suspend fun lookUp(code: String, bearer: String): ArkLookupResult {
         val response = http.get("$workerUrl/account/$code", bearer)
-        if (response == null || response.statusCode != OK) return null
+            ?: return ArkLookupResult.Failed
+        if (response.statusCode == NOT_FOUND) return ArkLookupResult.NotFound
+        if (response.statusCode != OK) return ArkLookupResult.Failed
         val json = runCatching {
             SignalingJson.json.parseToJsonElement(response.body).jsonObject
-        }.getOrNull() ?: return null
-        return ArkAccount(
-            code = (json["code"] as? JsonPrimitive)?.content ?: return null,
-            nickname = (json["nickname"] as? JsonPrimitive)?.content ?: return null,
-            publicKey = (json["publicKey"] as? JsonPrimitive)?.content ?: return null,
+        }.getOrNull() ?: return ArkLookupResult.Failed
+        return ArkLookupResult.Found(
+            ArkAccount(
+                code = (json["code"] as? JsonPrimitive)?.content
+                    ?: return ArkLookupResult.Failed,
+                nickname = (json["nickname"] as? JsonPrimitive)?.content
+                    ?: return ArkLookupResult.Failed,
+                publicKey = (json["publicKey"] as? JsonPrimitive)?.content
+                    ?: return ArkLookupResult.Failed,
+            ),
         )
     }
 
@@ -69,5 +78,6 @@ class ArkAccountClient(
     private companion object {
         const val OK = 200
         const val NO_CONTENT = 204
+        const val NOT_FOUND = 404
     }
 }

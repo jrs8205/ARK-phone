@@ -55,7 +55,7 @@ class WorkerVoipAccountGatewayTest {
 
     @Test
     fun aLookupBeforeRegistrationIsImpossible() = runTest {
-        assertNull(gateway().lookUp("ARK-BBBB-BBBB"))
+        assertEquals(ArkLookupResult.Failed, gateway().lookUp("ARK-BBBB-BBBB"))
         assertTrue(http.calls.isEmpty())
     }
 
@@ -66,7 +66,10 @@ class WorkerVoipAccountGatewayTest {
             200,
             """{"code":"ARK-BBBB-BBBB","nickname":"B","publicKey":"pk-b"}""",
         )
-        assertEquals(ArkAccount("ARK-BBBB-BBBB", "B", "pk-b"), gateway().lookUp("ARK-BBBB-BBBB"))
+        assertEquals(
+            ArkLookupResult.Found(ArkAccount("ARK-BBBB-BBBB", "B", "pk-b")),
+            gateway().lookUp("ARK-BBBB-BBBB"),
+        )
         assertEquals("ARK-AAAA-AAAA.tok", http.calls.single().bearer)
     }
 }

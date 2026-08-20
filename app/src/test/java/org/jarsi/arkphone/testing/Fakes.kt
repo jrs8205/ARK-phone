@@ -366,16 +366,17 @@ class FakeArkLinkRepository : org.jarsi.arkphone.voip.ArkLinkRepository {
 
 class FakeVoipAccountGateway : org.jarsi.arkphone.voip.VoipAccountGateway {
     var registration: org.jarsi.arkphone.voip.ArkRegistration? = null
-    var account: org.jarsi.arkphone.voip.ArkAccount? = null
+    var lookUpResult: org.jarsi.arkphone.voip.ArkLookupResult =
+        org.jarsi.arkphone.voip.ArkLookupResult.NotFound
     val registerCalls = mutableListOf<String>()
     val lookUpCalls = mutableListOf<String>()
     override suspend fun register(nickname: String): org.jarsi.arkphone.voip.ArkRegistration? {
         registerCalls += nickname
         return registration
     }
-    override suspend fun lookUp(code: String): org.jarsi.arkphone.voip.ArkAccount? {
+    override suspend fun lookUp(code: String): org.jarsi.arkphone.voip.ArkLookupResult {
         lookUpCalls += code
-        return account
+        return lookUpResult
     }
 }
 

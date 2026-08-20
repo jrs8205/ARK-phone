@@ -10,6 +10,7 @@ import org.jarsi.arkphone.testing.FakeVoipAccountGateway
 import org.jarsi.arkphone.testing.MainDispatcherRule
 import org.jarsi.arkphone.util.Clock
 import org.jarsi.arkphone.voip.ArkAccount
+import org.jarsi.arkphone.voip.ArkLookupResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -71,7 +72,7 @@ class ContactCardArkLinkTest {
     @Test
     fun `an unknown code is reported`() = runTest {
         givenContact()
-        gateway.account = null
+        gateway.lookUpResult = ArkLookupResult.NotFound
         val model = viewModel()
         model.load(1L)
         runCurrent()
@@ -82,9 +83,25 @@ class ContactCardArkLinkTest {
     }
 
     @Test
+    fun `a transport failure is not reported as an unknown code`() = runTest {
+        // "No account with that code" sends the user to double-check a code
+        // that may be fine; a dead connection must say so instead.
+        givenContact()
+        gateway.lookUpResult = ArkLookupResult.Failed
+        val model = viewModel()
+        model.load(1L)
+        runCurrent()
+        model.onArkCodeEntered("ARK-7K3M-Q2FP")
+        runCurrent()
+        assertEquals(ArkLinkError.LOOKUP_FAILED, model.uiState.value.arkError)
+        assertNull(model.uiState.value.arkPending)
+    }
+
+    @Test
     fun `a found account is offered for confirmation and only then stored`() = runTest {
         givenContact()
-        gateway.account = ArkAccount("ARK-7K3M-Q2FP", "Jarsi", "pk-test")
+        gateway.lookUpResult =
+            ArkLookupResult.Found(ArkAccount("ARK-7K3M-Q2FP", "Jarsi", "pk-test"))
         val model = viewModel()
         model.load(1L)
         runCurrent()

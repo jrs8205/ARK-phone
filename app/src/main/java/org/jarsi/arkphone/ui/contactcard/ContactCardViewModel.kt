@@ -16,6 +16,7 @@ import org.jarsi.arkphone.voip.ArkAccount
 import org.jarsi.arkphone.voip.ArkCode
 import org.jarsi.arkphone.voip.ArkLink
 import org.jarsi.arkphone.voip.ArkLinkRepository
+import org.jarsi.arkphone.voip.ArkLookupResult
 import org.jarsi.arkphone.voip.VoipAccountGateway
 import org.jarsi.arkphone.voip.arkLinkKey
 import java.util.Optional
@@ -95,11 +96,16 @@ class ContactCardViewModel @Inject constructor(
         }
         _uiState.value = _uiState.value.copy(arkLookingUp = true, arkError = null)
         viewModelScope.launch {
-            val account = runCatching { gateway.lookUp(code) }.getOrNull()
+            val result = runCatching { gateway.lookUp(code) }
+                .getOrDefault(ArkLookupResult.Failed)
             _uiState.value = _uiState.value.copy(
                 arkLookingUp = false,
-                arkPending = account,
-                arkError = if (account == null) ArkLinkError.NOT_FOUND else null,
+                arkPending = (result as? ArkLookupResult.Found)?.account,
+                arkError = when (result) {
+                    is ArkLookupResult.Found -> null
+                    ArkLookupResult.NotFound -> ArkLinkError.NOT_FOUND
+                    ArkLookupResult.Failed -> ArkLinkError.LOOKUP_FAILED
+                },
             )
         }
     }

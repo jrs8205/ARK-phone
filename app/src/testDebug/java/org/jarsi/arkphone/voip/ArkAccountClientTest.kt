@@ -79,17 +79,34 @@ class ArkAccountClientTest {
             200,
             """{"code":"ARK-BBBB-BBBB","nickname":"B","publicKey":"pk-b"}""",
         )
-        val account = client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok")
-        assertEquals(ArkAccount("ARK-BBBB-BBBB", "B", "pk-b"), account)
+        val result = client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok")
+        assertEquals(ArkLookupResult.Found(ArkAccount("ARK-BBBB-BBBB", "B", "pk-b")), result)
         val call = http.calls.single()
         assertEquals("https://w/account/ARK-BBBB-BBBB", call.url)
         assertEquals("ARK-AAAA-AAAA.tok", call.bearer)
     }
 
     @Test
-    fun anUnregisteredCodeIsA404AndYieldsNull() = runTest {
+    fun anUnregisteredCodeIsA404AndYieldsNotFound() = runTest {
         http.response = ArkHttpResponse(404, "")
-        assertNull(client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok"))
+        assertEquals(
+            ArkLookupResult.NotFound,
+            client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok"),
+        )
+    }
+
+    @Test
+    fun aLookupWithoutAResponseOrWithAServerErrorFailsRatherThanNotFound() = runTest {
+        http.response = null
+        assertEquals(
+            ArkLookupResult.Failed,
+            client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok"),
+        )
+        http.response = ArkHttpResponse(500, "boom")
+        assertEquals(
+            ArkLookupResult.Failed,
+            client.lookUp("ARK-BBBB-BBBB", "ARK-AAAA-AAAA.tok"),
+        )
     }
 
     @Test
