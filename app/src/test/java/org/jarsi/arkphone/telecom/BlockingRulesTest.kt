@@ -92,13 +92,18 @@ class BlockingRulesTest {
     }
 
     @Test
-    fun repeatCallersBypassTheRulesWhenAllowed() {
-        val settings = Settings(
-            blockUnknownCallers = true,
-            blockedPrefixes = setOf("0700"),
-            allowRepeatCallers = true,
-        )
-        assertFalse(blocked(number = "0700 123 456", isRepeatCaller = true, settings = settings))
+    fun repeatCallersBypassTheGeneralRulesWhenAllowed() {
+        val settings = Settings(blockUnknownCallers = true, allowRepeatCallers = true)
+        assertFalse(blocked(number = "040 1234567", isRepeatCaller = true, settings = settings))
+    }
+
+    @Test
+    fun aRepeatCallerNeverBypassesABlockedPrefix() {
+        // A prefix block targets a class of callers on purpose (premium
+        // ranges, spam blocks): a robocaller redialing inside the repeat
+        // window must not ride the emergency exception through it.
+        val settings = Settings(blockedPrefixes = setOf("0700"), allowRepeatCallers = true)
+        assertTrue(blocked(number = "0700 123 456", isRepeatCaller = true, settings = settings))
     }
 
     @Test
@@ -187,9 +192,6 @@ class BlockingRulesTest {
         )
         assertFalse(
             blocked(number = "0700 123 456", isFavorite = true, minutesOfDay = 12 * 60, settings = settings),
-        )
-        assertFalse(
-            blocked(number = "0700 123 456", isRepeatCaller = true, minutesOfDay = 12 * 60, settings = settings),
         )
         assertFalse(
             blocked(

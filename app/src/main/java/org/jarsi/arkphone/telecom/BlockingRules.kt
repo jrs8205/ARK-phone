@@ -8,8 +8,11 @@ import org.jarsi.arkphone.util.sameCaller
 /**
  * The call blocking rule: individually blocked numbers, hidden numbers,
  * callers not in contacts and blocked prefixes — overridden by the allow
- * list, favorites and the repeat-caller exception, except that blocking one
- * specific number is the user's most specific intent and beats them all.
+ * list and favorites, except that blocking one specific number is the
+ * user's most specific intent and beats them all. The repeat-caller
+ * exception bypasses only the general rules (schedule, block-all,
+ * block-unknown): per-number and prefix blocks name the unwanted callers
+ * deliberately, so a redialing robocaller must not ride through them.
  * The schedule window scopes every rule except the per-number blocks and
  * the blocked prefixes, which stay active around the clock.
  */
@@ -28,8 +31,8 @@ internal fun shouldBlockCall(
     if (settings.blockedNumbers.any { sameCaller(it, number) }) return true
     if (settings.allowedNumbers.any { sameCaller(it, number) }) return false
     if (settings.alwaysAllowFavorites && isFavorite) return false
-    if (isRepeatCaller && settings.allowRepeatCallers) return false
     if (settings.blockedPrefixes.any { matchesBlockedPrefix(number, it) }) return true
+    if (isRepeatCaller && settings.allowRepeatCallers) return false
     if (!blockingScheduleActive(minutesOfDay, settings)) return false
     if (settings.blockAllCallers) return true
     return settings.blockUnknownCallers && !isInContacts
