@@ -36,5 +36,16 @@ class PhoneNumbersTest {
     fun blankNumbersNeverMatch() {
         assertFalse(sameCaller("", "0401234567"))
         assertFalse(sameCaller("abc", "def"))
+        assertFalse(sameCaller("", ""))
+        assertFalse(sameCaller("   ", " "))
+    }
+
+    @Test
+    fun alphanumericSenderIdsMatchThemselves() {
+        // SMS sender ids like "INFO" or "KLARNA" carry no digits at all:
+        // the block list must still be able to hold and match them.
+        assertTrue(sameCaller("INFO", "INFO"))
+        assertTrue(sameCaller("Klarna", "KLARNA"))
+        assertTrue(sameCaller(" INFO ", "INFO"))
     }
 }

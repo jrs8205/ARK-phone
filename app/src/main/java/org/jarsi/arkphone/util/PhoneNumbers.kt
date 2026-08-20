@@ -30,6 +30,9 @@ internal fun nationalSignificantDigits(number: String): String? {
 /** Loose same-caller check without the platform matcher: exact digits, or a
  *  shared 9-digit tail so national and international forms match. */
 internal fun sameCaller(a: String, b: String): Boolean {
+    // Alphanumeric sender ids ("INFO", "KLARNA") carry no digits at all:
+    // only an exact case-insensitive match can identify them.
+    if (a.isNotBlank() && a.trim().equals(b.trim(), ignoreCase = true)) return true
     val digitsA = a.filter { it.isDigit() }
     val digitsB = b.filter { it.isDigit() }
     if (digitsA.isEmpty() || digitsB.isEmpty()) return false
