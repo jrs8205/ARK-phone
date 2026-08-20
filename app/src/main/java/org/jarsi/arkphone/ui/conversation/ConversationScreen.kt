@@ -228,7 +228,10 @@ fun ConversationContent(
                 key = { row ->
                     when (row) {
                         is ConversationRow.DaySeparator -> "day-${row.epochMillis}"
-                        is ConversationRow.MessageRow -> "msg-${row.message.id}"
+                        // Ids overlap between the sms and mms tables, so the
+                        // key needs the table side to stay unique.
+                        is ConversationRow.MessageRow ->
+                            "msg-${if (row.message.isMms) "mms" else "sms"}-${row.message.id}"
                     }
                 },
             ) { row ->

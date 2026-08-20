@@ -142,6 +142,20 @@ class ConversationScreenTest {
     }
 
     @Test
+    fun anSmsAndAnMmsSharingAnIdRenderTogether() {
+        // The sms and mms tables number their rows independently, so one
+        // conversation can legally hold an SMS and an MMS with the same id.
+        setContent(
+            listOf(
+                message(1, 1_000, body = "Tekstari"),
+                message(1, 2_000, body = "Kuvaviesti").copy(isMms = true),
+            ),
+        )
+        composeRule.onNodeWithText("Tekstari").assertIsDisplayed()
+        composeRule.onNodeWithText("Kuvaviesti").assertIsDisplayed()
+    }
+
+    @Test
     fun eachDayGetsItsSeparator() {
         val dayOne = 1_000_000_000_000L
         setContent(
