@@ -17,7 +17,7 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.25"
+val appVersionName = "1.26"
 
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
@@ -38,7 +38,7 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
+        versionCode = 14
         versionName = appVersionName
     }
 
