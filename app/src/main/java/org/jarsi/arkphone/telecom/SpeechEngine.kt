@@ -66,6 +66,7 @@ class TtsSpeechEngine @Inject constructor(
     private var pending: String? = null
     private var focusRequest: AudioFocusRequest? = null
     private var rebuildAllowed = true
+    private var initFailed = false
 
     override fun speak(text: String) {
         rebuildAllowed = true
@@ -135,9 +136,19 @@ class TtsSpeechEngine @Inject constructor(
         .build()
 
     private fun create(): TextToSpeech? = runCatching {
-        TextToSpeech(context, ::onInit).also { engine ->
+        initFailed = false
+        val engine = TextToSpeech(context, ::onInit)
+        // When no engine can bind at all — the TTS package is mid-update —
+        // the framework reports the failure synchronously from inside the
+        // constructor. Keeping that object would park every later utterance
+        // against an engine that never becomes ready.
+        if (initFailed) {
+            runCatching { engine.shutdown() }
+            null
+        } else {
             engine.setAudioAttributes(announcementAudioAttributes)
             tts = engine
+            engine
         }
     }.getOrNull()
 
@@ -149,6 +160,7 @@ class TtsSpeechEngine @Inject constructor(
             pending = null
             parked?.let { speakInternal(it) }
         } else {
+            initFailed = true
             tts = null
             pending = null
         }

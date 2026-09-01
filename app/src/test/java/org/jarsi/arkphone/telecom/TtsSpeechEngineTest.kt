@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.telecom
 
 import android.app.Application
+import android.content.Context
 import android.media.AudioManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -29,6 +30,25 @@ import org.robolectric.shadows.ShadowTextToSpeech
 class DeadBindingShadowTextToSpeech : ShadowTextToSpeech() {
     companion object {
         val speakResults = ArrayDeque<Int>()
+
+        /**
+         * The framework reports init failure synchronously from inside the
+         * constructor when no engine can bind at all (initTts →
+         * dispatchOnInit(ERROR) runs the callback inline without an executor).
+         */
+        var failInitSynchronously = false
+    }
+
+    @Implementation
+    override fun __constructor__(
+        context: Context,
+        listener: TextToSpeech.OnInitListener,
+        engine: String?,
+        packageName: String?,
+        useFallback: Boolean,
+    ) {
+        super.__constructor__(context, listener, engine, packageName, useFallback)
+        if (failInitSynchronously) listener.onInit(TextToSpeech.ERROR)
     }
 
     @Implementation
@@ -83,6 +103,7 @@ class TtsSpeechEngineTest {
     @Config(shadows = [DeadBindingShadowTextToSpeech::class])
     fun aDeadEngineBindingIsRebuiltAndTheAnnouncementRetried() {
         DeadBindingShadowTextToSpeech.speakResults.clear()
+        DeadBindingShadowTextToSpeech.failInitSynchronously = false
         DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
 
         val engine = TtsSpeechEngine(context)
@@ -103,6 +124,7 @@ class TtsSpeechEngineTest {
     @Config(shadows = [DeadBindingShadowTextToSpeech::class])
     fun anEngineThatStillFailsAfterTheRebuildIsLeftAlone() {
         DeadBindingShadowTextToSpeech.speakResults.clear()
+        DeadBindingShadowTextToSpeech.failInitSynchronously = false
         DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
         DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
 
@@ -121,6 +143,30 @@ class TtsSpeechEngineTest {
         assertEquals(
             "Liisa soittaa",
             Shadow.extract<ShadowTextToSpeech>(rebuilt).lastSpokenText,
+        )
+    }
+
+    @Test
+    @Config(shadows = [DeadBindingShadowTextToSpeech::class])
+    fun anEngineWhoseInitFailsInsideTheConstructorIsDroppedAndRetriedLater() {
+        DeadBindingShadowTextToSpeech.speakResults.clear()
+        DeadBindingShadowTextToSpeech.failInitSynchronously = true
+
+        val engine = TtsSpeechEngine(context)
+        engine.speak("Matti soittaa")
+        val failed = ShadowTextToSpeech.getLastTextToSpeechInstance()
+
+        // Keeping the dead object would park every later utterance against an
+        // engine that never becomes ready; the next announcement must bind a
+        // fresh one instead.
+        DeadBindingShadowTextToSpeech.failInitSynchronously = false
+        engine.speak("Matti soittaa")
+        val fresh = ShadowTextToSpeech.getLastTextToSpeechInstance()
+        assertNotSame(failed, fresh)
+        Shadow.extract<ShadowTextToSpeech>(fresh).onInitListener.onInit(TextToSpeech.SUCCESS)
+        assertEquals(
+            "Matti soittaa",
+            Shadow.extract<ShadowTextToSpeech>(fresh).lastSpokenText,
         )
     }
 }
