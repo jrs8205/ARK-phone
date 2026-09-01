@@ -65,18 +65,38 @@ class TtsSpeechEngine @Inject constructor(
     private var ready = false
     private var pending: String? = null
     private var focusRequest: AudioFocusRequest? = null
+    private var rebuildAllowed = true
 
     override fun speak(text: String) {
+        rebuildAllowed = true
+        speakInternal(text)
+    }
+
+    private fun speakInternal(text: String) {
         val engine = tts ?: create() ?: return
         takeAudioFocus()
-        if (ready) {
-            // Re-read every time: the engine outlives the process's first call,
-            // so a speed changed in system settings meanwhile would otherwise
-            // not reach the announcement until the process restarted.
-            engine.setSpeechRate(currentSpeechRate())
-            engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
-        } else {
+        if (!ready) {
             pending = text
+            return
+        }
+        // Re-read every time: the engine outlives the process's first call,
+        // so a speed changed in system settings meanwhile would otherwise
+        // not reach the announcement until the process restarted.
+        engine.setSpeechRate(currentSpeechRate())
+        val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
+        if (result != TextToSpeech.SUCCESS && rebuildAllowed) {
+            // The engine also outlives the TTS package it is bound to: an
+            // engine update beneath this process kills the binding for good,
+            // and every speak() after that fails silently — a phone in the
+            // field spoke no announcements for days. Rebuild once per
+            // announcement and let onInit retry the parked text.
+            rebuildAllowed = false
+            Log.w("ArkPhone", "Announcement speak failed, rebuilding the TTS engine")
+            runCatching { engine.shutdown() }
+            tts = null
+            ready = false
+            pending = text
+            create()
         }
     }
 
@@ -125,8 +145,9 @@ class TtsSpeechEngine @Inject constructor(
         if (status == TextToSpeech.SUCCESS) {
             ready = true
             applyLanguage()
-            pending?.let { speak(it) }
+            val parked = pending
             pending = null
+            parked?.let { speakInternal(it) }
         } else {
             tts = null
             pending = null

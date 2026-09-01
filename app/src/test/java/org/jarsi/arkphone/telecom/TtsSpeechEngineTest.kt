@@ -2,15 +2,42 @@ package org.jarsi.arkphone.telecom
 
 import android.app.Application
 import android.media.AudioManager
+import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowTextToSpeech
+
+/**
+ * A TTS engine whose binding can die: each queued result is returned by one
+ * speak() call in order, and a failing call speaks nothing — exactly how the
+ * framework behaves once the engine package updates beneath the process.
+ */
+@Implements(TextToSpeech::class)
+class DeadBindingShadowTextToSpeech : ShadowTextToSpeech() {
+    companion object {
+        val speakResults = ArrayDeque<Int>()
+    }
+
+    @Implementation
+    override fun speak(text: CharSequence, queueMode: Int, params: Bundle?, utteranceId: String?): Int {
+        val result = speakResults.removeFirstOrNull() ?: TextToSpeech.SUCCESS
+        if (result != TextToSpeech.SUCCESS) return result
+        return super.speak(text, queueMode, params, utteranceId)
+    }
+}
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35])
@@ -45,5 +72,55 @@ class TtsSpeechEngineTest {
     fun nothingIsHeldBeforeTheFirstAnnouncement() {
         TtsSpeechEngine(context)
         assertNull(shadowOf(audioManager).lastAudioFocusRequest)
+    }
+
+    // The engine outlives the TTS package it is bound to: a Speech Services
+    // update beneath a long-lived process kills the binding for good, and
+    // every speak() after that fails silently — a phone in the field spoke
+    // no announcements for days because of it.
+
+    @Test
+    @Config(shadows = [DeadBindingShadowTextToSpeech::class])
+    fun aDeadEngineBindingIsRebuiltAndTheAnnouncementRetried() {
+        DeadBindingShadowTextToSpeech.speakResults.clear()
+        DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
+
+        val engine = TtsSpeechEngine(context)
+        engine.speak("Matti soittaa")
+        val first = ShadowTextToSpeech.getLastTextToSpeechInstance()
+        Shadow.extract<ShadowTextToSpeech>(first).onInitListener.onInit(TextToSpeech.SUCCESS)
+
+        val second = ShadowTextToSpeech.getLastTextToSpeechInstance()
+        assertNotSame(first, second)
+        Shadow.extract<ShadowTextToSpeech>(second).onInitListener.onInit(TextToSpeech.SUCCESS)
+        assertEquals(
+            "Matti soittaa",
+            Shadow.extract<ShadowTextToSpeech>(second).lastSpokenText,
+        )
+    }
+
+    @Test
+    @Config(shadows = [DeadBindingShadowTextToSpeech::class])
+    fun anEngineThatStillFailsAfterTheRebuildIsLeftAlone() {
+        DeadBindingShadowTextToSpeech.speakResults.clear()
+        DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
+        DeadBindingShadowTextToSpeech.speakResults.add(TextToSpeech.ERROR)
+
+        val engine = TtsSpeechEngine(context)
+        engine.speak("Matti soittaa")
+        Shadow.extract<ShadowTextToSpeech>(ShadowTextToSpeech.getLastTextToSpeechInstance())
+            .onInitListener.onInit(TextToSpeech.SUCCESS)
+        val rebuilt = ShadowTextToSpeech.getLastTextToSpeechInstance()
+        Shadow.extract<ShadowTextToSpeech>(rebuilt).onInitListener.onInit(TextToSpeech.SUCCESS)
+
+        // Give up rather than rebuild forever within one announcement...
+        assertSame(rebuilt, ShadowTextToSpeech.getLastTextToSpeechInstance())
+
+        // ...but the next announcement gets a fresh try on the engine we kept.
+        engine.speak("Liisa soittaa")
+        assertEquals(
+            "Liisa soittaa",
+            Shadow.extract<ShadowTextToSpeech>(rebuilt).lastSpokenText,
+        )
     }
 }
