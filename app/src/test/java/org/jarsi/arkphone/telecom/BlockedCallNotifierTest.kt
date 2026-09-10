@@ -61,6 +61,12 @@ class BlockedCallNotifierTest {
     }
 
     @Test
+    fun theRowPrefersTheHandsetOverTheLauncherBubble() = runTest {
+        notifier().onCallBlocked("0401234567")
+        assertTrue(postedNotification().extras.getBoolean("android.app.preferSmallIcon"))
+    }
+
+    @Test
     fun resolvesTheCallerNameLikeTheMissedNotification() = runTest {
         val contacts = FakeContactsRepository().apply {
             matchesByNumber["0401234567"] = ContactMatch("Alice", null)

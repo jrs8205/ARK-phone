@@ -47,6 +47,13 @@ class CallNotificationsTest {
     }
 
     @Test
+    fun callRowsPreferTheHandsetOverTheLauncherBubble() {
+        val notifications = CallNotifications(context) { java.util.Optional.empty() }
+        assertTrue(notifications.buildIncomingCall(incomingCall()).extras.getBoolean("android.app.preferSmallIcon"))
+        assertTrue(notifications.buildOngoingCall(null).extras.getBoolean("android.app.preferSmallIcon"))
+    }
+
+    @Test
     fun ensureChannelsDeletesTheLegacyVoipServiceChannel() {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(

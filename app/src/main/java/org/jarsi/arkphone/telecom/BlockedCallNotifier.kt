@@ -15,6 +15,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.preferSmallIcon
 import org.jarsi.arkphone.util.sameCaller
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -80,6 +81,7 @@ class BlockedCallNotifier @Inject constructor(
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_BLOCKED)
             .setSmallIcon(R.drawable.ic_notification_call)
+            .preferSmallIcon()
             .setContentTitle(
                 context.resources.getQuantityString(
                     R.plurals.notification_blocked_calls_title, count, count,

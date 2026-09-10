@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.MainActivity
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.conversation.ConversationActivity
+import org.jarsi.arkphone.util.preferSmallIcon
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -70,6 +71,7 @@ class AndroidMessageNotifier @Inject constructor(
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification_message)
+            .preferSmallIcon()
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)

@@ -52,6 +52,16 @@ class MissedCallNotifierTest {
     }
 
     @Test
+    fun theRowPrefersTheHandsetOverTheLauncherBubble() = runTest {
+        // Android 17 draws the launcher icon on the notification row and keeps
+        // the small icon for the status bar only; ARK's launcher icon is a
+        // speech bubble, so a missed call read as a text message (field report
+        // 2026-09-10). The platform extra asks the row for the small icon.
+        notifier().onMissedCallsChanged(1, "0401234567")
+        assertTrue(postedNotification().extras.getBoolean("android.app.preferSmallIcon"))
+    }
+
+    @Test
     fun postsNotificationWithResolvedContactName() = runTest {
         val contacts = FakeContactsRepository().apply {
             matchesByNumber["0401234567"] = ContactMatch("Alice", null)

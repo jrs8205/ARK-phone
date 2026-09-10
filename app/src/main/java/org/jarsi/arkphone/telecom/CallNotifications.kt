@@ -14,6 +14,7 @@ import androidx.core.app.Person
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.incall.InCallActivity
+import org.jarsi.arkphone.util.preferSmallIcon
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -221,6 +222,7 @@ class CallNotifications @Inject constructor(
         // phone.
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification_call)
+            .preferSmallIcon()
             .setContentTitle(caller.name)
             .setContentText(context.getString(R.string.notification_incoming_title))
             .apply {
@@ -262,6 +264,7 @@ class CallNotifications @Inject constructor(
         )
         return NotificationCompat.Builder(context, CHANNEL_ONGOING)
             .setSmallIcon(R.drawable.ic_notification_call)
+            .preferSmallIcon()
             .setContentTitle(context.getString(R.string.notification_ongoing_title))
             .setContentText(
                 info?.displayName ?: info?.number

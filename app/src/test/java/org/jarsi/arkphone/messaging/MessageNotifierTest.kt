@@ -38,6 +38,13 @@ class MessageNotifierTest {
     }
 
     @Test
+    fun `message rows prefer the message bubble over the launcher icon`() {
+        notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
+        val notification = shadowManager.allNotifications.single()
+        assertTrue(notification.extras.getBoolean("android.app.preferSmallIcon"))
+    }
+
+    @Test
     fun `the channel badges at high importance`() {
         notifier.notifyMessage(3L, "+358441234567", "Matti", "Moro", 1_000L)
         val channel = shadowManager.notificationChannels

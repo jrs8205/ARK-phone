@@ -25,6 +25,7 @@ import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.di.IoDispatcher
+import org.jarsi.arkphone.util.preferSmallIcon
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -111,6 +112,7 @@ class MissedCallNotifier @Inject constructor(
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_MISSED)
             .setSmallIcon(R.drawable.ic_notification_call)
+            .preferSmallIcon()
             .setContentTitle(
                 context.resources.getQuantityString(
                     R.plurals.notification_missed_calls_title, count, count,
