@@ -33,6 +33,7 @@ class VoipEngineTest {
         val handles = mutableListOf<StubHandle>()
         var lastOnOpen: (() -> Unit)? = null
         var lastOnText: ((String) -> Unit)? = null
+        var lastOnClosed: ((Int, String) -> Unit)? = null
         override fun connect(
             url: String,
             bearer: String,
@@ -42,9 +43,11 @@ class VoipEngineTest {
         ): WebSocketHandle {
             lastOnOpen = onOpen
             lastOnText = onText
+            lastOnClosed = onClosed
             return StubHandle().also { handles += it }
         }
         fun opens() = lastOnOpen!!()
+        fun drops() = lastOnClosed!!(1006, "")
         fun serverSends(message: SignalingMessage) = lastOnText!!(SignalingJson.encode(message))
     }
 
@@ -187,6 +190,43 @@ class VoipEngineTest {
         runCurrent()
         val reachable = async { engine.reach("ARK-BBBB-BBBB", 4_000) }
         runCurrent()
+        connector.serverSends(
+            SignalingMessage(
+                type = SignalingTypes.REACH_REPLY,
+                from = "ARK-BBBB-BBBB",
+                payload = buildJsonObject { put("online", true) },
+            ),
+        )
+        assertTrue(reachable.await())
+    }
+
+    @Test
+    fun reachRedialsASocketLostDuringACarrierCallInsteadOfWaitingOutTheBackoff() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        val connecting = async { engine.connect() }
+        runCurrent()
+        connector.opens()
+        connecting.await()
+        advanceTimeBy(FLUSH_DRAIN_MS + 100)
+        runCurrent()
+        // Mobile data paused for a carrier call: the socket dies, the first
+        // redial dies too, and the client now sits on a 2 s backoff.
+        connector.drops()
+        advanceTimeBy(1_100)
+        runCurrent()
+        connector.drops()
+        assertEquals(2, connector.handles.size)
+        // The call ends and the user dials an ARK contact straight away. The
+        // reach must not spend its budget waiting for the backoff to expire.
+        val reachable = async { engine.reach("ARK-BBBB-BBBB", 4_000) }
+        runCurrent()
+        assertEquals(3, connector.handles.size)
+        connector.opens()
+        advanceTimeBy(FLUSH_DRAIN_MS + 100)
+        runCurrent()
+        val query = SignalingJson.decode(connector.handles[2].sent.single())!!
+        assertEquals(SignalingTypes.REACH_QUERY, query.type)
         connector.serverSends(
             SignalingMessage(
                 type = SignalingTypes.REACH_REPLY,

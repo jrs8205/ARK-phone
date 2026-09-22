@@ -73,14 +73,19 @@ class VoipEngine @Inject constructor(
         if (connect()) delay(FLUSH_DRAIN_MS + WAKE_RING_MARGIN_MS)
     }
 
-    /** True once the inbox socket is open. False when this device has no identity. */
+    /**
+     * True once the inbox socket is open. False when this device has no
+     * identity. A socket that is down and waiting out its reconnect backoff
+     * is redialed at once: the caller is waiting on it now, and the backoff
+     * can be longer than the reach budget of the outgoing call.
+     */
     suspend fun connect(): Boolean {
         // A checkout without arkphone.voip.workerUrl must be a silent no-op,
         // not a crash inside OkHttp's URL parser.
         if (config.workerUrl.isBlank()) return false
         val active = connectMutex.withLock {
             val identity = identityRepository.identity.first() ?: return false
-            client ?: SignalingClient(
+            val existing = client ?: SignalingClient(
                 connector = connector,
                 workerUrl = config.workerUrl,
                 code = identity.code,
@@ -91,6 +96,8 @@ class VoipEngine @Inject constructor(
                 startCollecting(created)
                 created.start()
             }
+            existing.connectNow()
+            existing
         }
         return withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
             active.connectionState.first { it == SignalingConnectionState.CONNECTED }

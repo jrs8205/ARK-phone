@@ -111,6 +111,24 @@ class SignalingClient(
         open()
     }
 
+    /**
+     * A caller is waiting on this socket right now: if it is down and merely
+     * sitting out its reconnect backoff, dial at once. Without this, a socket
+     * that died during a carrier call (mobile data pauses for the call on a
+     * non-VoLTE network, and every redial attempt made meanwhile doubles the
+     * backoff up to 30 s) stayed down for longer than the outgoing reach
+     * budget, and the ARK call placed right after that carrier call went out
+     * over the carrier too. A socket that is connecting or connected is left
+     * alone — a second dial would only supersede it.
+     */
+    fun connectNow() {
+        if (!running) return
+        if (_connectionState.value != SignalingConnectionState.DISCONNECTED) return
+        reconnectJob?.cancel()
+        reconnectJob = null
+        open()
+    }
+
     /** False when the frame could not be handed to a live socket. */
     override fun send(message: SignalingMessage): Boolean {
         val sent = handle?.send(SignalingJson.encode(message)) ?: false

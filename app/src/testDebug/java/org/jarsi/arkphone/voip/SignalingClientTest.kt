@@ -445,6 +445,51 @@ class SignalingClientTest {
     }
 
     @Test
+    fun `connectNow dials a downed socket at once instead of waiting out the backoff`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        connector.opens()
+        // Two losses in a row, as a carrier call that pauses mobile data
+        // produces: the backoff has grown to 2 s by the second one.
+        connector.lastOnClosed!!(1006, "")
+        advanceTimeBy(1_100)
+        runCurrent()
+        connector.lastOnClosed!!(1006, "")
+        assertEquals(2, connector.handles.size)
+        // An outgoing call is waiting on the socket now.
+        client.connectNow()
+        runCurrent()
+        assertEquals(3, connector.handles.size)
+        assertEquals(SignalingConnectionState.CONNECTING, client.connectionState.value)
+        connector.opens()
+        assertEquals(SignalingConnectionState.CONNECTED, client.connectionState.value)
+        // The cancelled backoff must not dial a fourth socket over the live one.
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(3, connector.handles.size)
+        client.stop()
+    }
+
+    @Test
+    fun `connectNow leaves a connecting or connected socket alone`() = runTest {
+        val connector = FakeConnector()
+        val client = client(connector, backgroundScope)
+        client.start()
+        client.connectNow()
+        runCurrent()
+        assertEquals(1, connector.handles.size)
+        connector.opens()
+        client.connectNow()
+        runCurrent()
+        assertEquals(1, connector.handles.size)
+        client.stop()
+        client.connectNow()
+        runCurrent()
+        assertEquals(1, connector.handles.size)
+    }
+
+    @Test
     fun `stop discards stashed frames so a later run starts clean`() = runTest {
         val connector = FakeConnector()
         val client = client(connector, backgroundScope)
