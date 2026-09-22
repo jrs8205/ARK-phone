@@ -187,3 +187,21 @@ released at +1.6 s (ring + margin). One call-log row per call, no 0 s row.
   `app/src/testDebug/java/org/jarsi/arkphone/voip/`.
 - The signaling worker is a separate, git-ignored project (`worker/`,
   Cloudflare Durable Objects); its reach/wake logic is unchanged.
+
+## Review round 1 (2026-09-22 evening) — findings and outcome
+
+External review of `0dffff3..eec696f` returned one finding, verified against
+the code and fixed the same evening:
+
+- **P2 (confirmed)** `VoipCallCoordinator.kt` — the callee's 35 s
+  `VOIP_INCOMING_RING_TIMEOUT_MS` guard (`ring()` → `armConnectTimeout`)
+  shares the outgoing connect timer, and since `47f52d2` its expiry went
+  through `fallBack()`: the state observer was cancelled and the teardown
+  recorded no row, so an incoming ring whose caller vanished without a
+  `call-end` left neither a missed-call row nor its notification. Before
+  `47f52d2` the row came from the hang-up's Ended state reaching the
+  observer inline — by accident. Fix `695ba1b`: an incoming ring that times
+  out now hangs up and lets the observer record the missed call; only an
+  outgoing attempt falls back to the carrier. Test
+  `anIncomingRingThatTimesOutLeavesAMissedCall` (red before, green after).
+  926 unit tests + lint green; installed on all three phones.
