@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
@@ -22,8 +23,18 @@ const val FLUSH_DRAIN_MS: Long = 500L
 /** How long connecting may take before the inbox is treated as unreachable. */
 private const val CONNECT_TIMEOUT_MS = 8_000L
 
-/** Post-drain slack for the ring to reach Telecom before the wake lock drops. */
-private const val WAKE_RING_MARGIN_MS = 500L
+/**
+ * How long a woken inbox keeps the phone up for the caller's offer once the
+ * socket is open. A reach-query wake answers "online" the moment the socket
+ * connects, but the caller's offer follows that reply by its own TURN fetch
+ * and offer creation — 1-2 s in the field — and a phone that has already
+ * dropped its wake lock does not process it (field-hit 2026-09-21 16:12:
+ * offer window closed at +1 s, offer arrived at +1.5 s, carrier fallback).
+ */
+const val WAKE_OFFER_WINDOW_MS: Long = 6_000L
+
+/** Slack for a ring to reach Telecom before the wake lock drops. */
+const val WAKE_RING_MARGIN_MS: Long = 500L
 
 /**
  * The one long-lived piece of VoIP state in the process: this device's inbox
@@ -66,11 +77,18 @@ class VoipEngine @Inject constructor(
      * dozing phone.
      */
     suspend fun awaitWake() {
+        val ringsBefore = ringCount.value
         // A wake means the worker no longer trusts our socket, and only a NEW
         // connection flushes the queued offer — a half-open socket still
         // cached as CONNECTED would strand the call.
         client?.forceReconnect()
-        if (connect()) delay(FLUSH_DRAIN_MS + WAKE_RING_MARGIN_MS)
+        if (!connect()) return
+        // A buffered offer rings out of the drain within FLUSH_DRAIN_MS; a
+        // reach-query wake rings only once the caller's offer lands, a second
+        // or two after our reply. Either way the phone stays up until the
+        // ring — or the window closes on a caller who gave up.
+        withTimeoutOrNull(WAKE_OFFER_WINDOW_MS) { ringCount.first { it != ringsBefore } }
+        delay(WAKE_RING_MARGIN_MS)
     }
 
     /** True once the inbox socket is open. False when this device has no identity. */
@@ -154,9 +172,13 @@ class VoipEngine @Inject constructor(
         reconcileFlush(listOf(message))?.let { ring(it.copy(sinceSeq = seq)) }
     }
 
+    // Counts rings so a wake can hold until one lands, however it arrived.
+    private val ringCount = MutableStateFlow(0)
+
     private fun ring(call: IncomingArkCall) {
         val emitted = _incomingCalls.tryEmit(call)
         Log.i(TAG, "ARK ring from=${call.fromCode} emitted=$emitted")
+        ringCount.value++
     }
 
     private companion object {

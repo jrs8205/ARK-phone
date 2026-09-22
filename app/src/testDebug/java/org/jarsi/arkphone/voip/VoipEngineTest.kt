@@ -170,7 +170,7 @@ class VoipEngineTest {
         runCurrent()
         assertEquals(2, connector.handles.size)
         connector.opens()
-        advanceTimeBy(FLUSH_DRAIN_MS + 600)
+        advanceTimeBy(WAKE_OFFER_WINDOW_MS + WAKE_RING_MARGIN_MS + 100)
         runCurrent()
         assertTrue(wake.isCompleted)
     }
@@ -219,15 +219,37 @@ class VoipEngineTest {
     }
 
     @Test
-    fun awaitWakeHoldsUntilTheDrainWindowHasPassed() = runTest {
+    fun awaitWakeHoldsPastTheDrainUntilTheOfferRings() = runTest {
+        // A reach-query wake: the flush is empty, the offer follows the reach
+        // reply a second or two later. Dropping the wake lock after the drain
+        // left the offer unprocessed on a dozing phone (2026-09-21 16:12).
         val connector = EngineConnector()
         val engine = engine(connector, backgroundScope)
         val wake = async { engine.awaitWake() }
         runCurrent()
         connector.opens()
+        advanceTimeBy(FLUSH_DRAIN_MS + 600)
         runCurrent()
         assertFalse(wake.isCompleted)
-        advanceTimeBy(FLUSH_DRAIN_MS + 600)
+        connector.serverSends(offer("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertFalse(wake.isCompleted)
+        advanceTimeBy(WAKE_RING_MARGIN_MS + 1)
+        runCurrent()
+        assertTrue(wake.isCompleted)
+    }
+
+    @Test
+    fun awaitWakeReleasesWhenNoOfferArrivesInsideTheWindow() = runTest {
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        val wake = async { engine.awaitWake() }
+        runCurrent()
+        connector.opens()
+        advanceTimeBy(WAKE_OFFER_WINDOW_MS - 1)
+        runCurrent()
+        assertFalse(wake.isCompleted)
+        advanceTimeBy(WAKE_RING_MARGIN_MS + 2)
         runCurrent()
         assertTrue(wake.isCompleted)
     }
