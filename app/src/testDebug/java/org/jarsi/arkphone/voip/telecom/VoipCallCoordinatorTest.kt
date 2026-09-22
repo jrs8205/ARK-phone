@@ -3,8 +3,10 @@ package org.jarsi.arkphone.voip.telecom
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -34,7 +36,14 @@ class VoipCallCoordinatorTest {
         override fun placeCall() { calls += "placeCall" }
         override fun answer() { calls += "answer" }
         override fun reject() { calls += "reject" }
-        override fun hangUp() { calls += "hangUp" }
+        // Like the real session: a hang-up ends the state synchronously,
+        // which on Main.immediate reaches the coordinator's observer inline.
+        override fun hangUp() {
+            calls += "hangUp"
+            if (_state.value !is VoipCallState.Ended) {
+                _state.value = VoipCallState.Ended("local-hangup")
+            }
+        }
         override fun setMicEnabled(enabled: Boolean) { micOn = enabled }
         override fun notifyRinging() { calls += "notifyRinging" }
         fun moveTo(next: VoipCallState) { _state.value = next }
@@ -115,10 +124,14 @@ class VoipCallCoordinatorTest {
         override fun unreadMissedCount(): Int = records.count { it.type == ArkCallType.MISSED }
     }
 
-    private class FakeReach(var reachable: Boolean) {
+    private class FakeReach(var reachable: Boolean, private val delayMs: Long = 0L) {
         val queries = mutableListOf<String>()
         suspend fun reach(code: String, timeoutMs: Long): Boolean {
             queries += code
+            // A real reach answers from the socket thread, so the caller
+            // resumes as a dispatched task, not inside the launch that
+            // started it.
+            if (delayMs > 0L) delay(delayMs)
             return reachable
         }
     }
@@ -548,6 +561,41 @@ class VoipCallCoordinatorTest {
         telecom.releaseNow()
         assertTrue(fellBack)
     }
+
+    @Test
+    fun aFallbackWhoseHangUpEndsTheSessionInlineWritesNoArkRow() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Field-hit 2026-09-21 16:12 (and every fallback since 08-05): the
+            // production dispatcher is Main.immediate, so the Ended state the
+            // hang-up produces reached the observer inside fallBack, which
+            // logged a deliberate "local-hangup" ARK row and then dialed the
+            // carrier without waiting for Telecom to release the ARK call.
+            telecom.holdRelease = true
+            var fellBack = false
+            val coordinator =
+                coordinator(backgroundScope, FakeReach(reachable = false, delayMs = 10L))
+            coordinator.startCall(link) { fellBack = true }
+            advanceTimeBy(11L)
+            runCurrent()
+            assertTrue(session.calls.contains("hangUp"))
+            assertTrue(callLog.records.isEmpty())
+            assertFalse(fellBack)
+            telecom.releaseNow()
+            assertTrue(fellBack)
+        }
+
+    @Test
+    fun aConnectTimeoutFallbackWritesNoArkRowWhenTheHangUpEndsInline() =
+        runTest(UnconfinedTestDispatcher()) {
+            var fellBack = false
+            val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+            coordinator.startCall(link) { fellBack = true }
+            runCurrent()
+            advanceTimeBy(VOIP_CONNECT_TIMEOUT_MS + 1)
+            runCurrent()
+            assertTrue(fellBack)
+            assertTrue(callLog.records.isEmpty())
+        }
 
     @Test
     fun aDisabledMasterSwitchDropsIncomingArkCalls() = runTest {

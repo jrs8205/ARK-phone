@@ -371,13 +371,19 @@ class VoipCallCoordinator(
         call.timeoutJob = scope.launch {
             delay(timeoutMs)
             if (active !== call || call.answered) return@launch
-            call.session.hangUp()
             fallBack(call)
         }
     }
 
     /** Tears the VoIP attempt down and hands the call to the carrier. */
     private fun fallBack(call: ActiveCall) {
+        // The hang-up below ends the session synchronously, and on
+        // Main.immediate its Ended state reaches the observer INLINE — which
+        // read it as a deliberate local hang-up, logged a 0 s ARK row and
+        // dialed the carrier before Telecom had released the ARK call
+        // (field-hit 2026-09-21 16:12). The observer has nothing left to do
+        // for a call that is being handed over.
+        call.stateJob?.cancel()
         // The session must die BEFORE the carrier dials: cancelling the scope
         // alone closes nothing, so the peer would keep ringing an attempt the
         // adapter of which stays live under the carrier call.
