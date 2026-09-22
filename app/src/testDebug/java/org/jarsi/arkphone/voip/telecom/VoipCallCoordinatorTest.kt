@@ -611,6 +611,22 @@ class VoipCallCoordinatorTest {
     }
 
     @Test
+    fun anIncomingRingThatTimesOutLeavesAMissedCall() = runTest {
+        // The callee's guard on a ring nothing ever ended (caller vanished
+        // without a call-end): the phone rang, nobody answered — a missed
+        // call, not a silent teardown (external review 2026-09-22, P2).
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        advanceTimeBy(VOIP_INCOMING_RING_TIMEOUT_MS + 1)
+        runCurrent()
+        assertTrue(session.calls.contains("hangUp"))
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+        assertEquals(1, missed.size)
+        assertTrue(ui.events.contains("removed"))
+    }
+
+    @Test
     fun aDisabledMasterSwitchDropsIncomingArkCalls() = runTest {
         val coordinator =
             coordinator(backgroundScope, FakeReach(reachable = true), arkEnabled = { false })

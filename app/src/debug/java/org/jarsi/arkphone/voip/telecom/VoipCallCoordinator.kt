@@ -376,7 +376,15 @@ class VoipCallCoordinator(
         call.timeoutJob = scope.launch {
             delay(timeoutMs)
             if (active !== call || call.answered) return@launch
-            fallBack(call)
+            if (call.direction == VoipCallDirection.OUTGOING) {
+                fallBack(call)
+            } else {
+                // The callee's guard on a ring nothing ever ended: the phone
+                // rang and nobody answered, so this is a missed call — the
+                // observer records it off the hang-up's Ended state. Only an
+                // outgoing attempt has a carrier to fall back to.
+                call.session.hangUp()
+            }
         }
     }
 
