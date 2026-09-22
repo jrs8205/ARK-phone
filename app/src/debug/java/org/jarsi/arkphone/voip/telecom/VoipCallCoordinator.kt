@@ -157,6 +157,11 @@ class VoipCallCoordinator(
         attachAudio(call)
         ui.openCallScreen()
         observe(call)
+        // The TURN fetch runs alongside the reach check: the callee's wake
+        // window after a reach reply is short, and an offer that waited for
+        // its own TURN round trip arrived at a phone already back asleep
+        // (field-hit 2026-09-21 16:12).
+        session.prepare()
         scope.launch {
             // The screen is already up; the pre-check runs behind it.
             val reachable = runCatching { reachCheck(link.code, VOIP_REACH_TIMEOUT_MS) }

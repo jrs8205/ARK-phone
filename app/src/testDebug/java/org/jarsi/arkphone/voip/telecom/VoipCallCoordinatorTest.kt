@@ -33,6 +33,7 @@ class VoipCallCoordinatorTest {
         private val _state = MutableStateFlow<VoipCallState>(VoipCallState.Idle)
         override val state: StateFlow<VoipCallState> = _state
         override val peerRinging = MutableStateFlow(false)
+        override fun prepare() { calls += "prepare" }
         override fun placeCall() { calls += "placeCall" }
         override fun answer() { calls += "answer" }
         override fun reject() { calls += "reject" }
@@ -333,7 +334,7 @@ class VoipCallCoordinatorTest {
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
         assertTrue(coordinator.startCall(link) { })
         runCurrent()
-        assertEquals(listOf("placeCall"), session.calls)
+        assertEquals(listOf("prepare", "placeCall"), session.calls)
         assertTrue(ui.events.contains("added"))
         assertTrue(ui.events.contains("openCallScreen"))
     }
@@ -596,6 +597,18 @@ class VoipCallCoordinatorTest {
             assertTrue(fellBack)
             assertTrue(callLog.records.isEmpty())
         }
+
+    @Test
+    fun startCallPreparesTheSessionWhileTheReachCheckRuns() = runTest {
+        val coordinator =
+            coordinator(backgroundScope, FakeReach(reachable = true, delayMs = 10L))
+        coordinator.startCall(link) { }
+        runCurrent()
+        assertEquals(listOf("prepare"), session.calls)
+        advanceTimeBy(11L)
+        runCurrent()
+        assertEquals(listOf("prepare", "placeCall"), session.calls)
+    }
 
     @Test
     fun aDisabledMasterSwitchDropsIncomingArkCalls() = runTest {

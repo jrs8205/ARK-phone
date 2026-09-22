@@ -77,10 +77,15 @@ class WebRtcCallSessionTest {
     ) {
         val signaling = FakeSignaling()
         val factory = FakeFactory()
+        var turnFetches = 0
+        var turnResult: List<IceServerConfig>? = listOf(IceServerConfig(urls = listOf("stun:s")))
         val session = WebRtcCallSession(
             signaling = signaling,
             adapterFactory = factory,
-            turnFetcher = { listOf(IceServerConfig(urls = listOf("stun:s"))) },
+            turnFetcher = {
+                turnFetches++
+                turnResult
+            },
             scope = scope,
             peerId = "phone-10pro",
             initialOfferSdp = initialOfferSdp,
@@ -93,6 +98,34 @@ class WebRtcCallSessionTest {
         }
 
         fun sentOfType(type: String) = signaling.sent.filter { it.type == type }
+    }
+
+    @Test
+    fun `prepare fetches the TURN servers once and placeCall reuses them`() = runTest {
+        // The callee's wake window is short: the offer must follow the reach
+        // reply at once, not after a TURN round trip of its own.
+        val h = Harness(backgroundScope)
+        h.session.prepare()
+        runCurrent()
+        assertEquals(1, h.turnFetches)
+        h.session.placeCall()
+        runCurrent()
+        assertEquals(1, h.turnFetches)
+        assertEquals(1, h.sentOfType(SignalingTypes.CALL_OFFER).size)
+    }
+
+    @Test
+    fun `a failed prepare is fetched again by placeCall`() = runTest {
+        val h = Harness(backgroundScope)
+        h.turnResult = null
+        h.session.prepare()
+        runCurrent()
+        h.turnResult = listOf(IceServerConfig(urls = listOf("stun:s")))
+        h.session.placeCall()
+        runCurrent()
+        assertEquals(2, h.turnFetches)
+        assertEquals(1, h.sentOfType(SignalingTypes.CALL_OFFER).size)
+        assertFalse(h.session.state.value is VoipCallState.Ended)
     }
 
     @Test

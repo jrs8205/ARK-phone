@@ -1,7 +1,9 @@
 package org.jarsi.arkphone.voip
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +68,21 @@ class WebRtcCallSession(
         scope.launch {
             signaling.incoming.collect { message -> onSignal(message) }
         }
+    }
+
+    // The TURN fetch started ahead of the offer; null once consumed or when
+    // it came back empty, so openAdapter fetches afresh.
+    private var preparedIceServers: Deferred<List<IceServerConfig>?>? = null
+
+    override fun prepare() {
+        if (_state.value != VoipCallState.Idle || preparedIceServers != null) return
+        preparedIceServers = scope.async { turnFetcher() }
+    }
+
+    private suspend fun fetchIceServers(): List<IceServerConfig>? {
+        val prepared = preparedIceServers
+        preparedIceServers = null
+        return prepared?.await() ?: turnFetcher()
     }
 
     override fun placeCall() {
@@ -159,7 +176,7 @@ class WebRtcCallSession(
     }
 
     private suspend fun openAdapter(notifyPeer: Boolean): PeerConnectionAdapter? {
-        val iceServers = turnFetcher()
+        val iceServers = fetchIceServers()
         if (iceServers == null) {
             end("no-turn", notifyPeer = notifyPeer)
             return null

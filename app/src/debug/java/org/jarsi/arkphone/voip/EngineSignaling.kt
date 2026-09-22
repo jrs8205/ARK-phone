@@ -36,6 +36,12 @@ interface VoipMediaSession {
     val state: StateFlow<VoipCallState>
     /** True while the callee reports its incoming-call surfaces showing. */
     val peerRinging: StateFlow<Boolean>
+    /**
+     * Caller side: starts what the offer will need (the TURN credentials) so
+     * [placeCall] after the reach reply goes out at once — the callee's wake
+     * window is short.
+     */
+    fun prepare()
     fun placeCall()
     fun answer()
     fun reject()
