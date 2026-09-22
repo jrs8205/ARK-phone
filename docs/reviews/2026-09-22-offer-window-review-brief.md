@@ -108,7 +108,12 @@ Outgoing ARK call, caller Pixel 8a → callee Pixel 9a, 2026-09-21 16:12.
   window end with no offer.
 
 Full suite + lint green (925 unit tests). Installed on all three phones
-(debug on the 8a and 10 Pro, beta on the 9a); field re-test pending.
+(debug on the 8a and 10 Pro, beta on the 9a). Field-verified the same evening
+on both paths: callee awake (20:50, ring 80 ms after startCall) and callee in
+forced deep Doze (`dumpsys deviceidle force-idle`, 20:57): FCM wake at
++0.0 s, TURN already fetched on the caller before the reach reply, flush
+drained the offer and 20 candidates at +1.1 s, ring at +1.1 s, wake hold
+released at +1.6 s (ring + margin). One call-log row per call, no 0 s row.
 
 ## What to verify (at minimum)
 
