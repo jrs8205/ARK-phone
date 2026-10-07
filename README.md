@@ -12,11 +12,14 @@
 
 <p align="center">
 An Android dialer and messaging app that replaces your phone's default Phone and
-Messages apps. Built with Kotlin, Jetpack Compose and Material 3.
+Messages apps, with free encrypted internet calls between ARK-phone users.
+Built with Kotlin, Jetpack Compose and Material 3.
 </p>
 
-**No internet permission.** ARK-phone never connects to the internet — calls and
-messages go through your carrier, and nothing about you leaves the device.
+**Your phone stays yours.** Calls and messages go through your carrier and
+nothing leaves the device. The one exception is ARK internet calls, which you
+turn on yourself, and even then the app never sends anything but what a call
+needs.
 
 ## Screenshots
 
@@ -28,44 +31,56 @@ messages go through your carrier, and nothing about you leaves the device.
 
 ### Calls
 
-- Default phone app (dialer role) with a full in-call UI: mute, speaker, hold and
-  a DTMF keypad; the screen turns off against your cheek and the app closes when
-  the call ends
-- Keypad with T9 search by name or number, speed dial and clipboard paste
-- Recent calls with search, filter chips (missed / outgoing / blocked / WhatsApp)
+- Default phone app with a full in-call screen: mute, speaker, hold, keypad;
+  the screen turns off against your cheek and the app closes when the call ends
+- Keypad with T9 search, speed dial and clipboard paste
+- Recent calls with search, filters (missed / outgoing / blocked / WhatsApp)
   and grouping of repeated calls
-- Contacts with favorites, most-called, search and a full contact card
-  (numbers, emails, addresses, notes, WhatsApp/Telegram/Signal actions,
-  vCard share); edits open the system editor and sync to your Google account
-- Spoken caller announcement (TTS) and caller photo, including on the lock screen
-- Missed-call notifications with call-back and message actions
+- Contacts with favorites, most-called, search and a full contact card;
+  edits open the system editor and sync to your Google account
+- Spoken caller announcement and caller photo, also on the lock screen
 - Call blocking: single numbers, hidden numbers, unknown callers, number
-  prefixes, time-scheduled rules and per-SIM rules, plus an allow list,
-  automatic favorites pass-through and repeat-caller pass-through; blocked
-  calls can be rejected or routed silently to voicemail
-- WhatsApp calls logged in call history with direct WhatsApp callback
-- Dual-SIM support: default SIM selection, SIM shown per call, SIM info page
+  prefixes, time schedules and per-SIM rules, with an allow list and
+  favorite / repeat-caller pass-through; blocked calls can be rejected or
+  sent silently to voicemail
+- WhatsApp calls in the call history with a direct WhatsApp callback
+- Dual SIM: default SIM for calls, SIM shown per call, SIM info page
+
+### ARK internet calls
+
+- Create an ARK code in Settings and share it with the people you call
+- Link a friend's code on their contact card; calls to linked contacts go
+  over the internet whenever their phone is reachable, and over the carrier
+  otherwise, so a call always goes through
+- Audio is end-to-end encrypted (WebRTC with DTLS-SRTP) and travels phone to
+  phone; a relay steps in only when no direct path exists, and it cannot
+  decrypt the audio
+- Works on Wi-Fi and mobile data, rings on a locked and sleeping phone, costs
+  nothing
 
 ### Messages
 
-- Default SMS app: send and receive SMS and picture messages (MMS),
-  including group conversations
-- Conversation list with search, unread indicators and a new-message flow
-  with multi-recipient support
-- Message notifications with quick reply and mark-as-read; blocked senders
-  stay silent; opening a conversation clears its notifications
-- Delivery status under sent messages and tap-to-retry for failed picture
-  downloads
-- Web links, email addresses and phone numbers in messages are tappable —
-  tapping a number asks before calling
-- Long-press selection: delete or share several messages at once; share text
-  and pictures from other apps straight into ARK-phone
+- Default SMS app: SMS and picture messages (MMS), including groups
+- Conversation list with search, unread indicators and multi-recipient
+  new-message flow
+- Notifications with quick reply and mark-as-read; blocked senders stay silent
+- Delivery status, tap-to-retry for failed picture downloads, tappable links
+  and numbers
+- Multi-select delete and share; share text and pictures from other apps
+  straight into ARK-phone
 
-### Privacy
+## Privacy
 
-- No `INTERNET` permission — the app cannot phone home, show ads or track you
-- No analytics, no crash reporting, no third-party SDKs talking to servers
-- Your calls, messages and contacts stay in Android's own system stores
+- No analytics, no crash reporting, no ads, no third-party SDKs that phone home
+- Calls, messages and contacts stay in Android's own system stores
+- Until you create an ARK code, the app makes no network connection at all
+- With ARK calls on, a small signaling server (a Cloudflare Worker run by the
+  author) stores your nickname, ARK code, public key and push token, and sees
+  your IP address while the app is connected; it forwards call-setup messages
+  and never carries audio
+- A locked phone is woken for an incoming ARK call through Firebase Cloud
+  Messaging; that push carries only the caller's ARK code
+- The server address is in the source, so you can run your own
 
 ## Install
 
@@ -85,7 +100,10 @@ phones.
 ./gradlew :app:assembleDebug
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/`.
+The debug APK is written to `app/build/outputs/apk/debug/`. ARK calls work
+out of the box; a Firebase `app/google-services.json` is optional and only
+adds the push wake-up for locked phones. To point the app at your own
+signaling server, set `arkphone.voip.workerUrl` in `local.properties`.
 
 ## Testing
 
@@ -93,12 +111,17 @@ The debug APK is written to `app/build/outputs/apk/debug/`.
 ./gradlew :app:testDebugUnitTest :app:lintDebug
 ```
 
-The suite has 600+ unit tests and lint runs with `warningsAsErrors`.
+The suite has 900+ unit tests and lint runs with `warningsAsErrors`.
 
 ## Languages
 
-English by default; Finnish is selected automatically from the device
-language.
+English, Finnish, Swedish, German, French, Spanish, Estonian, Russian,
+Portuguese, Italian and Polish. The app follows the device language and
+falls back to English; Android 13 and newer can pick a language per app.
+
+## More apps
+
+The author's other public apps are listed at [jrs8205.com](https://jrs8205.com).
 
 ## License
 
