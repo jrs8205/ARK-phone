@@ -192,9 +192,14 @@ class CallNotifications @Inject constructor(
             context, 0, InCallActivity.intent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        // The tel: URI is what Do Not Disturb matches its "calls from
+        // starred contacts / contacts" rule against; without it an ARK ring
+        // from a starred contact stayed silent while the same person's
+        // carrier call rang (8a, 2026-10-07).
         val caller = Person.Builder()
             .setName(info.displayName ?: info.number ?: context.getString(R.string.incall_unknown_caller))
             .setImportant(true)
+            .apply { info.number?.let { setUri("tel:$it") } }
             .build()
         // The HIGH channel and its full-screen intent exist for the rings
         // where the call screen cannot open itself: a locked or dark screen
@@ -240,6 +245,7 @@ class CallNotifications @Inject constructor(
                 }
             }
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .addPerson(caller)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)

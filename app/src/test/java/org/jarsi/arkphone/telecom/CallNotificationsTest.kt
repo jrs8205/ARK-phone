@@ -183,6 +183,27 @@ class CallNotificationsTest {
     }
 
     @Test
+    fun incomingNotificationNamesTheCallerByNumberForDoNotDisturb() {
+        // Do Not Disturb's "calls from starred contacts / contacts" rule
+        // matches the people attached to the notification, so an ARK ring
+        // without the caller's tel: URI is silenced even for a starred
+        // contact while the same person's carrier call rings (8a, 2026-10-07).
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(viaArkCall = true))
+        val people = notification.extras.getParcelableArrayList<android.app.Person>(Notification.EXTRA_PEOPLE_LIST)
+        assertEquals(listOf("tel:0401234567"), people?.map { it.uri })
+    }
+
+    @Test
+    fun incomingNotificationWithoutANumberStillNamesTheCaller() {
+        val notification = CallNotifications(context) { java.util.Optional.empty() }
+            .buildIncomingCall(incomingCall().copy(number = null, displayName = "Hidden"))
+        val people = notification.extras.getParcelableArrayList<android.app.Person>(Notification.EXTRA_PEOPLE_LIST)
+        assertEquals(listOf("Hidden"), people?.map { it.name.toString() })
+        assertNull(people?.single()?.uri)
+    }
+
+    @Test
     fun silencedRingHasNoHeadsUpAndNoInsistentRing() {
         val notification = CallNotifications(context) { java.util.Optional.empty() }
             .buildIncomingCall(incomingCall(), silentRing = true, quiet = true)
