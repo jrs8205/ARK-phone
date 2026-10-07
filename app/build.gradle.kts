@@ -17,7 +17,7 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.27"
+val appVersionName = "1.28"
 
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
@@ -38,7 +38,7 @@ android {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
+        versionCode = 16
         versionName = appVersionName
         // The ARK signaling worker. The address sits inside every public APK,
         // so it is no secret; local.properties overrides it for a self-hosted
