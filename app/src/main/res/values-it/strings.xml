@@ -328,4 +328,5 @@
     <string name="backup_error_wrong_password">Password errata o file danneggiato</string>
     <string name="backup_error_password_required">Questo file richiede la sua password</string>
     <string name="backup_error_io">Impossibile leggere o scrivere il file</string>
+    <string name="backup_error_call_in_progress">Termina la chiamata prima di ripristinare un backup.</string>
 </resources>

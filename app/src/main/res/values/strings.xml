@@ -325,4 +325,5 @@
     <string name="backup_error_wrong_password">Wrong password or damaged file</string>
     <string name="backup_error_password_required">This file needs its password</string>
     <string name="backup_error_io">The file could not be read or written</string>
+    <string name="backup_error_call_in_progress">Finish the call before restoring a backup.</string>
 </resources>

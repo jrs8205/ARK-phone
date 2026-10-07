@@ -328,4 +328,5 @@
     <string name="backup_error_wrong_password">Senha errada ou arquivo danificado</string>
     <string name="backup_error_password_required">Este arquivo precisa da sua senha</string>
     <string name="backup_error_io">Não foi possível ler ou gravar o arquivo</string>
+    <string name="backup_error_call_in_progress">Encerre a chamada antes de restaurar um backup.</string>
 </resources>

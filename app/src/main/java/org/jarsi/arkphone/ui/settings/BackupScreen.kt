@@ -266,5 +266,6 @@ private fun messageText(message: BackupMessage): String = when (message) {
         BackupError.PasswordRequired -> stringResource(R.string.backup_error_password_required)
         BackupError.WrongPasswordOrDamaged -> stringResource(R.string.backup_error_wrong_password)
         BackupError.Io -> stringResource(R.string.backup_error_io)
+        BackupError.CallInProgress -> stringResource(R.string.backup_error_call_in_progress)
     }
 }

@@ -19,6 +19,7 @@ import org.jarsi.arkphone.backup.BackupError
 import org.jarsi.arkphone.backup.BackupException
 import org.jarsi.arkphone.backup.BackupStore
 import org.jarsi.arkphone.di.IoDispatcher
+import org.jarsi.arkphone.telecom.CallController
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -47,6 +48,8 @@ class BackupViewModel(
     private val codec: BackupCodec,
     private val io: CoroutineDispatcher,
     private val iterations: Int,
+    private val callController: CallController,
+    private val maxFileBytes: Int,
 ) : ViewModel() {
 
     @Inject
@@ -54,7 +57,11 @@ class BackupViewModel(
         @ApplicationContext context: Context,
         store: BackupStore,
         @IoDispatcher io: CoroutineDispatcher,
-    ) : this(context.contentResolver, store, BackupCodec(), io, BackupCodec.DEFAULT_ITERATIONS)
+        callController: CallController,
+    ) : this(
+        context.contentResolver, store, BackupCodec(), io, BackupCodec.DEFAULT_ITERATIONS,
+        callController, MAX_FILE_BYTES,
+    )
 
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
@@ -66,10 +73,10 @@ class BackupViewModel(
     fun export(uri: Uri, password: String?) {
         run {
             val bytes = codec.encode(store.snapshot(), password, iterations)
-            withContext(io) {
-                contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
-                    ?: throw IOException("no stream for $uri")
-            }
+            // The reader refuses anything larger; "saved" must mean restorable.
+            if (bytes.size > maxFileBytes) throw BackupException(BackupError.Io)
+            contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+                ?: throw IOException("no stream for $uri")
             BackupMessage.Saved
         }
     }
@@ -87,6 +94,9 @@ class BackupViewModel(
     fun restore(password: String?) {
         val pending = _uiState.value.pendingRestore ?: return
         run {
+            // A restored identity drops the signaling client; a call in
+            // progress would lose its answer, candidate and hang-up frames.
+            if (callController.calls.value.isNotEmpty()) throw BackupException(BackupError.CallInProgress)
             store.restore(codec.decode(read(pending.uri), password))
             _uiState.update { it.copy(pendingRestore = null) }
             BackupMessage.Restored
@@ -97,7 +107,7 @@ class BackupViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
-    private suspend fun read(uri: Uri): ByteArray = withContext(io) {
+    private fun read(uri: Uri): ByteArray {
         val stream = contentResolver.openInputStream(uri) ?: throw IOException("no stream for $uri")
         stream.use { input ->
             val buffer = ByteArrayOutputStream()
@@ -107,9 +117,9 @@ class BackupViewModel(
                 if (n < 0) break
                 buffer.write(chunk, 0, n)
                 // Past the cap the file cannot be ours; stop before it eats the heap.
-                if (buffer.size() > MAX_FILE_BYTES) throw BackupException(BackupError.NotABackup)
+                if (buffer.size() > maxFileBytes) throw BackupException(BackupError.NotABackup)
             }
-            buffer.toByteArray()
+            return buffer.toByteArray()
         }
     }
 
@@ -118,7 +128,9 @@ class BackupViewModel(
         _uiState.update { it.copy(busy = true, message = null) }
         viewModelScope.launch {
             val message = try {
-                block()
+                // Key derivation (600 000 PBKDF2 rounds), JSON and file I/O
+                // all belong off the main thread.
+                withContext(io) { block() }
             } catch (e: BackupException) {
                 BackupMessage.Failed(e.error)
             } catch (e: IOException) {
@@ -130,7 +142,7 @@ class BackupViewModel(
         }
     }
 
-    private companion object {
+    companion object {
         const val MAX_FILE_BYTES = 16 * 1024 * 1024
     }
 }

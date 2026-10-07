@@ -33,6 +33,9 @@ interface WhatsAppCallDao {
     @Query("SELECT * FROM whatsapp_calls")
     suspend fun callsOnce(): List<WhatsAppCallEntity>
 
+    @Query("SELECT * FROM whatsapp_calls ORDER BY timestampMillis DESC LIMIT :limit")
+    suspend fun newest(limit: Int): List<WhatsAppCallEntity>
+
     @Insert
     suspend fun insert(call: WhatsAppCallEntity)
 

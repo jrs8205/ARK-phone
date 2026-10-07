@@ -328,4 +328,5 @@
     <string name="backup_error_wrong_password">Contraseña incorrecta o archivo dañado</string>
     <string name="backup_error_password_required">Este archivo necesita su contraseña</string>
     <string name="backup_error_io">No se pudo leer ni escribir el archivo</string>
+    <string name="backup_error_call_in_progress">Termina la llamada antes de restaurar una copia de seguridad.</string>
 </resources>

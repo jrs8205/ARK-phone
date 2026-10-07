@@ -12,10 +12,13 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.withTransaction
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.BuildConfig
 import org.jarsi.arkphone.data.ArkLinkEntity
 import org.jarsi.arkphone.data.ArkPhoneDatabase
+import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.WhatsAppCallEntity
 import org.jarsi.arkphone.util.Clock
 import javax.inject.Inject
@@ -23,8 +26,8 @@ import javax.inject.Singleton
 
 /**
  * Everything the app owns, in and out of one [BackupSnapshot]. Preferences
- * travel generically (name, type, value) so a setting added later is covered
- * without touching this class.
+ * travel generically (name, type, value); [BackupSanitizer] decides on the
+ * way back in what the app could have written itself.
  */
 @Singleton
 class BackupStore(
@@ -32,10 +35,15 @@ class BackupStore(
     private val database: ArkPhoneDatabase,
     private val clock: Clock,
     private val appVersion: String,
+    private val simAccountIds: suspend () -> Set<String>,
 ) {
     @Inject
-    constructor(dataStore: DataStore<Preferences>, database: ArkPhoneDatabase, clock: Clock) :
-        this(dataStore, database, clock, BuildConfig.VERSION_NAME)
+    constructor(
+        dataStore: DataStore<Preferences>,
+        database: ArkPhoneDatabase,
+        clock: Clock,
+        simAccounts: SimAccountRepository,
+    ) : this(dataStore, database, clock, BuildConfig.VERSION_NAME, { simAccounts.accounts().map { it.id }.toSet() })
 
     suspend fun snapshot(): BackupSnapshot {
         val preferences = dataStore.data.first().asMap()
@@ -44,7 +52,9 @@ class BackupStore(
         val links = database.arkLinkDao().all().map {
             BackupArkLink(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis)
         }
-        val calls = database.whatsAppCallDao().callsOnce().map {
+        // Bounded like the import side: a file this version cannot read back
+        // must never be what "Backup saved" refers to.
+        val calls = database.whatsAppCallDao().newest(BackupSanitizer.MAX_CALLS).map {
             BackupWhatsAppCall(
                 callerName = it.callerName,
                 callerNumber = it.callerNumber,
@@ -59,26 +69,29 @@ class BackupStore(
     }
 
     /**
-     * Replaces the preferences in ONE edit (atomic, and a single emission for
-     * every collector) and the two tables in one transaction.
+     * Applies a file. The file is untrusted ([BackupSanitizer]); SIM
+     * restrictions naming an account this phone does not have are dropped,
+     * since a stale `blocking_sim_account_id` would make every rule read as
+     * "not this SIM". The tables go first (one transaction) and the
+     * preferences second (one edit); a preferences failure puts the tables
+     * back, so the phone is never half old, half new. The whole apply runs
+     * non-cancellable: leaving the screen must not cut it in half.
      */
-    suspend fun restore(snapshot: BackupSnapshot) {
-        dataStore.edit { prefs ->
-            prefs.clear()
-            snapshot.preferences
-                .filter { it.key !in DEVICE_ONLY_KEYS }
-                .forEach { put(prefs, it) }
+    suspend fun restore(untrusted: BackupSnapshot) {
+        val sims = simAccountIds()
+        val snapshot = BackupSanitizer.sanitize(untrusted).let { clean ->
+            clean.copy(
+                preferences = clean.preferences.filterNot { it.key in SIM_KEYS && it.value !in sims },
+            )
         }
-        database.withTransaction {
-            val links = database.arkLinkDao()
-            links.clear()
-            snapshot.arkLinks.forEach {
-                links.upsert(ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis))
-            }
-            val calls = database.whatsAppCallDao()
-            calls.clear()
-            calls.insertAll(
-                snapshot.whatsAppCalls.map {
+        withContext(NonCancellable) {
+            val previousLinks = database.arkLinkDao().all()
+            val previousCalls = database.whatsAppCallDao().callsOnce()
+            replaceTables(
+                links = snapshot.arkLinks.map {
+                    ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis)
+                },
+                calls = snapshot.whatsAppCalls.map {
                     WhatsAppCallEntity(
                         callerName = it.callerName,
                         callerNumber = it.callerNumber,
@@ -90,6 +103,26 @@ class BackupStore(
                     )
                 },
             )
+            try {
+                dataStore.edit { prefs ->
+                    prefs.clear()
+                    snapshot.preferences.forEach { put(prefs, it) }
+                }
+            } catch (e: Exception) {
+                runCatching { replaceTables(previousLinks, previousCalls) }
+                throw e
+            }
+        }
+    }
+
+    private suspend fun replaceTables(links: List<ArkLinkEntity>, calls: List<WhatsAppCallEntity>) {
+        database.withTransaction {
+            val linkDao = database.arkLinkDao()
+            linkDao.clear()
+            links.forEach { linkDao.upsert(it) }
+            val callDao = database.whatsAppCallDao()
+            callDao.clear()
+            callDao.insertAll(calls)
         }
     }
 
@@ -126,5 +159,8 @@ class BackupStore(
          * would keep the worker waking that phone instead of this one.
          */
         val DEVICE_ONLY_KEYS = setOf("ark_synced_fcm_token")
+
+        /** Phone-account ids are per phone; a restored one must exist here. */
+        val SIM_KEYS = setOf("call_sim_account_id", "blocking_sim_account_id")
     }
 }

@@ -24,6 +24,7 @@ sealed class BackupError {
     data object PasswordRequired : BackupError()
     data object WrongPasswordOrDamaged : BackupError()
     data object Io : BackupError()
+    data object CallInProgress : BackupError()
 }
 
 class BackupException(val error: BackupError, cause: Throwable? = null) : Exception(error.toString(), cause)
@@ -72,15 +73,15 @@ class BackupCodec(private val random: SecureRandom = SecureRandom()) {
     }
 
     /** Reads only the envelope: enough to know whether to ask for a password. */
-    fun inspect(bytes: ByteArray): BackupFileInfo {
+    fun inspect(bytes: ByteArray): BackupFileInfo = asBackupError(BackupError.NotABackup) {
         val envelope = parseEnvelope(bytes)
-        return BackupFileInfo(
-            version = envelope["version"]?.jsonPrimitive?.intOrNull ?: throw BackupException(BackupError.NotABackup),
-            encrypted = envelope["encrypted"]?.jsonPrimitive?.booleanOrNull ?: throw BackupException(BackupError.NotABackup),
+        BackupFileInfo(
+            version = (envelope["version"] as? JsonPrimitive)?.intOrNull ?: throw BackupException(BackupError.NotABackup),
+            encrypted = (envelope["encrypted"] as? JsonPrimitive)?.booleanOrNull ?: throw BackupException(BackupError.NotABackup),
         )
     }
 
-    fun decode(bytes: ByteArray, password: String?): BackupSnapshot {
+    fun decode(bytes: ByteArray, password: String?): BackupSnapshot = asBackupError(BackupError.NotABackup) {
         val envelope = parseEnvelope(bytes)
         val info = inspect(bytes)
         if (info.version != VERSION) throw BackupException(BackupError.UnsupportedVersion(info.version))
@@ -90,14 +91,25 @@ class BackupCodec(private val random: SecureRandom = SecureRandom()) {
             if (password == null) throw BackupException(BackupError.PasswordRequired)
             decrypt(envelope, password)
         }
-        return try {
+        asBackupError(if (info.encrypted) BackupError.WrongPasswordOrDamaged else BackupError.NotABackup) {
             BackupSnapshot.fromJson(payload)
-        } catch (e: IllegalArgumentException) {
-            throw BackupException(if (info.encrypted) BackupError.WrongPasswordOrDamaged else BackupError.NotABackup, e)
         }
     }
 
-    private fun decrypt(envelope: JsonObject, password: String): JsonObject {
+    /**
+     * The file is untrusted: kotlinx throws IllegalArgumentException,
+     * IllegalStateException, NumberFormatException or ClassCastException on
+     * shapes it does not expect, and none of them may escape as a crash.
+     */
+    private inline fun <T> asBackupError(error: BackupError, block: () -> T): T = try {
+        block()
+    } catch (e: BackupException) {
+        throw e
+    } catch (e: RuntimeException) {
+        throw BackupException(error, e)
+    }
+
+    private fun decrypt(envelope: JsonObject, password: String): JsonObject = asBackupError(BackupError.WrongPasswordOrDamaged) {
         val damaged = { cause: Throwable? -> BackupException(BackupError.WrongPasswordOrDamaged, cause) }
         val kdf = envelope["kdf"] as? JsonObject ?: throw damaged(null)
         val cipherSpec = envelope["cipher"] as? JsonObject ?: throw damaged(null)
@@ -119,11 +131,7 @@ class BackupCodec(private val random: SecureRandom = SecureRandom()) {
         } catch (e: IllegalArgumentException) {
             throw damaged(e)
         }
-        return try {
-            Json.parseToJsonElement(String(plaintext, Charsets.UTF_8)).jsonObject
-        } catch (e: IllegalArgumentException) {
-            throw damaged(e)
-        }
+        Json.parseToJsonElement(String(plaintext, Charsets.UTF_8)).jsonObject
     }
 
     private fun parseEnvelope(bytes: ByteArray): JsonObject {
@@ -133,7 +141,8 @@ class BackupCodec(private val random: SecureRandom = SecureRandom()) {
             throw BackupException(BackupError.NotABackup, e)
         }
         val envelope = element as? JsonObject ?: throw BackupException(BackupError.NotABackup)
-        if (envelope["format"]?.jsonPrimitive?.contentOrNull != FORMAT) throw BackupException(BackupError.NotABackup)
+        val format = envelope["format"] as? JsonPrimitive
+        if (format == null || !format.isString || format.content != FORMAT) throw BackupException(BackupError.NotABackup)
         return envelope
     }
 

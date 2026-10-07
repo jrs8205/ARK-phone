@@ -320,4 +320,5 @@
     <string name="backup_error_wrong_password">Fel lösenord eller skadad fil</string>
     <string name="backup_error_password_required">Filen kräver sitt lösenord</string>
     <string name="backup_error_io">Filen kunde inte läsas eller skrivas</string>
+    <string name="backup_error_call_in_progress">Avsluta samtalet innan du återställer en säkerhetskopia.</string>
 </resources>

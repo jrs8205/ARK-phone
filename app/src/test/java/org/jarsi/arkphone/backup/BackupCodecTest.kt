@@ -96,6 +96,34 @@ class BackupCodecTest {
     }
 
     @Test
+    fun malformedShapesAreReportedAsBackupErrorsNeverAsCrashes() {
+        val plain = "{\"format\":\"arkphone-backup\",\"version\":1,\"encrypted\":false,"
+        val cases = listOf(
+            "{\"format\":\"arkphone-backup\",\"version\":{},\"encrypted\":false}",
+            "{\"format\":\"arkphone-backup\",\"version\":1,\"encrypted\":\"nope\"}",
+            "{\"format\":5,\"version\":1,\"encrypted\":false}",
+            plain + "\"payload\":[]}",
+            plain + "\"payload\":{\"createdAtMillis\":\"x\",\"appVersion\":\"1\",\"preferences\":[],\"arkLinks\":[],\"whatsAppCalls\":[]}}",
+            plain + "\"payload\":{\"createdAtMillis\":1,\"appVersion\":\"1\",\"preferences\":[{\"key\":\"a\",\"type\":\"boolean\",\"value\":{}}],\"arkLinks\":[],\"whatsAppCalls\":[]}}",
+            plain + "\"payload\":{\"createdAtMillis\":1,\"appVersion\":\"1\",\"preferences\":[{\"key\":\"a\",\"type\":\"boolean\",\"value\":\"maybe\"}],\"arkLinks\":[],\"whatsAppCalls\":[]}}",
+            plain + "\"payload\":{\"createdAtMillis\":1,\"appVersion\":\"1\",\"preferences\":{},\"arkLinks\":[],\"whatsAppCalls\":[]}}",
+            plain + "\"payload\":{\"createdAtMillis\":1,\"appVersion\":[],\"preferences\":[],\"arkLinks\":[],\"whatsAppCalls\":[]}}",
+            "{\"format\":\"arkphone-backup\",\"version\":1,\"encrypted\":true,\"kdf\":\"x\",\"cipher\":{},\"ciphertext\":5}",
+            "{\"format\":\"arkphone-backup\",\"version\":1,\"encrypted\":true,\"kdf\":{\"algorithm\":\"PBKDF2WithHmacSHA256\",\"iterations\":\"many\",\"salt\":\"\"},\"cipher\":{\"algorithm\":\"AES/GCM/NoPadding\",\"iv\":\"\"},\"ciphertext\":\"\"}",
+            "{\"format\":\"arkphone-backup\",\"version\":1,\"encrypted\":true,\"kdf\":{\"algorithm\":\"PBKDF2WithHmacSHA256\",\"iterations\":1000,\"salt\":\"***\"},\"cipher\":{\"algorithm\":\"AES/GCM/NoPadding\",\"iv\":\"***\"},\"ciphertext\":\"***\"}",
+        )
+        for (case in cases) {
+            try {
+                codec.inspect(case.toByteArray())
+                codec.decode(case.toByteArray(), password = "pw")
+                fail("expected BackupException for $case")
+            } catch (e: BackupException) {
+                // Which BackupError is secondary; the point is that nothing else escapes.
+            }
+        }
+    }
+
+    @Test
     fun aNewerFormatVersionIsRefusedByNumber() {
         val bytes = "{\"format\":\"arkphone-backup\",\"version\":2,\"encrypted\":false,\"payload\":{}}".toByteArray()
         try {

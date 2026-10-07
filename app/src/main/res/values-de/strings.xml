@@ -320,4 +320,5 @@
     <string name="backup_error_wrong_password">Falsches Passwort oder beschädigte Datei</string>
     <string name="backup_error_password_required">Diese Datei braucht ihr Passwort</string>
     <string name="backup_error_io">Die Datei konnte nicht gelesen oder geschrieben werden</string>
+    <string name="backup_error_call_in_progress">Beende den Anruf, bevor du eine Sicherung wiederherstellst.</string>
 </resources>

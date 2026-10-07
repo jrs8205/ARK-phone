@@ -336,4 +336,5 @@
     <string name="backup_error_wrong_password">Złe hasło lub uszkodzony plik</string>
     <string name="backup_error_password_required">Ten plik wymaga swojego hasła</string>
     <string name="backup_error_io">Nie udało się odczytać ani zapisać pliku</string>
+    <string name="backup_error_call_in_progress">Zakończ połączenie przed przywróceniem kopii zapasowej.</string>
 </resources>
