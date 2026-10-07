@@ -1,15 +1,15 @@
 # External review brief — ARK calls go public, nine new languages (2026-10-07)
 
-You are reviewing **four commits** in the ARK-phone repository (branch
-`feature/voip-spike`, commits `ffbf7a1`, `790aea8`, `ec03f85`, `e65a3c1` on
-top of `fe55679`, which is the 1.27 line plus two field fixes). Together they
+You are reviewing **five commits** in the ARK-phone repository (branch
+`feature/voip-spike`, commits `ffbf7a1`, `790aea8`, `ec03f85`, `e65a3c1` and the DND fix
+`ecf2a08` (after the brief commit `4af9c9f`), all on top of `fe55679`, which is the 1.27 line plus two field fixes). Together they
 become release **1.28**, the first public build that carries ARK internet
 calls, and the first with more than two languages. Nothing here is a bug fix;
 it is a scope change of the public release, and the maintainer wants
 everything it touches checked before it ships.
 
 ```
-git diff --stat fe55679..e65a3c1   # 63 files, +2949 / -124
+git diff --stat fe55679..HEAD      # the five commits plus this brief
 ```
 
 ## Ground rules
@@ -182,6 +182,37 @@ contacts, or call metadata).
 
 Nothing else.
 
+### 5. `ecf2a08` — Do Not Disturb fix: the incoming-call notification names the caller
+
+Field observation (Pixel 8a, 2026-10-07 19:5x, minified 1.28 release): with
+Do Not Disturb on and its policy set to "calls from starred contacts only"
+(`dumpsys notification`: `priorityCallSenders=PRIORITY_SENDERS_STARRED`,
+`suppressedVisualEffects=SCREEN_OFF,SCREEN_ON,FULL_SCREEN_INTENT,LIGHTS,PEEK,AMBIENT`),
+an incoming ARK call from the 10 Pro showed only as a silent row in the
+notification shade: no lock-screen ring, no heads-up. A carrier call from the
+same (unstarred) contact would have been silenced too, but its call screen
+still opens through Telecom. The structural gap: `CallNotifications.
+buildIncomingCall()` built a `Person` for the title only and never attached
+it to the notification, so DND's people matching (`EXTRA_PEOPLE_LIST`) had
+nothing to match — even a **starred** contact's ARK ring would stay silent
+while that person's carrier call rang.
+
+Fix (TDD, two tests in `telecom/CallNotificationsTest.kt`):
+
+- the `Person` gets `setUri("tel:" + info.number)` when the call carries a
+  number (ARK calls do: the linked contact's number via `numberForCode`);
+- the builder calls `.addPerson(caller)` for every incoming-call
+  notification, carrier and ARK alike.
+
+Review: (a) is `EXTRA_PEOPLE_LIST` with a raw, unnormalised `tel:` URI what
+`ZenModeFiltering` / `ValidateNotificationPeople` match against the contacts
+provider on Android 12–17, or does it need E.164 / `PhoneNumberUtils`
+normalisation (the numbers come straight from the call log / contact card,
+e.g. `+358 44 5552841` with spaces)? (b) any side effect of `addPerson` on the
+carrier-call notification (ranking, conversation treatment, the "quiet"
+variant that must stay silent)? (c) is there a better platform path for a
+self-managed call to ring under DND than the people list?
+
 ## Not changed, for orientation
 
 - The worker (Cloudflare Worker + two Durable Objects, TURN credentials from
@@ -209,8 +240,9 @@ Nothing else.
 
 ## What a good report looks like
 
-Part A — code findings on commit 1 (R8, startup network use, permissions,
-background execution, abuse), in the finding format above.
+Part A — code findings on commits 1 and 5 (R8, startup network use,
+permissions, background execution, abuse, the DND people matching), in the
+finding format above.
 
 Part B — README claims that are false or incomplete, each with the code that
 contradicts it.
