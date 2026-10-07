@@ -120,7 +120,7 @@ android {
         }
     }
     androidResources {
-        localeFilters += listOf("en", "fi")
+        localeFilters += listOf("en", "fi", "sv", "de", "fr", "es", "et", "ru", "pt", "it", "pl")
     }
 }
 
