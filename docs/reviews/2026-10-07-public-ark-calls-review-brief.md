@@ -1,8 +1,8 @@
 # External review brief — ARK calls go public, nine new languages (2026-10-07)
 
-You are reviewing **five commits** in the ARK-phone repository (branch
-`feature/voip-spike`, commits `ffbf7a1`, `790aea8`, `ec03f85`, `e65a3c1` and the DND fix
-`ecf2a08` (after the brief commit `4af9c9f`), all on top of `fe55679`, which is the 1.27 line plus two field fixes). Together they
+You are reviewing **six commits** in the ARK-phone repository (branch
+`feature/voip-spike`, commits `ffbf7a1`, `790aea8`, `ec03f85`, `e65a3c1` the DND fix
+`ecf2a08` and the backup feature `8e895ca` (brief commits in between), all on top of `fe55679`, which is the 1.27 line plus two field fixes). Together they
 become release **1.28**, the first public build that carries ARK internet
 calls, and the first with more than two languages. Nothing here is a bug fix;
 it is a scope change of the public release, and the maintainer wants
@@ -213,6 +213,60 @@ carrier-call notification (ranking, conversation treatment, the "quiet"
 variant that must stay silent)? (c) is there a better platform path for a
 self-managed call to ring under DND than the people list?
 
+### 6. `8e895ca` — Backup to a file (new feature)
+
+Design: `docs/specs/2026-10-07-backup-file-design.md` (read it first; it is
+short). Settings → Backup → "Save backup to file" / "Restore from file".
+
+- `backup/BackupSnapshot.kt` — payload model + hand-built JSON (typed
+  preference entries, ARK links, WhatsApp calls).
+- `backup/BackupCodec.kt` — envelope, PBKDF2WithHmacSHA256 (600 000
+  iterations, 16-byte salt, 256-bit key) + AES/GCM/NoPadding (12-byte IV,
+  128-bit tag, AAD `arkphone-backup:1`), `BackupError` sealed type, caps:
+  16 MB file, 5 000 000 iterations.
+- `backup/BackupStore.kt` — snapshot from the `settings` DataStore (generic:
+  every key/type/value except `ark_synced_fcm_token`) + Room; restore =
+  one `dataStore.edit { clear(); put… }` + one `withTransaction` replacing
+  `ark_links` and `whatsapp_calls`.
+- `voip/VoipEngine.dropClient()` + `voip/ArkVoipStartup` now keys on the
+  identity **code** (`map { it?.code }.distinctUntilChanged()`) and drops
+  the client before every (re)connect, so a restore that changes the code
+  reconnects under it. Previously it keyed on presence only.
+- `ui/settings/BackupViewModel.kt` (ContentResolver + SAF URIs, IO
+  dispatcher, `BackupUiState` busy/message/pendingRestore) and
+  `BackupScreen.kt` (password switch on by default, repeat field, red
+  warning when off, `CreateDocument`/`OpenDocument`, confirmation dialog).
+- DAO additions `ArkLinkDao.all()/clear()`, `WhatsAppCallDao.insertAll()/clear()`.
+- 27 new strings in all eleven languages (`settings_backup_*`, `backup_*`).
+- Tests: `BackupCodecTest` (7), `BackupStoreTest` (2), `BackupViewModelTest`
+  (4), `ArkVoipStartupTest` (+1).
+
+Review especially:
+
+1. Crypto: parameter choices, AAD use, anything that lets a crafted file
+   do harm (iteration cap, size cap, JSON parsing of attacker content), and
+   whether a wrong password is distinguishable from damage (it must not be).
+2. The unencrypted option: the file then holds the ARK **device token** in
+   the clear; the screen warns in red. Is the warning enough, and is there
+   any way the token leaks elsewhere (logs, crash text, share sheet)?
+3. SAF handling: `openOutputStream(uri, "wt")` on a `CreateDocument` URI;
+   a failed write leaves an empty file at the chosen location; no persisted
+   URI permission is taken (none needed?). Reading a `*/*` pick from any
+   provider.
+4. Restore atomicity across the two stores (one DataStore edit, one Room
+   transaction — not a single unit); restore while an ARK call is active
+   (`dropClient()` tears the signaling client down under a live call —
+   should the screen refuse while a call is in progress?); the generic
+   preference round trip (Int vs Long, Float vs Double, Set<String>) and
+   the `DEVICE_ONLY_KEYS` exclusion on both export and import.
+5. `dropClient()` ordering inside `connectMutex` versus `startCollecting`
+   and the drain state; any leak of the old `SignalingClient` jobs.
+6. Compose screen state (`rememberSaveable` passwords survive rotation — is
+   keeping a typed password in saved instance state acceptable?), and the
+   snackbar/`LaunchedEffect(message)` pattern.
+7. Part D applies: the 27 new strings in all nine new languages plus
+   Finnish.
+
 ## Not changed, for orientation
 
 - The worker (Cloudflare Worker + two Durable Objects, TURN credentials from
@@ -240,9 +294,9 @@ self-managed call to ring under DND than the people list?
 
 ## What a good report looks like
 
-Part A — code findings on commits 1 and 5 (R8, startup network use,
-permissions, background execution, abuse, the DND people matching), in the
-finding format above.
+Part A — code findings on commits 1, 5 and 6 (R8, startup network use,
+permissions, background execution, abuse, the DND people matching, the
+backup crypto/file/restore paths), in the finding format above.
 
 Part B — README claims that are false or incomplete, each with the code that
 contradicts it.
