@@ -54,9 +54,9 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 /**
- * Debug-only: this module is what fills the main tree's optional VoIP
- * bindings. A release build has no such module, so every ARK surface resolves
- * Optional.empty() and stays invisible.
+ * Fills the optional VoIP bindings declared in AppModule. The bindings stay
+ * optional so the rest of the app never depends on the engine directly and a
+ * build without this module would simply show no ARK surface.
  */
 @Module
 @InstallIn(SingletonComponent::class)

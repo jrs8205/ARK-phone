@@ -193,9 +193,9 @@ abstract class AppModule {
         impl: DataStoreArkIdentityRepository,
     ): ArkIdentityRepository
 
-    // The VoIP engine only exists in builds that carry libwebrtc and Firebase.
-    // An optional binding keeps the main tree final while release resolves
-    // Optional.empty(), so release gains no dependency and shows nothing.
+    // Optional bindings keep every ARK surface behind an isPresent check: the
+    // app worked for a year without the engine and must keep doing so should
+    // the module ever be dropped from a build again.
     @BindsOptionalOf
     abstract fun optionalVoipAccountGateway(): VoipAccountGateway
 

@@ -40,6 +40,14 @@ android {
         targetSdk = 36
         versionCode = 15
         versionName = appVersionName
+        // The ARK signaling worker. The address sits inside every public APK,
+        // so it is no secret; local.properties overrides it for a self-hosted
+        // worker (arkphone.voip.workerUrl).
+        buildConfigField(
+            "String",
+            "VOIP_WORKER_URL",
+            "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: "https://arkphone-voip.jarsi.workers.dev"}\"",
+        )
     }
 
     // Credentials live in the user's ~/.gradle/gradle.properties, never in the
@@ -57,19 +65,11 @@ android {
     }
 
     buildTypes {
-        // The VoIP engine reaches the network only from debug builds; the
-        // worker URL comes from local.properties, never the repo. Per-device
-        // bearer tokens are issued at registration and live in DataStore.
         // Every variant names itself in versionName so the settings page
         // always tells which build is installed (field confusion 2026-08-20:
         // debug and release both read as a bare "1.26").
         debug {
             versionNameSuffix = "-debug"
-            buildConfigField(
-                "String",
-                "VOIP_WORKER_URL",
-                "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: ""}\"",
-            )
         }
         release {
             versionNameSuffix = "-release"
@@ -80,33 +80,18 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
-        // Family field-test build: the debug sourceset's ARK engine with the
-        // RELEASE signature, so it installs OVER an installed release build
-        // and keeps its data and the dialer role. Unminified on purpose — R8
-        // rules for the VoIP stack are unproven, and this build trades size
-        // for zero shrinker risk. Never published as a release.
+        // Family field-test build: release signature, unminified. It installs
+        // OVER an installed release build and keeps its data and the dialer
+        // role, and it is the fallback should R8 ever misbehave in the field.
+        // Never published as a release.
         create("beta") {
             isDebuggable = false
             isMinifyEnabled = false
             versionNameSuffix = "-beta"
-            buildConfigField(
-                "String",
-                "VOIP_WORKER_URL",
-                "\"${localProps.getProperty("arkphone.voip.workerUrl") ?: ""}\"",
-            )
             if (releaseStoreFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
             matchingFallbacks += listOf("debug", "release")
-        }
-    }
-    sourceSets {
-        // Beta IS the debug feature set — one source of truth, two signatures.
-        getByName("beta") {
-            java.srcDirs("src/debug/java")
-            kotlin.srcDirs("src/debug/java")
-            res.srcDirs("src/debug/res")
-            manifest.srcFile("src/debug/AndroidManifest.xml")
         }
     }
     lint {
@@ -156,16 +141,11 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
-    debugImplementation(libs.androidx.core.telecom)
-    debugImplementation(libs.firebase.messaging)
-    debugImplementation(libs.okhttp)
-    debugImplementation(libs.kotlinx.serialization.json)
-    debugImplementation(libs.stream.webrtc)
-    "betaImplementation"(libs.androidx.core.telecom)
-    "betaImplementation"(libs.firebase.messaging)
-    "betaImplementation"(libs.okhttp)
-    "betaImplementation"(libs.kotlinx.serialization.json)
-    "betaImplementation"(libs.stream.webrtc)
+    implementation(libs.androidx.core.telecom)
+    implementation(libs.firebase.messaging)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.stream.webrtc)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
