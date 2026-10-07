@@ -55,12 +55,12 @@
     <string name="settings_blocking_title">Blocage des appels</string>
     <string name="settings_blocking_description">Règles pour bloquer silencieusement les appels indésirables</string>
     <string name="blocking_all_title">Bloquer tous les appels</string>
-    <string name="blocking_all_description">Seuls les favoris, les numéros autorisés et les appelants répétés passent – à combiner avec la plage horaire pour des nuits tranquilles.</string>
+    <string name="blocking_all_description">Seuls les favoris, les numéros autorisés et les personnes qui rappellent passent – à combiner avec la plage horaire pour des nuits tranquilles.</string>
     <string name="blocking_hidden_title">Bloquer les numéros masqués</string>
     <string name="blocking_hidden_description">Les appels sans numéro ne sonnent jamais.</string>
     <string name="blocking_unknown_title">Bloquer les appelants absents des contacts</string>
     <string name="blocking_unknown_description">Seuls les contacts enregistrés peuvent vous joindre.</string>
-    <string name="blocking_repeat_title">Laisser passer les appelants répétés</string>
+    <string name="blocking_repeat_title">Laisser passer les appels répétés</string>
     <string name="blocking_repeat_description">Un numéro qui rappelle dans le délai indiqué n\'est pas bloqué.</string>
     <string name="blocking_repeat_window">Délai : %1$d min</string>
     <string name="blocking_prefixes_title">Préfixes bloqués</string>
@@ -328,4 +328,5 @@
     <string name="backup_error_wrong_password">Mot de passe incorrect ou fichier endommagé</string>
     <string name="backup_error_password_required">Ce fichier a besoin de son mot de passe</string>
     <string name="backup_error_io">Le fichier n\'a pas pu être lu ou écrit</string>
+    <string name="backup_error_call_in_progress">Terminez l\'appel avant de restaurer une sauvegarde.</string>
 </resources>

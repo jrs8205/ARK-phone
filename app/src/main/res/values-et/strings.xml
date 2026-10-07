@@ -205,9 +205,9 @@
     <string name="sim_operator">Operaator</string>
     <string name="sim_number">Telefoninumber</string>
     <string name="sim_slot">Pesa</string>
-    <string name="settings_speech_unavailable">Kõnesüntees pole selles telefonis saadaval. Helistajate teavitamiseks vali või paigalda süsteemiseadetes kõnemootor.</string>
+    <string name="settings_speech_unavailable">Kõnesüntees pole selles telefonis saadaval. Helistaja nime ettelugemiseks vali või paigalda süsteemiseadetes kõnemootor.</string>
     <string name="settings_speech_voice_missing">Kõnemootoril pole seda keelt (%1$s) paigaldatud, seega võib helistaja nime olla raske mõista.</string>
-    <string name="settings_speech_settings">Kõneseaded</string>
+    <string name="settings_speech_settings">Kõnesünteesi seaded</string>
     <string name="settings_version">ARK-telefon %1$s</string>
     <string name="settings_speech_install">Paigalda hääl</string>
     <string name="settings_call_sim_title">SIM kõnede jaoks</string>
@@ -320,4 +320,5 @@
     <string name="backup_error_wrong_password">Vale parool või kahjustatud fail</string>
     <string name="backup_error_password_required">See fail vajab oma parooli</string>
     <string name="backup_error_io">Faili ei õnnestunud lugeda ega kirjutada</string>
+    <string name="backup_error_call_in_progress">Lõpeta kõne enne varukoopia taastamist.</string>
 </resources>

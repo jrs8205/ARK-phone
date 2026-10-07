@@ -130,7 +130,7 @@
         <item quantity="other">Удалить %1$d беседы?</item>
     </plurals>
     <plurals name="conversations_delete_confirm_text" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Все сообщения этой беседы будут удалены с телефона.</item>
+        <item quantity="one">Все сообщения из %1$d беседы будут удалены с телефона.</item>
         <item quantity="few">Все сообщения этих бесед будут удалены с телефона.</item>
         <item quantity="many">Все сообщения этих бесед будут удалены с телефона.</item>
         <item quantity="other">Все сообщения этих бесед будут удалены с телефона.</item>
@@ -142,7 +142,7 @@
         <item quantity="other">Удалить %1$d сообщения?</item>
     </plurals>
     <plurals name="messages_delete_confirm_text" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Сообщение будет удалено с телефона.</item>
+        <item quantity="one">%1$d сообщение будет удалено с телефона.</item>
         <item quantity="few">Сообщения будут удалены с телефона.</item>
         <item quantity="many">Сообщения будут удалены с телефона.</item>
         <item quantity="other">Сообщения будут удалены с телефона.</item>
@@ -181,7 +181,7 @@
     <string name="incall_answer">Ответить</string>
     <string name="incall_decline">Отклонить</string>
     <string name="incall_end_call">Завершить</string>
-    <string name="incall_mute">Микрофон</string>
+    <string name="incall_mute">Отключить микрофон</string>
     <string name="incall_speaker">Динамик</string>
     <string name="incall_hold">Удержание</string>
     <string name="incall_keypad">Клавиатура</string>
@@ -211,7 +211,7 @@
     </plurals>
     <string name="notification_channel_incoming_silent">Входящие вызовы (без звука)</string>
     <string name="notification_channel_incoming_ark_silent">Входящие ARK-вызовы (голосовое объявление)</string>
-    <string name="notification_channel_incoming_silenced">Входящие вызовы (отключены вами)</string>
+    <string name="notification_channel_incoming_silenced">Входящие вызовы (звук отключён вами)</string>
     <string name="sim_cards_title">SIM-карты</string>
     <string name="sim_cards_description">Сведения об активных SIM-картах</string>
     <string name="sim_operator">Оператор</string>
@@ -292,7 +292,7 @@
     <string name="ark_calls_unavailable">Интернет-вызовы ARK недоступны в этой сборке</string>
     <string name="ark_calls_mic_permission">Интернет-вызовам нужен микрофон. Без него каждый вызов идёт через мобильную сеть.</string>
     <string name="ark_calls_mic_permission_button">Разрешить микрофон</string>
-    <string name="ark_calls_notifications_permission">Без разрешения на уведомления входящий интернет-вызов вообще не сможет позвонить.</string>
+    <string name="ark_calls_notifications_permission">Без разрешения на уведомления входящие интернет-вызовы не будут сопровождаться звонком.</string>
     <string name="ark_calls_notifications_permission_button">Разрешить уведомления</string>
     <string name="ark_calls_fsi_permission">Чтобы звонить на заблокированном экране, ARK-телефону нужно разрешение на полноэкранные уведомления.</string>
     <string name="ark_calls_fsi_permission_button">Открыть настройки</string>
@@ -336,4 +336,5 @@
     <string name="backup_error_wrong_password">Неверный пароль или повреждённый файл</string>
     <string name="backup_error_password_required">Для этого файла нужен его пароль</string>
     <string name="backup_error_io">Не удалось прочитать или записать файл</string>
+    <string name="backup_error_call_in_progress">Завершите вызов, прежде чем восстанавливать резервную копию.</string>
 </resources>
