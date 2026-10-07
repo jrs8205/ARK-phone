@@ -74,18 +74,40 @@ a forgotten password.
 
 ## Restore semantics
 
-1. The file is read, parsed and, if encrypted, decrypted completely before
-   anything is touched. Any failure leaves the phone unchanged.
-2. The preferences DataStore is replaced in ONE edit (clear + write), so
-   every collector sees a single change and nothing half-written. The ARK
-   engine keys on the identity *code* (`ArkVoipStartup`): a restore that
-   swaps the code drops the current inbox client (`VoipEngine.dropClient()`)
-   and dials again under the restored code and token. Because the synced
-   push token is not in the file, the next refresh posts this phone's token
-   to the worker, so ARK calls now reach this phone.
-3. `ark_links` and `whatsapp_calls` are replaced inside one Room
-   transaction; the WhatsApp rows get fresh ids.
-4. The confirmation dialog before step 1 says that restoring replaces the
+1. The screen refuses a restore while any call is in progress: a swapped
+   identity would strand the live call's signaling frames.
+2. The file is read, parsed and, if encrypted, decrypted completely before
+   anything is touched. Any failure leaves the phone unchanged. The codec
+   never lets a parsing exception escape; every malformed shape becomes a
+   `BackupError`.
+3. The snapshot is sanitised (`BackupSanitizer`): the file is untrusted
+   input, so nothing is written that the app could not have written itself.
+   Only keys the app knows are accepted, each with the type the app reads
+   it as (a known key with another type is dropped); strings, sets, row
+   texts and row counts are bounded; `announce_mode` and
+   `blocked_call_action` must be enum names; the interval, repeat window
+   and schedule minutes are clamped; `speed_dial_N` needs N in 2–9; an
+   `ark_code` that is not a real ARK code drops the whole identity; links
+   need a valid code and non-blank numbers; WhatsApp rows need a known call
+   type and non-negative duration and time. Offending entries are dropped,
+   the rest restores. A test checks the known-key list against the
+   repositories' key objects by reflection so it cannot drift.
+4. SIM restrictions (`call_sim_account_id`, `blocking_sim_account_id`) are
+   kept only when the account exists on this phone; a stale blocking
+   account would make every rule read as "not this SIM".
+5. The tables are replaced first, in one Room transaction; the preferences
+   second, in ONE edit (clear + write). If the preferences write fails the
+   tables are put back from the rows captured before, so the phone is never
+   half old, half new. The whole apply runs non-cancellable: leaving the
+   screen cannot cut it in half.
+6. The ARK engine keys on the identity *code* (`ArkVoipStartup`): any
+   change drops the current inbox client (`VoipEngine.dropClient()`,
+   which also cancels a pending flush drain) and, when an identity exists,
+   dials again under it. Because the synced push token is not in the file,
+   the next refresh posts this phone's token to the worker, so ARK calls
+   now reach this phone; the sync records its marker only for the identity
+   it posted for.
+7. The confirmation dialog before step 2 says that restoring replaces the
    current settings, rules, ARK code and links, and that an ARK code must be
    used on one phone at a time.
 
@@ -114,6 +136,8 @@ damaged file, password required, could not read/write the file.
   serialization, `JsonObject` built by hand for the typed preferences).
 - `backup/BackupCodec.kt` — envelope encode/decode, PBKDF2 + AES-GCM,
   `BackupError` sealed type. Pure Kotlin, JVM-tested.
+- `backup/BackupSanitizer.kt` — the restore-side input validation above.
+  Pure Kotlin, JVM-tested.
 - `backup/BackupStore.kt` — collects the snapshot from the DataStore and
   Room, applies a snapshot back. Robolectric-tested with a real DataStore in
   a temp folder and an in-memory Room database.
@@ -127,12 +151,27 @@ damaged file, password required, could not read/write the file.
 - Codec: plain round trip; encrypted round trip; wrong password →
   `WrongPasswordOrDamaged`; garbage → `NotABackup`; version 2 →
   `UnsupportedVersion`; every preference type survives a round trip.
-- Store: export carries preferences, links and calls and omits the synced
+- Sanitizer: unknown keys, wrong types, crafted enum values, oversized
+  strings/sets, a non-ARK identity code, unusable rows and excess counts
+  are dropped or clamped; valid values survive untouched; the known-key
+  list matches the repositories' key objects.
+- Codec: malformed envelope and payload shapes raise `BackupException`,
+  never anything else.
+- Store: export keeps only the newest 10 000 WhatsApp calls so the file
+  stays restorable; restore drops SIM ids this phone does not have, puts
+  the tables back when the preferences write fails, leaves the preferences
+  alone when the tables fail, finishes when its caller is cancelled; export carries preferences, links and calls and omits the synced
   push token; restore replaces all three in one edit and leaves the synced
   token empty even when the file carries one.
 - Startup: an identity whose code changes without passing through `null`
   closes the old inbox socket and dials with the new token.
-- View model: export writes the file and reports saved; choosing an
+  Without an identity, startup never asks Firebase for a token; removing
+  the identity closes the socket; a client dropped mid-drain cannot ring
+  its replacement early; a push sync that lands under another identity
+  records no marker.
+- View model: codec and store work runs on the IO dispatcher; a restore
+  during a call is refused; an export larger than the import limit is
+  refused before anything is written; export writes the file and reports saved; choosing an
   encrypted file asks for its password and restoring without one reports
   password required; restore applies the file; a non-backup file is
   reported when chosen. The password-repeat check lives in the screen

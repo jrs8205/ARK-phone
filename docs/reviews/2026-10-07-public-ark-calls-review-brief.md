@@ -311,3 +311,53 @@ same concept, uses the wrong register, has a plural form that is wrong for
 the CLDR category, or whose example number/prefix is wrong for the country.
 Quote the current text and give the corrected text. A language with nothing
 to fix should say so explicitly so the maintainer knows it was read.
+
+## Round 1 (2026-10-07 21:09) — findings and what was done
+
+Codex reviewed `fe55679..325232f` (the committed state; the then-uncommitted
+`BackupSanitizer` was not part of it) and reported 1 P1, 10 P2, 7 P3. Every
+finding was verified against the code and found real. Fixes, all TDD
+(967 tests, lint clean):
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P1 | `onAppStart()` called `fcmRefresh()` before any identity → Firebase registration pre-registration | the refresh moved inside the identity branch; test `startupWithoutAnIdentityNeverAsksFirebaseForAToken` | `896f039` |
+| P2 | restore wrote a known key with the wrong type → `ClassCastException` on every launch | `BackupSanitizer` registry of known keys **with types**; unknown keys and wrong types dropped; reflection test guards the registry against the repositories' key objects | `9783317` |
+| P2 | malformed JSON shapes escaped as `IllegalArgumentException` / `IllegalStateException` | codec wraps every parse path (`asBackupError`), type-checks envelope fields; 12-case test | `9783317` |
+| P2 | PBKDF2 / parsing on Main | the whole export/restore block runs under `withContext(io)`; test asserts the snapshot runs on the IO thread | `9783317` |
+| P2 | identity replaced under a live ARK call | `BackupViewModel.restore()` refuses with `BackupError.CallInProgress` while `CallController.calls` is non-empty; new string in 11 languages | `9783317` |
+| P2 | prefs committed, Room rolled back; `viewModelScope` cancellation | tables first (transaction), prefs second (one edit); prefs failure puts the tables back from captured rows; whole apply under `NonCancellable`; tests for closed DB, failing DataStore and cancelled caller | `9783317` |
+| P2 | null identity skipped `dropClient()` | drop on every identity change, connect only when non-null; test `removingTheIdentityClosesTheInboxSocket` | `896f039` |
+| P2 | flush drain not cancelled with its client | `drainJob` tracked and cancelled in `dropClient()`; test `aDroppedClientsDrainCannotRingTheReplacementEarly` | `896f039` |
+| P2 | FCM sync marker written for a replaced identity | `FcmTokenSync.sync()` re-reads the identity after the POST and records the marker only for the one it posted for; test with a stalled POST | `896f039` |
+| P2 | stale `blocking_sim_account_id` disables rules | `BackupStore` drops `call_sim_account_id` / `blocking_sim_account_id` not present in `SimAccountRepository.accounts()` | `9783317` |
+| P2 | export unbounded while import caps at 16 MB | snapshot takes the newest 10 000 WhatsApp calls (`WhatsAppCallDao.newest`); export refuses to write a file over the import cap | `9783317` |
+| P3 ×7 | fr / et / ru wording | applied as suggested | `bcdaae4` |
+
+Decisions worth a second look: unknown preference keys are now **dropped**
+on restore (a backup from a newer app loses keys the older app does not
+know — the older app could not read them anyway); a restore with no SIM
+inserted drops both SIM ids; an oversized export reports the generic
+"could not be read or written" message rather than a dedicated one.
+
+## Round 2 request
+
+Review the three fix commits `896f039`, `bcdaae4`, `9783317` on top of
+`325232f`, with the same ground rules. Concentrate on:
+
+1. Whether each round-1 fix is complete and introduces nothing new —
+   especially the restore ordering/compensation in `BackupStore.restore()`
+   (is the captured-rows rollback itself safe if the second
+   `replaceTables` fails?), the `NonCancellable` scope, and the
+   `FcmTokenSync` identity re-check (does it leave a legitimate token
+   unposted in any ordering?).
+2. `BackupSanitizer`'s registry versus every reader: is any accepted value
+   still able to misbehave downstream (`speed_dial_N` numbers in dial
+   intents, SIM ids fed to Telecom, long nicknames in notifications)?
+3. `VoipEngine.dropClient()` with a drain cancelled mid-flight: can a
+   message buffered by the old client be lost rather than merely not rung?
+4. The `CallInProgress` guard: `CallController.calls` covers carrier and
+   ARK calls alike — is a carrier call a reason to refuse, and is there a
+   ringing-but-not-yet-added window it misses?
+5. Part D for the new string `backup_error_call_in_progress` in all nine
+   languages plus Finnish, and for the seven corrected strings.
