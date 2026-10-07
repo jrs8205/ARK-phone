@@ -60,6 +60,7 @@ fun SettingsScreen(
     onOpenSimInfo: () -> Unit,
     onOpenBlocking: () -> Unit = {},
     onOpenArkCalls: () -> Unit = {},
+    onOpenBackup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
@@ -122,6 +123,7 @@ fun SettingsScreen(
         onOpenSimInfo = onOpenSimInfo,
         onOpenBlocking = onOpenBlocking,
         onOpenArkCalls = onOpenArkCalls,
+        onOpenBackup = onOpenBackup,
         arkCallsAvailable = viewModel.arkCallsAvailable,
         onOpenCallSettings = {
             runCatching {
@@ -164,6 +166,7 @@ fun SettingsContent(
     onBack: () -> Unit,
     onOpenBlocking: () -> Unit = {},
     onOpenArkCalls: () -> Unit = {},
+    onOpenBackup: () -> Unit = {},
     arkCallsAvailable: Boolean = true,
     hasNotificationAccess: Boolean = true,
     onAnnounceWhatsAppChanged: (Boolean) -> Unit = {},
@@ -367,6 +370,14 @@ fun SettingsContent(
                 onClick = {
                     haptics.click()
                     onOpenCallSettings()
+                },
+            )
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_backup_title),
+                description = stringResource(R.string.settings_backup_description),
+                onClick = {
+                    haptics.click()
+                    onOpenBackup()
                 },
             )
             Text(

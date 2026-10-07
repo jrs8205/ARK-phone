@@ -76,13 +76,13 @@ a forgotten password.
 
 1. The file is read, parsed and, if encrypted, decrypted completely before
    anything is touched. Any failure leaves the phone unchanged.
-2. The preferences DataStore is cleared in one edit, then the restored
-   entries are written in a second edit. The gap makes the identity flow
-   emit `null` and then the restored identity, which is what makes the ARK
-   engine drop its current connection and reconnect under the restored code
-   (`ArkVoipStartup` keys on identity presence). Because the synced push
-   token is not in the file, the next startup posts this phone's token to
-   the worker, so ARK calls now reach this phone.
+2. The preferences DataStore is replaced in ONE edit (clear + write), so
+   every collector sees a single change and nothing half-written. The ARK
+   engine keys on the identity *code* (`ArkVoipStartup`): a restore that
+   swaps the code drops the current inbox client (`VoipEngine.dropClient()`)
+   and dials again under the restored code and token. Because the synced
+   push token is not in the file, the next refresh posts this phone's token
+   to the worker, so ARK calls now reach this phone.
 3. `ark_links` and `whatsapp_calls` are replaced inside one Room
    transaction; the WhatsApp rows get fresh ids.
 4. The confirmation dialog before step 1 says that restoring replaces the
@@ -128,11 +128,15 @@ damaged file, password required, could not read/write the file.
   `WrongPasswordOrDamaged`; garbage → `NotABackup`; version 2 →
   `UnsupportedVersion`; every preference type survives a round trip.
 - Store: export carries preferences, links and calls and omits the synced
-  push token; restore replaces all three and leaves the synced token empty;
-  the identity flow goes through `null` during a restore.
-- View model: export writes the file and reports saved; a password mismatch
-  blocks the save; restore of an encrypted file without a password reports
-  password required.
+  push token; restore replaces all three in one edit and leaves the synced
+  token empty even when the file carries one.
+- Startup: an identity whose code changes without passing through `null`
+  closes the old inbox socket and dials with the new token.
+- View model: export writes the file and reports saved; choosing an
+  encrypted file asks for its password and restoring without one reports
+  password required; restore applies the file; a non-backup file is
+  reported when chosen. The password-repeat check lives in the screen
+  state, not the view model.
 
 ## Out of scope
 

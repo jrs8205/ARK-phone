@@ -25,8 +25,11 @@ import org.robolectric.annotation.Config
 class ArkVoipStartupTest {
 
     private class StubHandle : WebSocketHandle {
+        var closed = false
         override fun send(text: String): Boolean = true
-        override fun close() = Unit
+        override fun close() {
+            closed = true
+        }
     }
 
     private class FakeProximityLock : ProximityLock {
@@ -61,6 +64,7 @@ class ArkVoipStartupTest {
 
     private class StartupConnector : WebSocketConnector {
         val handles = mutableListOf<StubHandle>()
+        val bearers = mutableListOf<String>()
         var lastOnOpen: (() -> Unit)? = null
         var lastOnText: ((String) -> Unit)? = null
         override fun connect(
@@ -70,6 +74,7 @@ class ArkVoipStartupTest {
             onText: (String) -> Unit,
             onClosed: (Int, String) -> Unit,
         ): WebSocketHandle {
+            bearers += bearer
             lastOnOpen = onOpen
             lastOnText = onText
             return StubHandle().also { handles += it }
@@ -117,6 +122,32 @@ class ArkVoipStartupTest {
         repository.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
         runCurrent()
         assertEquals(1, connector.handles.size)
+    }
+
+    @Test
+    fun aRestoredIdentityUnderAnotherCodeReopensTheInboxWithTheNewToken() = runTest {
+        // A backup restore swaps the identity without passing through null;
+        // the inbox must drop the old socket and dial under the new token.
+        val connector = StartupConnector()
+        val repository = TestArkIdentityRepository(ArkIdentity("ARK-AAAA-AAAA", "A", "token-a"))
+        val engine = VoipEngine(
+            identityRepository = repository,
+            connector = connector,
+            config = VoipConfig("https://w"),
+            scope = backgroundScope,
+        )
+        ArkVoipStartup(engine, { }, { }, repository.state, backgroundScope, proximity())
+            .onAppStart()
+        runCurrent()
+        connector.lastOnOpen?.invoke()
+        runCurrent()
+        assertEquals(listOf("ARK-AAAA-AAAA.token-a"), connector.bearers)
+
+        repository.state.value = ArkIdentity("ARK-BBBB-BBBB", "B", "token-b")
+        runCurrent()
+
+        assertTrue(connector.handles[0].closed)
+        assertEquals(listOf("ARK-AAAA-AAAA.token-a", "ARK-BBBB-BBBB.token-b"), connector.bearers)
     }
 
     @Test

@@ -37,10 +37,13 @@ class ArkVoipStartup(
         fcmRefresh()
         scope.launch { engine.incomingCalls.collect(onIncoming) }
         scope.launch {
-            // Re-fires on registration: a device that registers mid-process
-            // must open its inbox without waiting for a restart or a call.
-            identities.map { it != null }.distinctUntilChanged().collect { registered ->
-                if (registered) {
+            // Re-fires on registration (a device that registers mid-process
+            // must open its inbox without waiting for a restart or a call) and
+            // on a backup restore, which swaps the code in place: the old
+            // client is dropped so the dial happens under the restored one.
+            identities.map { it?.code }.distinctUntilChanged().collect { code ->
+                if (code != null) {
+                    engine.dropClient()
                     // A token that arrived pre-registration is only pending;
                     // this refresh is what actually posts it to the worker.
                     fcmRefresh()

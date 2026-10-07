@@ -2,6 +2,7 @@ package org.jarsi.arkphone.voip
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +52,7 @@ class VoipEngine @Inject constructor(
     private val connectMutex = Mutex()
 
     private var client: SignalingClient? = null
+    private val clientJobs = mutableListOf<Job>()
 
     private var draining = false
     private val drained = mutableListOf<SignalingMessage>()
@@ -89,6 +91,22 @@ class VoipEngine @Inject constructor(
         // ring — or the window closes on a caller who gave up.
         withTimeoutOrNull(WAKE_OFFER_WINDOW_MS) { ringCount.first { it != ringsBefore } }
         delay(WAKE_RING_MARGIN_MS)
+    }
+
+    /**
+     * Drops the inbox client so the next [connect] dials under whatever
+     * identity the repository holds NOW. A backup restore swaps the identity
+     * in place, and the client was built around the old code and token.
+     */
+    suspend fun dropClient() {
+        connectMutex.withLock {
+            clientJobs.forEach { it.cancel() }
+            clientJobs.clear()
+            client?.stop()
+            client = null
+            draining = false
+            drained.clear()
+        }
     }
 
     /** True once the inbox socket is open. False when this device has no identity. */
@@ -132,12 +150,12 @@ class VoipEngine @Inject constructor(
     fun send(message: SignalingMessage): Boolean = client?.send(message) ?: false
 
     private fun startCollecting(created: SignalingClient) {
-        scope.launch {
+        clientJobs += scope.launch {
             created.connectionState.collect { state ->
                 if (state == SignalingConnectionState.CONNECTED) beginDrain()
             }
         }
-        scope.launch {
+        clientJobs += scope.launch {
             created.incoming.collect { message ->
                 if (draining) drained += message else dispatch(message)
             }

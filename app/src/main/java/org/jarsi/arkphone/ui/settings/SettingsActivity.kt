@@ -29,20 +29,24 @@ class SettingsActivity : ComponentActivity() {
                 var showSimInfo by rememberSaveable { mutableStateOf(false) }
                 var showBlocking by rememberSaveable { mutableStateOf(false) }
                 var showArkCalls by rememberSaveable { mutableStateOf(false) }
-                BackHandler(enabled = showSimInfo || showBlocking || showArkCalls) {
+                var showBackup by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showSimInfo || showBlocking || showArkCalls || showBackup) {
                     showSimInfo = false
                     showBlocking = false
                     showArkCalls = false
+                    showBackup = false
                 }
                 when {
                     showSimInfo -> SimInfoScreen(onBack = { showSimInfo = false })
                     showBlocking -> BlockingScreen(onBack = { showBlocking = false })
                     showArkCalls -> ArkCallsScreen(onBack = { showArkCalls = false })
+                    showBackup -> BackupScreen(onBack = { showBackup = false })
                     else -> SettingsScreen(
                         onBack = ::finish,
                         onOpenSimInfo = { showSimInfo = true },
                         onOpenBlocking = { showBlocking = true },
                         onOpenArkCalls = { showArkCalls = true },
+                        onOpenBackup = { showBackup = true },
                     )
                 }
             }

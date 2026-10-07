@@ -36,8 +36,14 @@ interface WhatsAppCallDao {
     @Insert
     suspend fun insert(call: WhatsAppCallEntity)
 
+    @Insert
+    suspend fun insertAll(calls: List<WhatsAppCallEntity>)
+
     @Query("DELETE FROM whatsapp_calls WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<Long>)
+
+    @Query("DELETE FROM whatsapp_calls")
+    suspend fun clear()
 }
 
 /** One device-only link between a phone number and an ARK account. */
@@ -56,11 +62,17 @@ interface ArkLinkDao {
     @Query("SELECT * FROM ark_links ORDER BY nickname")
     fun links(): Flow<List<ArkLinkEntity>>
 
+    @Query("SELECT * FROM ark_links ORDER BY nickname")
+    suspend fun all(): List<ArkLinkEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(link: ArkLinkEntity)
 
     @Query("DELETE FROM ark_links WHERE numberKey = :numberKey")
     suspend fun delete(numberKey: String)
+
+    @Query("DELETE FROM ark_links")
+    suspend fun clear()
 }
 
 @Database(
