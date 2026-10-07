@@ -34,7 +34,6 @@ class ArkVoipStartup(
     override fun onAppStart() {
         if (started) return
         started = true
-        fcmRefresh()
         scope.launch { engine.incomingCalls.collect(onIncoming) }
         scope.launch {
             // Re-fires on registration (a device that registers mid-process
@@ -42,10 +41,16 @@ class ArkVoipStartup(
             // on a backup restore, which swaps the code in place: the old
             // client is dropped so the dial happens under the restored one.
             identities.map { it?.code }.distinctUntilChanged().collect { code ->
+                // Whatever the client was dialled under is gone: a removed
+                // identity must not keep its authenticated socket open.
+                engine.dropClient()
                 if (code != null) {
-                    engine.dropClient()
-                    // A token that arrived pre-registration is only pending;
-                    // this refresh is what actually posts it to the worker.
+                    // Firebase is asked for a token only once an identity
+                    // exists — the README promises no network use before
+                    // that, and getToken() registers with Google regardless
+                    // of the manifest auto-init flag. A token that arrived
+                    // pre-registration is only pending; this refresh is what
+                    // actually posts it to the worker.
                     fcmRefresh()
                     val connected = engine.connect()
                     Log.i(TAG, "ARK inbox connect=$connected")

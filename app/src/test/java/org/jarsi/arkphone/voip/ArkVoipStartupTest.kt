@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.voip
 
+import org.junit.Assert.assertFalse
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -148,6 +149,55 @@ class ArkVoipStartupTest {
 
         assertTrue(connector.handles[0].closed)
         assertEquals(listOf("ARK-AAAA-AAAA.token-a", "ARK-BBBB-BBBB.token-b"), connector.bearers)
+    }
+
+    @Test
+    fun startupWithoutAnIdentityNeverAsksFirebaseForAToken() = runTest {
+        // The README promises no network use before an ARK code exists;
+        // FirebaseMessaging.getToken() registers with Google regardless of
+        // the manifest auto-init flag, so it must wait for the identity.
+        val connector = StartupConnector()
+        val repository = TestArkIdentityRepository(null)
+        val engine = VoipEngine(
+            identityRepository = repository,
+            connector = connector,
+            config = VoipConfig("https://w"),
+            scope = backgroundScope,
+        )
+        var refreshed = false
+        ArkVoipStartup(engine, { }, { refreshed = true }, repository.state, backgroundScope, proximity())
+            .onAppStart()
+        runCurrent()
+        assertFalse(refreshed)
+        repository.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "t")
+        runCurrent()
+        assertTrue(refreshed)
+    }
+
+    @Test
+    fun removingTheIdentityClosesTheInboxSocket() = runTest {
+        // Restoring a backup made before registration leaves no identity;
+        // the authenticated socket of the old one must not stay open.
+        val connector = StartupConnector()
+        val repository = TestArkIdentityRepository(ArkIdentity("ARK-AAAA-AAAA", "A", "token-a"))
+        val engine = VoipEngine(
+            identityRepository = repository,
+            connector = connector,
+            config = VoipConfig("https://w"),
+            scope = backgroundScope,
+        )
+        ArkVoipStartup(engine, { }, { }, repository.state, backgroundScope, proximity())
+            .onAppStart()
+        runCurrent()
+        connector.lastOnOpen?.invoke()
+        runCurrent()
+        assertEquals(1, connector.handles.size)
+
+        repository.state.value = null
+        runCurrent()
+
+        assertTrue(connector.handles[0].closed)
+        assertEquals(1, connector.handles.size)
     }
 
     @Test

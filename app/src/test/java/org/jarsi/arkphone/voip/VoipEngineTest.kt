@@ -109,6 +109,34 @@ class VoipEngineTest {
     }
 
     @Test
+    fun aDroppedClientsDrainCannotRingTheReplacementEarly() = runTest {
+        // A backup restore replaces the client mid-drain. The old drain's
+        // deadline must not flush the new client's buffer before its own
+        // reconciliation window has closed (a buffered call-end could follow).
+        val connector = EngineConnector()
+        val engine = engine(connector, backgroundScope)
+        engine.incomingCalls.test {
+            val first = async { engine.connect() }
+            runCurrent()
+            connector.opens()
+            first.await()
+            advanceTimeBy(FLUSH_DRAIN_MS - 200)
+            engine.dropClient()
+            val second = async { engine.connect() }
+            runCurrent()
+            connector.opens()
+            second.await()
+            connector.serverSends(offer("ARK-BBBB-BBBB", "v=0 b"))
+            advanceTimeBy(300)
+            runCurrent()
+            expectNoEvents()
+            advanceTimeBy(FLUSH_DRAIN_MS)
+            runCurrent()
+            assertEquals("ARK-BBBB-BBBB", awaitItem().fromCode)
+        }
+    }
+
+    @Test
     fun anOfferArrivingAfterTheDrainRingsStraightAway() = runTest {
         val connector = EngineConnector()
         val engine = engine(connector, backgroundScope)

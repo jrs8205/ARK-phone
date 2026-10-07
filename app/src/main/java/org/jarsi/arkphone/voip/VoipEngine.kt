@@ -53,6 +53,7 @@ class VoipEngine @Inject constructor(
 
     private var client: SignalingClient? = null
     private val clientJobs = mutableListOf<Job>()
+    private var drainJob: Job? = null
 
     private var draining = false
     private val drained = mutableListOf<SignalingMessage>()
@@ -102,6 +103,10 @@ class VoipEngine @Inject constructor(
         connectMutex.withLock {
             clientJobs.forEach { it.cancel() }
             clientJobs.clear()
+            // The drain belongs to the old client too: left alive it would
+            // flush the replacement's buffer at the old deadline.
+            drainJob?.cancel()
+            drainJob = null
             client?.stop()
             client = null
             draining = false
@@ -166,7 +171,7 @@ class VoipEngine @Inject constructor(
         if (draining) return
         draining = true
         drained.clear()
-        scope.launch {
+        drainJob = scope.launch {
             delay(FLUSH_DRAIN_MS)
             val batch = drained.toList()
             drained.clear()

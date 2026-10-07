@@ -1,5 +1,8 @@
 package org.jarsi.arkphone.voip.fcm
 
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.ArkIdentity
 import org.jarsi.arkphone.voip.ArkAccountClient
@@ -46,6 +49,21 @@ class FcmTokenSyncTest {
         assertEquals("https://w/account/fcm-token", http.calls.single().url)
         assertEquals("ARK-AAAA-AAAA.tok", http.calls.single().bearer)
         assertEquals("fcm-1", identities.fcm.value)
+    }
+
+    @Test
+    fun aPostFinishingUnderAnotherIdentityDoesNotMarkThatIdentitySynced() = runTest {
+        identities.state.value = ArkIdentity("ARK-AAAA-AAAA", "A", "tok-a")
+        val gate = CompletableDeferred<ArkHttpResponse?>()
+        http.stallNextPost = gate
+        val posting = async { sync.sync("fcm-1") }
+        runCurrent()
+        // A backup restore swaps the identity while A's POST is on the wire.
+        identities.state.value = ArkIdentity("ARK-BBBB-BBBB", "B", "tok-b")
+        gate.complete(ArkHttpResponse(204, ""))
+        assertFalse(posting.await())
+        // B has not posted its token yet; a marker here would stop it from ever doing so.
+        assertNull(identities.fcm.value)
     }
 
     @Test
