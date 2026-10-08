@@ -133,6 +133,12 @@ class BackupViewModel(
      */
     fun applyRestore() {
         val snapshot = decoded ?: return
+        if (_uiState.value.busy) return
+        // The confirmation closes with the confirmation: left open during
+        // the apply, its Cancel could only forget a snapshot the apply no
+        // longer reads. On failure the chosen file stays, for another try.
+        decoded = null
+        _uiState.update { it.copy(pendingRestore = it.pendingRestore?.copy(preview = null)) }
         run {
             if (!admission.holdForRestore()) throw BackupException(BackupError.CallInProgress)
             try {

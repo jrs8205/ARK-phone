@@ -195,6 +195,26 @@ class BackupViewModelTest {
     }
 
     @Test
+    fun confirmingClosesThePreviewAndCancelCannotStopTheApply() = runTest(dispatcher) {
+        // The dialog is driven by the preview: left open during the apply,
+        // its Cancel only forgot a snapshot the apply no longer reads.
+        val viewModel = viewModel()
+        viewModel.chooseRestore(file(identityFile))
+        testScheduler.advanceUntilIdle()
+        viewModel.decodeRestore(password = null)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.applyRestore()
+        assertNull(viewModel.uiState.value.pendingRestore?.preview)
+        assertTrue(viewModel.uiState.value.busy)
+        viewModel.dismissRestorePreview()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(BackupMessage.Restored, viewModel.uiState.value.message)
+        assertEquals("ARK-NEW2-NEW2", dataStore.data.first()[stringPreferencesKey("ark_code")])
+    }
+
+    @Test
     fun dismissingThePreviewForgetsTheDecodedFile() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.chooseRestore(file(identityFile))
