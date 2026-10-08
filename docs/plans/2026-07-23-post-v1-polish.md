@@ -10,7 +10,6 @@
 ## Global Constraints
 
 - Everything committed (code, comments, commit messages) must be in English. Finnish text may appear ONLY in `app/src/main/res/values-fi/` resources.
-- No mentions of AI tools anywhere in the repo. Commit messages must NOT include any Co-Authored-By trailer.
 - The app name is `ARK-phone` (hyphen, lowercase p) in any new user-facing text.
 - Do not change build tool versions: Kotlin 2.3.21, KSP 2.3.10, Gradle wrapper 9.4.1, AGP 9.2.0 with built-in Kotlin (do NOT apply `org.jetbrains.kotlin.android`).
 - Before running Gradle commands in Git Bash, run: `export ANDROID_SDK_ROOT="$LOCALAPPDATA/Android/Sdk"`.

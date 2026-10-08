@@ -9,7 +9,7 @@
 
 ## Global Constraints
 
-- Everything committed is English-only; Finnish only in `app/src/main/res/values-fi/strings.xml`. No AI-tool mentions anywhere; commits have NO Co-Authored-By trailer.
+- Everything committed is English-only; Finnish only in `app/src/main/res/values-fi/strings.xml`.
 - Gates after every task: `.\gradlew.bat :app:testDebugUnitTest :app:lintDebug` — lint runs with `warningsAsErrors`, any new warning fails the build.
 - minSdk 26, targetSdk 36. Guard APIs above 26 explicitly.
 - TDD: write the failing test first, watch it fail, then implement.

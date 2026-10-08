@@ -12,7 +12,7 @@
 
 - **Test gate, run from `C:\Users\jrs82\Downloads\ARK-phone` after every task:** `.\gradlew.bat :app:testDebugUnitTest :app:lintDebug`
 - **Lint is `warningsAsErrors = true`** (`app/build.gradle.kts`): one new warning fails the gate. In particular every string added to `app/src/main/res/values/strings.xml` MUST get a matching entry in `app/src/main/res/values-fi/strings.xml`, or lint `MissingTranslation` fails.
-- **English only** in code, comments, strings and commit messages. **No AI mentions** anywhere (no co-author trailers, no tool names).
+- **English only** in code, comments, strings and commit messages.
 - **Commit in the PARENT repo on branch `feature/voip-spike`** (`C:\Users\jrs82\Downloads\ARK-phone`). `worker/` is a separate nested git repository that this plan never modifies — it is read-only reference.
 - **Release must stay untouched:** every new dependency is `debugImplementation`; every new manifest entry goes in `app/src/debug/AndroidManifest.xml`; no new permission reaches `app/src/main/AndroidManifest.xml`. Main-tree VoIP code compiles into release but is inert because the `Optional<VoipAccountGateway>` / `Optional<VoipCallGateway>` bindings are empty there.
 - **Secrets:** `arkphone.voip.workerUrl` lives in `local.properties` (gitignored) and reaches code only as `BuildConfig.VOIP_WORKER_URL` in the debug build type. `app/google-services.json` is NOT committed; the `com.google.gms.google-services` plugin is applied only when that file exists, exactly as the signing config exists only when the `ARKPHONE_STORE_FILE` property is present. **The build must succeed with the file absent.**
