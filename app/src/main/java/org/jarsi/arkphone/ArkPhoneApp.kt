@@ -1,9 +1,11 @@
 package org.jarsi.arkphone
 
 import android.app.Application
+import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.jarsi.arkphone.backup.BackupStore
 import org.jarsi.arkphone.data.BlockedNumbersMigration
 import org.jarsi.arkphone.data.SettingsCache
 import org.jarsi.arkphone.di.ApplicationScope
@@ -25,6 +27,8 @@ class ArkPhoneApp : Application() {
 
     @Inject lateinit var blockedNumbersMigration: BlockedNumbersMigration
 
+    @Inject lateinit var backupStore: BackupStore
+
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     @Inject lateinit var voipStartup: Optional<VoipStartup>
@@ -36,7 +40,18 @@ class ArkPhoneApp : Application() {
         // call rather than during it.
         callNotifications.ensureChannels()
         appScope.launch { blockedNumbersMigration.migrate() }
+        // A restore the last process did not get to finish (its preferences
+        // committed, its tables did not) is finished before anything reads
+        // the tables as current.
+        appScope.launch {
+            runCatching { backupStore.recoverInterruptedRestore() }
+                .onFailure { Log.w(TAG, "ARK restore recovery failed", it) }
+        }
         // Empty in release: no engine, no socket, no push.
         voipStartup.ifPresent(VoipStartup::onAppStart)
+    }
+
+    private companion object {
+        const val TAG = "ArkPhone"
     }
 }

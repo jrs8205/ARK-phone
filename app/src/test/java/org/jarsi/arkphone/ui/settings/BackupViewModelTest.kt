@@ -64,7 +64,7 @@ class BackupViewModelTest {
     // transaction, whose thread here is the test thread — a file-backed
     // store would need that same thread to run its own writer.
     private val dataStore = InMemoryPreferencesDataStore()
-    private val store = BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() })
+    private val store by lazy { BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() }, journalDir = tmp.newFolder()) }
     private val callController = CallController()
     private val admission = FakeAdmission()
     private val codec = BackupCodec()
@@ -292,6 +292,7 @@ class BackupViewModelTest {
                 heldDuringApply = admission.held
                 throw IOException("sim query failed")
             },
+            journalDir = tmp.newFolder(),
         )
         val viewModel = viewModel(failingStore)
 
@@ -330,7 +331,7 @@ class BackupViewModelTest {
         // export block ran.
         val io = Executors.newSingleThreadExecutor { Thread(it, "backup-io") }.asCoroutineDispatcher()
         var snapshotThread: String? = null
-        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() })
+        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() }, tmp.newFolder())
         val viewModel = BackupViewModel(
             context.contentResolver, offMainStore, codec, io,
             iterations = 1_000, callController = callController, admission = admission, maxFileBytes = 16 * 1024 * 1024,

@@ -36,6 +36,9 @@ import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.WhatsAppCallEntity
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -57,11 +60,49 @@ private class FaultyWrites : SupportSQLiteOpenHelper.Factory {
         }
     }
 
+    /**
+     * The next outermost exclusive transaction (Room's withTransaction; the
+     * DAOs and the invalidation tracker use non-exclusive ones) rolls back
+     * at its COMMIT and reports a failure, as disk-full does.
+     */
+    @Volatile
+    var failNextCommit = false
+
+    /** From that failed COMMIT on, every write is refused too. */
+    @Volatile
+    var failWritesAfterCommitFault = false
+
+    private var depth = 0
+    private var armed = false
+
     private fun refuse() {
         if (failWrites) throw SQLiteException("disk I/O error")
     }
 
     private fun faulty(db: SupportSQLiteDatabase): SupportSQLiteDatabase = object : SupportSQLiteDatabase by db {
+        override fun beginTransaction() {
+            if (depth == 0 && failNextCommit) armed = true
+            depth++
+            db.beginTransaction()
+        }
+        override fun beginTransactionNonExclusive() {
+            depth++
+            db.beginTransactionNonExclusive()
+        }
+        override fun setTransactionSuccessful() {
+            if (armed && depth == 1) return
+            db.setTransactionSuccessful()
+        }
+        override fun endTransaction() {
+            depth--
+            db.endTransaction()
+            if (armed && depth == 0) {
+                armed = false
+                failNextCommit = false
+                if (failWritesAfterCommitFault) failWrites = true
+                throw SQLiteException("disk I/O error")
+            }
+        }
         override fun compileStatement(sql: String): SupportSQLiteStatement {
             val statement = db.compileStatement(sql)
             return object : SupportSQLiteStatement by statement {
@@ -118,8 +159,10 @@ class BackupStoreTest {
             scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job()),
         ) { File(tmp.root, "settings.preferences_pb") }
 
-    private fun store(dataStore: DataStore<Preferences>) =
-        BackupStore(dataStore, db, { 1_700_000_000_000L }, appVersion = "1.28", simAccountIds = { setOf("sim-a") })
+    private val journalDir: File by lazy { tmp.newFolder("no_backup") }
+
+    private fun store(dataStore: DataStore<Preferences>, database: ArkPhoneDatabase = db) =
+        BackupStore(dataStore, database, { 1_700_000_000_000L }, appVersion = "1.28", simAccountIds = { setOf("sim-a") }, journalDir = journalDir)
 
     @After
     fun tearDown() {
@@ -228,7 +271,7 @@ class BackupStoreTest {
         faults.failWrites = true
 
         try {
-            BackupStore(dataStore, faultyDb, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            BackupStore(dataStore, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
             fail("expected the refused table write to fail the restore")
         } catch (e: SQLiteException) {
             // The tables could not be replaced; nothing else may change.
@@ -254,7 +297,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -290,7 +333,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            BackupStore(failing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -330,7 +373,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -338,6 +381,101 @@ class BackupStoreTest {
         recording!!.join()
 
         assertEquals(setOf("Alice", "Live"), db.whatsAppCallDao().callsOnce().map { it.callerName }.toSet())
+    }
+
+    private fun faultyDatabase(faults: FaultyWrites): ArkPhoneDatabase =
+        Room.inMemoryDatabaseBuilder(context, ArkPhoneDatabase::class.java)
+            .allowMainThreadQueries()
+            .openHelperFactory(faults)
+            .build()
+
+    private val importedFile = BackupSnapshot(
+        1L, "1.28",
+        listOf(BackupPreference("ark_code", BackupPreference.Type.STRING, "ARK-NEW2-NEW2")),
+        listOf(BackupArkLink("1", "+1", "ARK-AAAA-AAAA", "Other", "pk", 1L)),
+        listOf(BackupWhatsAppCall("Imported", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")),
+    )
+
+    @Test
+    fun aFailedCommitAfterThePreferencesWriteStillCompletesTheRestore() = runTest {
+        // Disk-full at the final COMMIT: the preferences file is already
+        // renamed into place, the tables roll back. The restore must end
+        // with both stores holding the file, not half of each.
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        faultyDb.arkLinkDao().upsert(link)
+        val dataStore = createDataStore()
+        faults.failNextCommit = true
+
+        store(dataStore, faultyDb).restore(importedFile)
+
+        assertEquals("ARK-NEW2-NEW2", dataStore.data.first()[stringPreferencesKey("ark_code")])
+        assertEquals(listOf("1"), faultyDb.arkLinkDao().all().map { it.numberKey })
+        assertEquals(listOf("Imported"), faultyDb.whatsAppCallDao().callsOnce().map { it.callerName })
+        assertFalse(File(journalDir, "restore.journal").exists())
+        faultyDb.close()
+    }
+
+    @Test
+    fun aFailedCommitWhoseRetryFailsTooIsFinishedAtTheNextStart() = runTest {
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        faultyDb.arkLinkDao().upsert(link)
+        val dataStore = createDataStore()
+        faults.failNextCommit = true
+        faults.failWritesAfterCommitFault = true // the immediate retry fails as well
+
+        try {
+            store(dataStore, faultyDb).restore(importedFile)
+            fail("expected SQLiteException")
+        } catch (e: SQLiteException) {
+            // Preferences new, tables old — and a journal that says so.
+        }
+        assertEquals("ARK-NEW2-NEW2", dataStore.data.first()[stringPreferencesKey("ark_code")])
+        assertEquals(listOf(link), faultyDb.arkLinkDao().all())
+        assertTrue(File(journalDir, "restore.journal").exists())
+
+        faults.failWrites = false
+        store(dataStore, faultyDb).recoverInterruptedRestore()
+
+        assertEquals(listOf("1"), faultyDb.arkLinkDao().all().map { it.numberKey })
+        assertEquals(listOf("Imported"), faultyDb.whatsAppCallDao().callsOnce().map { it.callerName })
+        assertFalse(File(journalDir, "restore.journal").exists())
+        faultyDb.close()
+    }
+
+    @Test
+    fun aJournalWhosePreferencesNeverCommittedIsDiscarded() = runTest {
+        // A process death before the preferences rename: SQLite rolled the
+        // tables back on reopen, the preferences are untouched — the
+        // journal must not replay the tables over them.
+        val dataStore = createDataStore()
+        db.arkLinkDao().upsert(link)
+        RestoreJournal(journalDir).write("never-committed", importedFile)
+
+        store(dataStore).recoverInterruptedRestore()
+
+        assertEquals(listOf(link), db.arkLinkDao().all())
+        assertNull(dataStore.data.first()[stringPreferencesKey("ark_code")])
+        assertFalse(File(journalDir, "restore.journal").exists())
+    }
+
+    @Test
+    fun aCleanlyFailedRestoreLeavesNoJournal() = runTest {
+        val dataStore = createDataStore()
+        val failing = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+                throw IOException("disk full")
+        }
+
+        try {
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(importedFile)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            // SQLite rolled back; nothing is left to finish later.
+        }
+
+        assertFalse(File(journalDir, "restore.journal").exists())
     }
 
     @Test
@@ -402,7 +540,9 @@ class BackupStoreTest {
         assertEquals("ARK-NEW2-NEW2", prefs[stringPreferencesKey("ark_code")])
         assertEquals(setOf("0600", "0700"), prefs[stringSetPreferencesKey("blocked_prefixes")])
         assertNull(prefs[stringPreferencesKey("ark_synced_fcm_token")])
-        assertEquals(4, prefs.asMap().size)
+        // The restore's own id rides along, for a journal to recognise.
+        assertNotNull(prefs[stringPreferencesKey("backup_restore_id")])
+        assertEquals(5, prefs.asMap().size)
         assertEquals(listOf(link), db.arkLinkDao().links().first())
         assertEquals(
             listOf(call.copy(id = db.whatsAppCallDao().callsOnce().single().id)),

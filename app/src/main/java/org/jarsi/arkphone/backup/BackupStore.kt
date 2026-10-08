@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.backup
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -12,6 +13,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.withTransaction
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -21,6 +23,8 @@ import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.SimAccountRepository
 import org.jarsi.arkphone.data.WhatsAppCallEntity
 import org.jarsi.arkphone.util.Clock
+import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,14 +40,42 @@ class BackupStore(
     private val clock: Clock,
     private val appVersion: String,
     private val simAccountIds: suspend () -> Set<String>,
+    journalDir: File,
 ) {
     @Inject
     constructor(
+        @ApplicationContext context: Context,
         dataStore: DataStore<Preferences>,
         database: ArkPhoneDatabase,
         clock: Clock,
         simAccounts: SimAccountRepository,
-    ) : this(dataStore, database, clock, BuildConfig.VERSION_NAME, { simAccounts.accounts().map { it.id }.toSet() })
+    ) : this(
+        dataStore, database, clock, BuildConfig.VERSION_NAME,
+        { simAccounts.accounts().map { it.id }.toSet() },
+        context.noBackupFilesDir,
+    )
+
+    private val journal = RestoreJournal(journalDir)
+
+    /**
+     * Finishes a restore an earlier process did not get to finish: one whose
+     * preferences committed (they carry its id) but whose tables did not.
+     * Called at process start; a journal whose preferences never committed
+     * is simply discarded, since SQLite has already rolled its tables back.
+     */
+    suspend fun recoverInterruptedRestore() {
+        val entry = journal.read()
+        if (entry == null) {
+            journal.delete()
+            return
+        }
+        withContext(NonCancellable) {
+            if (dataStore.data.first()[RESTORE_ID_KEY] == entry.id) {
+                database.withTransaction { replaceTables(entry.snapshot) }
+            }
+            journal.delete()
+        }
+    }
 
     suspend fun snapshot(): BackupSnapshot {
         val preferences = dataStore.data.first().asMap()
@@ -80,11 +112,16 @@ class BackupStore(
      * no compensating write that could fail and lose the only copy of the
      * original rows — and the write lock keeps WhatsAppCallMonitor and
      * the link screen out until the outcome is known, so a call recorded
-     * meanwhile lands on whichever tables survive. What remains is the
-     * commit of an already written transaction after the preferences file
-     * has been renamed into place; that is where a process death would
-     * leave new preferences next to old tables. The whole apply runs
-     * non-cancellable: leaving the screen must not cut it in half.
+     * meanwhile lands on whichever tables survive.
+     *
+     * What remains is the COMMIT of the already written transaction after
+     * the preferences file has been renamed into place (disk full there, or
+     * a process death): new preferences next to old tables. For that the
+     * snapshot is journalled before anything changes and the preferences
+     * carry the restore's id: a failed commit is retried at once, and a
+     * retry that fails too leaves the journal for the next process start
+     * ([recoverInterruptedRestore]). The whole apply runs non-cancellable:
+     * leaving the screen must not cut it in half.
      */
     suspend fun restore(untrusted: BackupSnapshot) {
         val sims = simAccountIds()
@@ -94,33 +131,61 @@ class BackupStore(
             )
         }
         withContext(NonCancellable) {
-            database.withTransaction {
-                val linkDao = database.arkLinkDao()
-                linkDao.clear()
-                snapshot.arkLinks.forEach {
-                    linkDao.upsert(ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis))
+            val restoreId = UUID.randomUUID().toString()
+            journal.write(restoreId, snapshot)
+            var preferencesCommitted = false
+            try {
+                database.withTransaction {
+                    replaceTables(snapshot)
+                    dataStore.edit { prefs ->
+                        prefs.clear()
+                        snapshot.preferences.forEach { put(prefs, it) }
+                        prefs[RESTORE_ID_KEY] = restoreId
+                    }
+                    preferencesCommitted = true
                 }
-                val callDao = database.whatsAppCallDao()
-                callDao.clear()
-                callDao.insertAll(
-                    snapshot.whatsAppCalls.map {
-                        WhatsAppCallEntity(
-                            callerName = it.callerName,
-                            callerNumber = it.callerNumber,
-                            type = it.type,
-                            timestampMillis = it.timestampMillis,
-                            durationSeconds = it.durationSeconds,
-                            isVideo = it.isVideo,
-                            sourcePackage = it.sourcePackage,
-                        )
-                    },
-                )
-                dataStore.edit { prefs ->
-                    prefs.clear()
-                    snapshot.preferences.forEach { put(prefs, it) }
+            } catch (e: Exception) {
+                if (!preferencesCommitted) {
+                    // SQLite rolled the tables back and the preferences are
+                    // as they were: nothing is left for anyone to finish.
+                    journal.delete()
+                    throw e
+                }
+                // The preferences are in, the tables are not. Finish now if
+                // the database lets us; otherwise the journal stays and
+                // the next start finishes it.
+                try {
+                    database.withTransaction { replaceTables(snapshot) }
+                } catch (retry: Exception) {
+                    e.addSuppressed(retry)
+                    throw e
                 }
             }
+            journal.delete()
         }
+    }
+
+    private suspend fun replaceTables(snapshot: BackupSnapshot) {
+        val linkDao = database.arkLinkDao()
+        linkDao.clear()
+        snapshot.arkLinks.forEach {
+            linkDao.upsert(ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis))
+        }
+        val callDao = database.whatsAppCallDao()
+        callDao.clear()
+        callDao.insertAll(
+            snapshot.whatsAppCalls.map {
+                WhatsAppCallEntity(
+                    callerName = it.callerName,
+                    callerNumber = it.callerNumber,
+                    type = it.type,
+                    timestampMillis = it.timestampMillis,
+                    durationSeconds = it.durationSeconds,
+                    isVideo = it.isVideo,
+                    sourcePackage = it.sourcePackage,
+                )
+            },
+        )
     }
 
     private fun backupPreference(name: String, value: Any): BackupPreference? = when (value) {
@@ -155,7 +220,10 @@ class BackupStore(
          * This phone's push registration. Restoring another phone's token
          * would keep the worker waking that phone instead of this one.
          */
-        val DEVICE_ONLY_KEYS = setOf("ark_synced_fcm_token", "ark_synced_fcm_account")
+        val DEVICE_ONLY_KEYS = setOf("ark_synced_fcm_token", "ark_synced_fcm_account", "backup_restore_id")
+
+        /** Written with the restored preferences; tells a journal whether they committed. */
+        private val RESTORE_ID_KEY = stringPreferencesKey("backup_restore_id")
 
         /** Phone-account ids are per phone; a restored one must exist here. */
         val SIM_KEYS = setOf("call_sim_account_id", "blocking_sim_account_id")
