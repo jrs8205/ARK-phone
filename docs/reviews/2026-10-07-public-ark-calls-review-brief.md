@@ -550,3 +550,61 @@ Review the round-4 fix commit with the same ground rules. Concentrate on:
 5. Anything in the two repositories' `withLock` wrappers that changes
    their cancellation or exception behaviour for existing callers
    (`WhatsAppCallMonitor`, the call detail delete paths, the link screen).
+
+## Round 5 (2026-10-08 09:41) — findings fixed by the reviewer, and what followed
+
+Codex reviewed `c9e1610` and this time applied its fixes in the working
+tree (three P2 plus the journal's error handling, sixteen regression
+tests); its own report is `2026-10-08-backup-release-fixes.md`. The tree
+was verified here (1 017 tests, lint clean, `git diff --check`) and
+committed as `2cca4fe`:
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P2 | a repository write could land beside a journal still pending after a failed startup recovery | `TableWriteLock.withLock` finishes the pending restore before every write and refuses the write when it cannot; `BackupStore` is resolved lazily (`dagger.Lazy`) to break the injection cycle | `2cca4fe` |
+| P2 | `snapshot()` read the two stores outside the lock, so an export could carry an unfinished restore | `snapshot()` takes the restore lock and finishes a pending journal first | `2cca4fe` |
+| P2 | `ArkLinkCache.refresh()` read the table once while the old collector's late emission could overwrite it | `refresh()` replaces the subscription (cancel + join, under a mutex and `NonCancellable`) and awaits the new one's first result; a query failure clears the stale links and reaches the caller | `2cca4fe` |
+| — | an unreadable journal was treated as absent; a failed delete went unnoticed | `RestoreJournal.read()` throws `IOException`, `delete()` uses `Files.deleteIfExists` | `2cca4fe` |
+
+The maintainer's review of those fixes found one gap and fixed it (TDD,
+1 020 tests):
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P1 | with a pending journal that cannot be finished, every table write now throws; `WhatsAppCallMonitor` (application scope) and `ContactCardViewModel` (view-model scope) did not catch it — the process would have died at the end of every WhatsApp call and on every link attempt for as long as the journal stayed pending | the monitor logs and skips the row; the contact card returns to the code entry with `ArkLinkError.STORAGE_FAILED` ("Could not save the link. Try again.", new string × 11 languages) and a failed unlink keeps the link | `18c7538` |
+
+Decisions worth a second look:
+
+- Refusing every table write while a journal cannot be finished is the
+  reviewer's stance and is kept: it never loses data, at the price of a
+  WhatsApp call log that stops growing and links that cannot be changed
+  until the disk writes again. The user sees the "could not be read or
+  written" message on the backup screen and the new link error.
+- `BackupStore.snapshot()` now runs under the restore lock: an export
+  waits for a restore in flight and vice versa.
+
+## Round 6 request
+
+Review `2cca4fe` and the follow-up commit with the same ground rules. This
+is meant to be the go/no-go round for v1.28: besides anything new, state
+explicitly whether the restore/recovery design is now sound enough to
+release, or list what still blocks it. Concentrate on:
+
+1. Every caller of `RoomWhatsAppCallLogRepository` and
+   `RoomArkLinkRepository` (the monitor, the contact card, the call detail
+   delete paths, the history delete paths): does each handle a refused
+   write, and does any of them run on a scope where an exception would
+   still crash the process?
+2. `TableWriteLock(Lazy<BackupStore>)`: construction order under Hilt at
+   process start (`ArkPhoneApp` injects `BackupRecoveryStartup` →
+   `BackupStore` → `TableWriteLock` → `Lazy<BackupStore>`), and
+   `finishPending()` running on every write — its cost on the hot path
+   (`withContext(io)` + a file stat per WhatsApp call) and any reentrancy
+   (a write issued from inside `finishPending`'s own transaction).
+3. `ArkLinkCache.refresh()`: the cancel + join of the collector on the
+   application scope from `releaseRestoreHold()` on Main — can it block
+   Main, and can `firstLoad` ever stay incomplete so that `await()` hangs
+   `onIncoming()` (there is a 2 s timeout on that path)?
+4. The new English report `docs/reviews/2026-10-08-backup-release-fixes.md`
+   and the README/user guide (`README.md`, `docs/USAGE.md`): any claim that
+   the code does not back.
