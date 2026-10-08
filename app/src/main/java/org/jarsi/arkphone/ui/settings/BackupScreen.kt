@@ -61,7 +61,9 @@ fun BackupScreen(
         suggestedFileName = viewModel::suggestedFileName,
         onExport = viewModel::export,
         onChooseRestore = viewModel::chooseRestore,
-        onRestore = viewModel::restore,
+        onDecodeRestore = viewModel::decodeRestore,
+        onApplyRestore = viewModel::applyRestore,
+        onDismissPreview = viewModel::dismissRestorePreview,
         onMessageShown = viewModel::dismissMessage,
     )
 }
@@ -74,7 +76,9 @@ fun BackupContent(
     suggestedFileName: () -> String = { "ARK-phone-backup.arkbackup" },
     onExport: (android.net.Uri, String?) -> Unit = { _, _ -> },
     onChooseRestore: (android.net.Uri) -> Unit = {},
-    onRestore: (String?) -> Unit = {},
+    onDecodeRestore: (String?) -> Unit = {},
+    onApplyRestore: () -> Unit = {},
+    onDismissPreview: () -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
@@ -91,7 +95,6 @@ fun BackupContent(
     var password by rememberSaveable { mutableStateOf("") }
     var repeat by rememberSaveable { mutableStateOf("") }
     var restorePassword by rememberSaveable { mutableStateOf("") }
-    var confirmRestore by rememberSaveable { mutableStateOf(false) }
 
     val mismatch = protect && repeat.isNotEmpty() && password != repeat
     val canSave = !uiState.busy && (!protect || (password.isNotEmpty() && password == repeat))
@@ -223,7 +226,7 @@ fun BackupContent(
                 Button(
                     onClick = {
                         haptics.click()
-                        confirmRestore = true
+                        onDecodeRestore(restorePassword.takeIf { pending.encrypted })
                     },
                     enabled = !uiState.busy && (!pending.encrypted || restorePassword.isNotEmpty()),
                 ) {
@@ -234,26 +237,37 @@ fun BackupContent(
         }
     }
 
-    if (confirmRestore) {
+    // The file is decoded by now; the confirmation says what it brings.
+    val preview = uiState.pendingRestore?.preview
+    if (preview != null) {
         AlertDialog(
-            onDismissRequest = { confirmRestore = false },
+            onDismissRequest = onDismissPreview,
             title = { Text(stringResource(R.string.backup_restore_confirm_title)) },
-            text = { Text(stringResource(R.string.backup_restore_confirm_text)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(previewText(preview))
+                    Text(stringResource(R.string.backup_restore_confirm_text))
+                }
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    confirmRestore = false
-                    onRestore(restorePassword.takeIf { uiState.pendingRestore?.encrypted == true })
-                }) {
+                TextButton(onClick = onApplyRestore) {
                     Text(stringResource(R.string.backup_restore_button))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmRestore = false }) {
+                TextButton(onClick = onDismissPreview) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
         )
     }
+}
+
+@Composable
+private fun previewText(preview: RestorePreview): String {
+    val code = preview.arkCode ?: return stringResource(R.string.backup_restore_details_no_identity, preview.linkedContacts)
+    val label = code + preview.nickname.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+    return stringResource(R.string.backup_restore_details_identity, label, preview.linkedContacts)
 }
 
 @Composable

@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.telecom.InCallAudioController
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.voip.ArkCallAdmission
 import org.jarsi.arkphone.voip.ArkLink
 import org.jarsi.arkphone.voip.IncomingArkCall
 import org.jarsi.arkphone.voip.VoipCallGateway
@@ -66,9 +67,22 @@ class VoipCallCoordinator(
     // emission — a disabled phone rang anyway.
     private val arkCallsEnabled: suspend () -> Boolean = { true },
     private val ringback: RingbackController = RingbackController.None,
-) : VoipCallGateway {
+) : VoipCallGateway, ArkCallAdmission {
 
     private var active: ActiveCall? = null
+
+    /** Set while a backup restore swaps the identity: no ARK call may start under it. */
+    private var heldForRestore = false
+
+    override fun holdForRestore(): Boolean {
+        if (active != null) return false
+        heldForRestore = true
+        return true
+    }
+
+    override fun releaseRestoreHold() {
+        heldForRestore = false
+    }
 
     private class ActiveCall(
         val handle: VoipCallHandle,
@@ -115,6 +129,10 @@ class VoipCallCoordinator(
     override fun startCall(link: ArkLink, onFallbackToCarrier: () -> Unit): Boolean {
         Log.i(TAG, "ARK startCall to=${link.code} active=${active != null}")
         if (active != null) return false
+        if (heldForRestore) {
+            Log.i(TAG, "ARK startCall refused: restore in progress")
+            return false
+        }
         // Without the mic there is no usable internet call to offer; WebRTC
         // would open a silent track and Android 14+ kills the mic-typed
         // foreground service outright.
@@ -185,6 +203,10 @@ class VoipCallCoordinator(
     fun onIncoming(call: IncomingArkCall) {
         Log.i(TAG, "ARK onIncoming from=${call.fromCode} active=${active != null}")
         if (active != null) return
+        if (heldForRestore) {
+            Log.i(TAG, "ARK onIncoming dropped: restore in progress")
+            return
+        }
         scope.launch {
             // A cold-start flush can beat Room's first link emission, and an
             // unlinked verdict off an empty cache would drop a legitimate
@@ -215,7 +237,9 @@ class VoipCallCoordinator(
                 Log.i(TAG, "ARK onIncoming dropped: blocked")
                 return@launch
             }
-            if (active != null) return@launch
+            // Re-checked after the suspensions above: a restore may have
+            // taken the hold while the link cache or the rules were loading.
+            if (active != null || heldForRestore) return@launch
             ring(call, number, nickname)
         }
     }

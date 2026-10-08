@@ -318,6 +318,8 @@
     <string name="backup_restore_button">Restore</string>
     <string name="backup_restore_confirm_title">Restore backup?</string>
     <string name="backup_restore_confirm_text">Your current settings, blocking rules, ARK code and linked contacts will be replaced. Use an ARK code on one phone only; the other phone must create a new code.</string>
+    <string name="backup_restore_details_identity">The file contains the ARK code %1$s. Linked contacts: %2$d.</string>
+    <string name="backup_restore_details_no_identity">The file contains no ARK code. Linked contacts: %1$d.</string>
     <string name="backup_restored">Backup restored</string>
     <string name="backup_working">Working…</string>
     <string name="backup_error_not_a_backup">This is not an ARK-phone backup file</string>

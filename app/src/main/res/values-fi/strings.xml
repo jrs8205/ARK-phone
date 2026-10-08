@@ -313,6 +313,8 @@
     <string name="backup_restore_button">Palauta</string>
     <string name="backup_restore_confirm_title">Palautetaanko varmuuskopio?</string>
     <string name="backup_restore_confirm_text">Nykyiset asetukset, estosäännöt, ARK-koodi ja linkitetyt yhteystiedot korvataan. Käytä ARK-koodia vain yhdessä puhelimessa; toisen puhelimen on luotava uusi koodi.</string>
+    <string name="backup_restore_details_identity">Tiedostossa on ARK-koodi %1$s. Linkitettyjä yhteystietoja: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Tiedostossa ei ole ARK-koodia. Linkitettyjä yhteystietoja: %1$d.</string>
     <string name="backup_restored">Varmuuskopio palautettu</string>
     <string name="backup_working">Odota…</string>
     <string name="backup_error_not_a_backup">Tämä ei ole ARK-puhelimen varmuuskopiotiedosto</string>

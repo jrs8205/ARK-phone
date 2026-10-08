@@ -329,6 +329,8 @@
     <string name="backup_restore_button">Восстановить</string>
     <string name="backup_restore_confirm_title">Восстановить резервную копию?</string>
     <string name="backup_restore_confirm_text">Текущие настройки, правила блокировки, ARK-код и связанные контакты будут заменены. Используйте ARK-код только на одном телефоне; на другом телефоне нужно создать новый код.</string>
+    <string name="backup_restore_details_identity">Файл содержит ARK-код %1$s. Связанных контактов: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Файл не содержит ARK-кода. Связанных контактов: %1$d.</string>
     <string name="backup_restored">Резервная копия восстановлена</string>
     <string name="backup_working">Подождите…</string>
     <string name="backup_error_not_a_backup">Это не файл резервной копии ARK-телефона</string>

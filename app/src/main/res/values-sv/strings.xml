@@ -313,6 +313,8 @@
     <string name="backup_restore_button">Återställ</string>
     <string name="backup_restore_confirm_title">Återställa säkerhetskopian?</string>
     <string name="backup_restore_confirm_text">Dina nuvarande inställningar, blockeringsregler, ARK-kod och länkade kontakter ersätts. Använd en ARK-kod bara i en telefon; den andra telefonen måste skapa en ny kod.</string>
+    <string name="backup_restore_details_identity">Filen innehåller ARK-koden %1$s. Länkade kontakter: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Filen innehåller ingen ARK-kod. Länkade kontakter: %1$d.</string>
     <string name="backup_restored">Säkerhetskopian återställdes</string>
     <string name="backup_working">Arbetar…</string>
     <string name="backup_error_not_a_backup">Det här är inte en säkerhetskopia från ARK-telefon</string>

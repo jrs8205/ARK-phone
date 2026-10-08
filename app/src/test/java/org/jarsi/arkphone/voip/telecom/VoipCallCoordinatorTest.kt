@@ -240,6 +240,49 @@ class VoipCallCoordinatorTest {
     }
 
     @Test
+    fun anIncomingCallIsDroppedWhileARestoreHoldsAdmission() = runTest {
+        // A backup restore swaps the identity under the signaling client; a
+        // call admitted meanwhile would lose its answer and hang-up frames.
+        // The caller's connect timeout hands the same call to the carrier.
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        assertTrue(coordinator.holdForRestore())
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertFalse(ui.events.contains("showIncoming"))
+        assertTrue(session.calls.isEmpty())
+
+        coordinator.releaseRestoreHold()
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertTrue(ui.events.contains("showIncoming"))
+    }
+
+    @Test
+    fun anOutgoingCallGoesToTheCarrierWhileARestoreHoldsAdmission() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        assertTrue(coordinator.holdForRestore())
+        assertFalse(coordinator.startCall(link) { })
+        assertTrue(session.calls.isEmpty())
+    }
+
+    @Test
+    fun aLiveArkCallRefusesTheRestoreHold() = runTest {
+        // Ringing counts: the call is not in CallController yet, but it is
+        // already bound to the client the restore would drop.
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertFalse(coordinator.holdForRestore())
+        // A refused hold holds nothing: the next call still rings.
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        telecom.releaseNow()
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertEquals(2, ui.events.count { it == "showIncoming" })
+    }
+
+    @Test
     fun anInlineTelecomRefusalNeverNotifiesTheCaller() = runTest {
         telecom.failInline = true
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))

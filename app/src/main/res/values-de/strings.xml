@@ -313,6 +313,8 @@
     <string name="backup_restore_button">Wiederherstellen</string>
     <string name="backup_restore_confirm_title">Sicherung wiederherstellen?</string>
     <string name="backup_restore_confirm_text">Deine aktuellen Einstellungen, Blockierregeln, dein ARK-Code und die verknüpften Kontakte werden ersetzt. Verwende einen ARK-Code nur auf einem Telefon; das andere Telefon muss einen neuen Code erstellen.</string>
+    <string name="backup_restore_details_identity">Die Datei enthält den ARK-Code %1$s. Verknüpfte Kontakte: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Die Datei enthält keinen ARK-Code. Verknüpfte Kontakte: %1$d.</string>
     <string name="backup_restored">Sicherung wiederhergestellt</string>
     <string name="backup_working">Bitte warten…</string>
     <string name="backup_error_not_a_backup">Das ist keine Sicherungsdatei von ARK-Telefon</string>

@@ -329,6 +329,8 @@
     <string name="backup_restore_button">Przywróć</string>
     <string name="backup_restore_confirm_title">Przywrócić kopię zapasową?</string>
     <string name="backup_restore_confirm_text">Bieżące ustawienia, reguły blokowania, kod ARK i powiązane kontakty zostaną zastąpione. Używaj kodu ARK tylko na jednym telefonie; drugi telefon musi utworzyć nowy kod.</string>
+    <string name="backup_restore_details_identity">Plik zawiera kod ARK %1$s. Powiązane kontakty: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Plik nie zawiera kodu ARK. Powiązane kontakty: %1$d.</string>
     <string name="backup_restored">Kopia zapasowa przywrócona</string>
     <string name="backup_working">Czekaj…</string>
     <string name="backup_error_not_a_backup">To nie jest plik kopii zapasowej ARK-telefonu</string>

@@ -37,3 +37,18 @@ interface VoipAccountGateway {
 interface VoipCallGateway {
     fun startCall(link: ArkLink, onFallbackToCarrier: () -> Unit): Boolean
 }
+
+/**
+ * A backup restore swaps the identity the signaling client is dialled
+ * under; a call live across the swap loses its answer, candidate and
+ * hang-up frames. The restore holds admission for the whole apply: none
+ * may be live when it starts, none may start while it runs. Both methods
+ * run on the main thread, the call coordinator's own, so the check and
+ * the hold cannot interleave with a call being admitted.
+ */
+interface ArkCallAdmission {
+    /** False, and nothing held, while an ARK call is live — ringing included. */
+    fun holdForRestore(): Boolean
+
+    fun releaseRestoreHold()
+}

@@ -26,6 +26,7 @@ import org.jarsi.arkphone.voip.OkHttpWebSocketConnector
 import org.jarsi.arkphone.voip.PeerConnectionFactoryProvider
 import org.jarsi.arkphone.voip.StreamPeerConnectionAdapterFactory
 import org.jarsi.arkphone.voip.VoipAccountGateway
+import org.jarsi.arkphone.voip.ArkCallAdmission
 import org.jarsi.arkphone.voip.VoipCallGateway
 import org.jarsi.arkphone.voip.VoipConfig
 import org.jarsi.arkphone.voip.VoipEngine
@@ -218,6 +219,10 @@ object VoipModule {
     @Provides
     @Singleton
     fun provideVoipCallGateway(impl: VoipCallCoordinator): VoipCallGateway = impl
+
+    @Provides
+    @Singleton
+    fun provideArkCallAdmission(impl: VoipCallCoordinator): ArkCallAdmission = impl
 
     @Provides
     @Singleton

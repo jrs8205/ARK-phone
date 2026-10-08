@@ -313,6 +313,8 @@
     <string name="backup_restore_button">Taasta</string>
     <string name="backup_restore_confirm_title">Kas taastada varukoopia?</string>
     <string name="backup_restore_confirm_text">Sinu praegused seaded, blokeerimisreeglid, ARK-kood ja seotud kontaktid asendatakse. Kasuta ARK-koodi ainult ühes telefonis; teine telefon peab looma uue koodi.</string>
+    <string name="backup_restore_details_identity">Fail sisaldab ARK-koodi %1$s. Seotud kontakte: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Fail ei sisalda ARK-koodi. Seotud kontakte: %1$d.</string>
     <string name="backup_restored">Varukoopia taastatud</string>
     <string name="backup_working">Palun oota…</string>
     <string name="backup_error_not_a_backup">See ei ole ARK-telefoni varukoopiafail</string>

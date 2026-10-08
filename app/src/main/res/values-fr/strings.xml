@@ -321,6 +321,8 @@
     <string name="backup_restore_button">Restaurer</string>
     <string name="backup_restore_confirm_title">Restaurer la sauvegarde ?</string>
     <string name="backup_restore_confirm_text">Vos paramètres, règles de blocage, code ARK et contacts liés actuels seront remplacés. N\'utilisez un code ARK que sur un seul téléphone ; l\'autre téléphone doit créer un nouveau code.</string>
+    <string name="backup_restore_details_identity">Le fichier contient le code ARK %1$s. Contacts liés : %2$d.</string>
+    <string name="backup_restore_details_no_identity">Le fichier ne contient aucun code ARK. Contacts liés : %1$d.</string>
     <string name="backup_restored">Sauvegarde restaurée</string>
     <string name="backup_working">Veuillez patienter…</string>
     <string name="backup_error_not_a_backup">Ce n\'est pas un fichier de sauvegarde ARK-téléphone</string>

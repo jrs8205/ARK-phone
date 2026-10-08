@@ -17,9 +17,12 @@ import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.backup.BackupCodec
 import org.jarsi.arkphone.backup.BackupError
 import org.jarsi.arkphone.backup.BackupException
+import org.jarsi.arkphone.backup.BackupSanitizer
+import org.jarsi.arkphone.backup.BackupSnapshot
 import org.jarsi.arkphone.backup.BackupStore
 import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.telecom.CallController
+import org.jarsi.arkphone.voip.ArkCallAdmission
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -33,7 +36,10 @@ sealed interface BackupMessage {
     data class Failed(val error: BackupError) : BackupMessage
 }
 
-data class PendingRestore(val uri: Uri, val encrypted: Boolean)
+/** What a decoded file would install, as the sanitizer will keep it. */
+data class RestorePreview(val arkCode: String?, val nickname: String, val linkedContacts: Int)
+
+data class PendingRestore(val uri: Uri, val encrypted: Boolean, val preview: RestorePreview? = null)
 
 data class BackupUiState(
     val busy: Boolean = false,
@@ -49,6 +55,7 @@ class BackupViewModel(
     private val io: CoroutineDispatcher,
     private val iterations: Int,
     private val callController: CallController,
+    private val admission: ArkCallAdmission,
     private val maxFileBytes: Int,
 ) : ViewModel() {
 
@@ -58,13 +65,17 @@ class BackupViewModel(
         store: BackupStore,
         @IoDispatcher io: CoroutineDispatcher,
         callController: CallController,
+        admission: ArkCallAdmission,
     ) : this(
         context.contentResolver, store, BackupCodec(), io, BackupCodec.DEFAULT_ITERATIONS,
-        callController, MAX_FILE_BYTES,
+        callController, admission, MAX_FILE_BYTES,
     )
 
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
+
+    /** The chosen file, decoded and sanitised; what [applyRestore] installs. */
+    private var decoded: BackupSnapshot? = null
 
     fun suggestedFileName(): String =
         "ARK-phone-backup-${SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())}.arkbackup"
@@ -72,32 +83,67 @@ class BackupViewModel(
     /** [password] null writes the file in the clear; the screen has warned. */
     fun export(uri: Uri, password: String?) {
         run {
-            val bytes = codec.encode(store.snapshot(), password, iterations)
-            // The reader refuses anything larger; "saved" must mean restorable.
-            if (bytes.size > maxFileBytes) throw BackupException(BackupError.Io)
-            contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
-                ?: throw IOException("no stream for $uri")
-            BackupMessage.Saved
+            withContext(io) {
+                val bytes = codec.encode(store.snapshot(), password, iterations)
+                // The reader refuses anything larger; "saved" must mean restorable.
+                if (bytes.size > maxFileBytes) throw BackupException(BackupError.Io)
+                contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+                    ?: throw IOException("no stream for $uri")
+                BackupMessage.Saved
+            }
         }
     }
 
     /** Reads only the envelope, so the screen knows whether to ask for a password. */
     fun chooseRestore(uri: Uri) {
+        decoded = null
         _uiState.update { it.copy(pendingRestore = null) }
         run {
-            val info = codec.inspect(read(uri))
+            val info = withContext(io) { codec.inspect(read(uri)) }
             _uiState.update { it.copy(pendingRestore = PendingRestore(uri, info.encrypted)) }
             null
         }
     }
 
-    fun restore(password: String?) {
+    /**
+     * Reads, decrypts and sanitises the file so the confirmation can say
+     * what it brings — a foreign file is recognisable by the ARK code it
+     * would install. Nothing is applied until [applyRestore].
+     */
+    fun decodeRestore(password: String?) {
         val pending = _uiState.value.pendingRestore ?: return
         run {
-            // A restored identity drops the signaling client; a call in
-            // progress would lose its answer, candidate and hang-up frames.
-            if (callController.calls.value.isNotEmpty()) throw BackupException(BackupError.CallInProgress)
-            store.restore(codec.decode(read(pending.uri), password))
+            val snapshot = withContext(io) { BackupSanitizer.sanitize(codec.decode(read(pending.uri), password)) }
+            decoded = snapshot
+            _uiState.update { it.copy(pendingRestore = pending.copy(preview = snapshot.preview())) }
+            null
+        }
+    }
+
+    fun dismissRestorePreview() {
+        decoded = null
+        _uiState.update { it.copy(pendingRestore = it.pendingRestore?.copy(preview = null)) }
+    }
+
+    /**
+     * Applies the decoded file. A restored identity drops the signaling
+     * client, so no call may be live across it and none may start while
+     * it runs: the hold is taken on the main thread, the coordinator's
+     * own, before the carrier-call check, and released after the apply.
+     */
+    fun applyRestore() {
+        val snapshot = decoded ?: return
+        run {
+            if (!admission.holdForRestore()) throw BackupException(BackupError.CallInProgress)
+            try {
+                withContext(io) {
+                    if (callController.calls.value.isNotEmpty()) throw BackupException(BackupError.CallInProgress)
+                    store.restore(snapshot)
+                }
+            } finally {
+                admission.releaseRestoreHold()
+            }
+            decoded = null
             _uiState.update { it.copy(pendingRestore = null) }
             BackupMessage.Restored
         }
@@ -106,6 +152,12 @@ class BackupViewModel(
     fun dismissMessage() {
         _uiState.update { it.copy(message = null) }
     }
+
+    private fun BackupSnapshot.preview() = RestorePreview(
+        arkCode = preferences.firstOrNull { it.key == "ark_code" }?.value as? String,
+        nickname = preferences.firstOrNull { it.key == "ark_nickname" }?.value as? String ?: "",
+        linkedContacts = arkLinks.size,
+    )
 
     private fun read(uri: Uri): ByteArray {
         val stream = contentResolver.openInputStream(uri) ?: throw IOException("no stream for $uri")
@@ -123,14 +175,16 @@ class BackupViewModel(
         }
     }
 
+    /**
+     * One job at a time, on the main thread; each block moves its key
+     * derivation (600 000 PBKDF2 rounds), JSON and file I/O to [io] itself.
+     */
     private fun run(block: suspend () -> BackupMessage?) {
         if (_uiState.value.busy) return
         _uiState.update { it.copy(busy = true, message = null) }
         viewModelScope.launch {
             val message = try {
-                // Key derivation (600 000 PBKDF2 rounds), JSON and file I/O
-                // all belong off the main thread.
-                withContext(io) { block() }
+                block()
             } catch (e: BackupException) {
                 BackupMessage.Failed(e.error)
             } catch (e: IOException) {

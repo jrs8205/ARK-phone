@@ -321,6 +321,8 @@
     <string name="backup_restore_button">Ripristina</string>
     <string name="backup_restore_confirm_title">Ripristinare il backup?</string>
     <string name="backup_restore_confirm_text">Le impostazioni, le regole di blocco, il codice ARK e i contatti collegati attuali verranno sostituiti. Usa un codice ARK su un solo telefono; l\'altro telefono deve creare un nuovo codice.</string>
+    <string name="backup_restore_details_identity">Il file contiene il codice ARK %1$s. Contatti collegati: %2$d.</string>
+    <string name="backup_restore_details_no_identity">Il file non contiene alcun codice ARK. Contatti collegati: %1$d.</string>
     <string name="backup_restored">Backup ripristinato</string>
     <string name="backup_working">Attendi…</string>
     <string name="backup_error_not_a_backup">Questo non è un file di backup di ARK-telefono</string>
