@@ -7,6 +7,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -33,22 +34,26 @@ open class RestoreJournal(private val dir: File) {
         Files.move(scratch.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 
-    /** Null when there is no journal, or none this version can read. */
+    /** Null only when absent. An unreadable journal must still block new writes. */
     open fun read(): Entry? {
         val current = file.takeIf { it.exists() } ?: return null
-        return runCatching {
+        return try {
             val json = Json.parseToJsonElement(current.readText(Charsets.UTF_8)).jsonObject
             Entry(
                 id = json.getValue("id").jsonPrimitive.content,
                 snapshot = BackupSnapshot.fromJson(json.getValue("snapshot").jsonObject),
             )
-        }.getOrNull()
+        } catch (e: Exception) {
+            throw IOException("Cannot read pending restore", e)
+        }
     }
 
     fun exists(): Boolean = file.exists()
 
     fun delete() {
-        file.delete()
+        // Returning successfully must mean that the next writer cannot
+        // replay this snapshot over rows recorded after the recovery.
+        Files.deleteIfExists(file.toPath())
     }
 
     private companion object {

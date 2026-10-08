@@ -67,7 +67,7 @@ class BackupViewModelTest {
     // transaction, whose thread here is the test thread — a file-backed
     // store would need that same thread to run its own writer.
     private val dataStore = InMemoryPreferencesDataStore()
-    private val store by lazy { BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() }, journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher) }
+    private val store by lazy { BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() }, journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock {}, io = dispatcher) }
     private val callController = CallController()
     private val admission = FakeAdmission()
     private val codec = BackupCodec()
@@ -295,7 +295,7 @@ class BackupViewModelTest {
                 heldDuringApply = admission.held
                 throw IOException("sim query failed")
             },
-            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher,
+            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock {}, io = dispatcher,
         )
         val viewModel = viewModel(failingStore)
 
@@ -319,7 +319,7 @@ class BackupViewModelTest {
         val failingStore = BackupStore(
             dataStore, db, { 42L }, "1.28",
             simAccountIds = { throw SQLiteException("disk I/O error") },
-            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher,
+            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock {}, io = dispatcher,
         )
         val viewModel = viewModel(failingStore)
 
@@ -357,7 +357,7 @@ class BackupViewModelTest {
         // export block ran.
         val io = Executors.newSingleThreadExecutor { Thread(it, "backup-io") }.asCoroutineDispatcher()
         var snapshotThread: String? = null
-        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() }, RestoreJournal(tmp.newFolder()), TableWriteLock(), dispatcher)
+        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() }, RestoreJournal(tmp.newFolder()), TableWriteLock {}, dispatcher)
         val viewModel = BackupViewModel(
             context.contentResolver, offMainStore, codec, io,
             iterations = 1_000, callController = callController, admission = admission, maxFileBytes = 16 * 1024 * 1024,

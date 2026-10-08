@@ -2,9 +2,15 @@ package org.jarsi.arkphone.voip
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,18 +25,33 @@ import javax.inject.Singleton
 @Singleton
 class ArkLinkCache @Inject constructor(
     private val repository: ArkLinkRepository,
-    @ApplicationScope scope: CoroutineScope,
+    @param:ApplicationScope private val scope: CoroutineScope,
 ) {
 
     private val firstLoad = CompletableDeferred<Unit>()
 
     private val state = MutableStateFlow<Map<String, ArkLink>>(emptyMap())
 
-    init {
-        scope.launch {
+    private val refreshLock = Mutex()
+    private var collector = collectLinks(CompletableDeferred())
+
+    private fun collectLinks(loaded: CompletableDeferred<Unit>): Job = scope.launch {
+        try {
             repository.links.collect { links ->
                 state.value = links.associateBy { it.numberKey }
                 if (!firstLoad.isCompleted) firstLoad.complete(Unit)
+                loaded.complete(Unit)
+            }
+        } catch (e: Exception) {
+            if (e !is CancellationException) state.value = emptyMap()
+            loaded.completeExceptionally(e)
+            if (e is CancellationException) throw e
+        }
+    }.also { job ->
+        // A cancelled application scope may never enter the launch body.
+        job.invokeOnCompletion { cause ->
+            if (!loaded.isCompleted) {
+                loaded.completeExceptionally(cause ?: NoSuchElementException("No ARK links emission"))
             }
         }
     }
@@ -49,12 +70,17 @@ class ArkLinkCache @Inject constructor(
     }
 
     /**
-     * Re-reads the table now. A restore has just replaced it, and the next
-     * call is admitted against this map — the collector above may not have
-     * caught up by then.
+     * Replaces the subscription and waits for its first result. No emission
+     * from the old query can overwrite the restored links after this returns.
      */
-    suspend fun refresh() {
-        state.value = repository.links.first().associateBy { it.numberKey }
-        if (!firstLoad.isCompleted) firstLoad.complete(Unit)
+    suspend fun refresh() = refreshLock.withLock {
+        val loaded = CompletableDeferred<Unit>()
+        // Once the old subscription is stopped, its replacement must be
+        // started even if the caller leaves while the old query shuts down.
+        withContext(NonCancellable) {
+            collector.cancelAndJoin()
+            collector = collectLinks(loaded)
+        }
+        loaded.await()
     }
 }

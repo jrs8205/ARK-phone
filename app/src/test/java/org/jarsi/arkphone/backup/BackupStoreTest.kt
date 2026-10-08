@@ -8,6 +8,7 @@ import org.junit.Assert.fail
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -41,6 +42,8 @@ import org.jarsi.arkphone.data.ArkLinkEntity
 import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.TableWriteLock
 import org.jarsi.arkphone.data.RoomWhatsAppCallLogRepository
+import org.jarsi.arkphone.data.RoomArkLinkRepository
+import org.jarsi.arkphone.testing.InMemoryPreferencesDataStore
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.data.WhatsAppCallEntity
@@ -154,6 +157,7 @@ private class FaultyWrites : SupportSQLiteOpenHelper.Factory {
     }
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35])
 class BackupStoreTest {
@@ -175,7 +179,7 @@ class BackupStoreTest {
         ) { File(tmp.root, "settings.preferences_pb") }
 
     private val journalDir: File by lazy { tmp.newFolder("no_backup") }
-    private val lock = TableWriteLock()
+    private val lock = TableWriteLock {}
 
     private fun store(dataStore: DataStore<Preferences>, database: ArkPhoneDatabase = db) =
         BackupStore(dataStore, database, { 1_700_000_000_000L }, appVersion = "1.28", simAccountIds = { setOf("sim-a") }, journal = RestoreJournal(journalDir), lock = lock, io = Dispatchers.IO)
@@ -624,6 +628,179 @@ class BackupStoreTest {
 
         assertTrue("read on $readOn", readOn?.startsWith("backup-io") == true)
         io.close()
+    }
+
+    /** Uses the same lazy recovery wiring as the application graph. */
+    private fun guardedStore(
+        dataStore: DataStore<Preferences>,
+        database: ArkPhoneDatabase = db,
+        journal: RestoreJournal = RestoreJournal(journalDir),
+    ): Pair<BackupStore, TableWriteLock> {
+        lateinit var backup: BackupStore
+        val guarded = TableWriteLock(dagger.Lazy { backup })
+        backup = BackupStore(dataStore, database, { 1L }, "1.28", { emptySet() }, journal, guarded, Dispatchers.IO)
+        return backup to guarded
+    }
+
+    @Test
+    fun aCallRecordedAfterBothRestoreAttemptsFailFinishesRecoveryBeforeWriting() = runTest {
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        try {
+            faultyDb.whatsAppCallDao().insert(call)
+            val (backup, guarded) = guardedStore(InMemoryPreferencesDataStore(), faultyDb)
+            faults.failNextCommit = true
+            faults.failWritesAfterCommitFault = true
+            try {
+                backup.restore(importedFile)
+                fail("expected SQLiteException")
+            } catch (_: SQLiteException) {
+                assertTrue(RestoreJournal(journalDir).exists())
+            }
+            faults.failWrites = false
+
+            RoomWhatsAppCallLogRepository(faultyDb.whatsAppCallDao(), guarded).record(
+                WhatsAppCallRecord("Live", "+358401234567", CallType.INCOMING, 10L, 5, false),
+            )
+            backup.recoverInterruptedRestore()
+
+            assertEquals(setOf("Imported", "Live"), faultyDb.whatsAppCallDao().callsOnce().map { it.callerName }.toSet())
+            assertFalse(RestoreJournal(journalDir).exists())
+        } finally {
+            faultyDb.close()
+        }
+    }
+
+    @Test
+    fun aLinkWrittenBeforeTheStartupTaskFinishesThePendingRestoreFirst() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        dataStore.edit { it[stringPreferencesKey("backup_restore_id")] = "pending" }
+        RestoreJournal(journalDir).write("pending", importedFile)
+        val (backup, guarded) = guardedStore(dataStore)
+
+        RoomArkLinkRepository(db.arkLinkDao(), guarded).link("+2", "ARK-BBBB-BBBB", "Live", "pk", 2L)
+        backup.recoverInterruptedRestore()
+
+        assertEquals(setOf("1", "2"), db.arkLinkDao().all().map { it.numberKey }.toSet())
+        assertFalse(RestoreJournal(journalDir).exists())
+    }
+
+    @Test
+    fun ordinaryWritesAreRefusedWhileThePendingRestoreCannotBeRead() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        dataStore.edit { it[stringPreferencesKey("backup_restore_id")] = "pending" }
+        var refuse = true
+        val journal = object : RestoreJournal(journalDir) {
+            override fun read(): Entry? {
+                if (refuse) throw IOException("storage unavailable")
+                return super.read()
+            }
+        }
+        journal.write("pending", importedFile)
+        val (_, guarded) = guardedStore(dataStore, journal = journal)
+        val repository = RoomWhatsAppCallLogRepository(db.whatsAppCallDao(), guarded)
+        val live = WhatsAppCallRecord("Live", "+358401234567", CallType.INCOMING, 10L, 5, false)
+        try {
+            repository.record(live)
+            fail("expected recovery failure to refuse the write")
+        } catch (_: IOException) {
+            assertTrue(db.whatsAppCallDao().callsOnce().isEmpty())
+            assertTrue(journal.exists())
+        }
+
+        refuse = false
+        repository.record(live)
+
+        assertEquals(setOf("Imported", "Live"), db.whatsAppCallDao().callsOnce().map { it.callerName }.toSet())
+    }
+
+    @Test
+    fun snapshotFinishesAPendingRestoreBeforeReadingEitherStore() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        dataStore.edit {
+            it[stringPreferencesKey("backup_restore_id")] = "pending"
+            it[stringPreferencesKey("ark_code")] = "ARK-NEW2-NEW2"
+        }
+        db.arkLinkDao().upsert(link)
+        RestoreJournal(journalDir).write("pending", importedFile)
+
+        val snapshot = store(dataStore).snapshot()
+
+        assertEquals(importedFile.preferences, snapshot.preferences)
+        assertEquals(importedFile.arkLinks, snapshot.arkLinks)
+        assertEquals(importedFile.whatsAppCalls, snapshot.whatsAppCalls)
+        assertFalse(RestoreJournal(journalDir).exists())
+    }
+
+    @Test
+    fun snapshotFailsInsteadOfExportingAnUnfinishedRestore() = runTest {
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        try {
+            faultyDb.arkLinkDao().upsert(link)
+            val dataStore = InMemoryPreferencesDataStore()
+            dataStore.edit { it[stringPreferencesKey("backup_restore_id")] = "pending" }
+            RestoreJournal(journalDir).write("pending", importedFile)
+            faults.failWrites = true
+
+            try {
+                store(dataStore, faultyDb).snapshot()
+                fail("expected recovery failure to refuse the snapshot")
+            } catch (_: SQLiteException) {
+                assertTrue(RestoreJournal(journalDir).exists())
+                assertEquals(listOf(link), faultyDb.arkLinkDao().all())
+            }
+        } finally {
+            faultyDb.close()
+        }
+    }
+
+    @Test
+    fun aRestoreWaitsUntilTheWholeSnapshotHasBeenRead() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        dataStore.edit { it[stringPreferencesKey("ark_code")] = "ARK-OLD2-OLD2" }
+        db.arkLinkDao().upsert(link)
+        val captured = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val restoreStarted = CountDownLatch(1)
+        val restoreWriting = CountDownLatch(1)
+        var pause = true
+        val gated = object : DataStore<Preferences> by dataStore {
+            override val data: Flow<Preferences> = flow {
+                val preferences = dataStore.data.first()
+                if (pause) {
+                    pause = false
+                    captured.complete(Unit)
+                    gate.await()
+                }
+                emit(preferences)
+            }
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+                restoreWriting.countDown()
+                return dataStore.updateData(transform)
+            }
+        }
+        val backup = BackupStore(gated, db, { 1L }, "1.28", {
+            restoreStarted.countDown()
+            emptySet()
+        }, RestoreJournal(journalDir), lock, Dispatchers.IO)
+        val exporting = async { backup.snapshot() }
+        captured.await()
+        val applying = async(Dispatchers.IO) { backup.restore(importedFile) }
+        try {
+            assertTrue(restoreStarted.await(5, TimeUnit.SECONDS))
+            assertFalse(restoreWriting.await(300, TimeUnit.MILLISECONDS))
+            assertFalse(applying.isCompleted)
+            assertEquals(listOf(link), db.arkLinkDao().all())
+        } finally {
+            gate.complete(Unit)
+        }
+        val snapshot = exporting.await()
+        applying.await()
+
+        assertEquals("ARK-OLD2-OLD2", snapshot.preferences.single { it.key == "ark_code" }.value)
+        assertEquals(listOf(link.numberKey), snapshot.arkLinks.map { it.numberKey })
+        assertEquals(importedFile.arkLinks, backup.snapshot().arkLinks)
     }
 
     @Test

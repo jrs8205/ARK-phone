@@ -78,7 +78,7 @@ class BackupRecoveryStartupTest {
         // while the tables, and the link cache built from them, are not.
         val admission = FakeAdmission()
         val journal = GatedJournal(tmp.newFolder()).also { it.admission = admission }
-        val store = BackupStore(InMemoryPreferencesDataStore(), db, { 1L }, "1.28", { emptySet() }, journal, TableWriteLock(), Dispatchers.IO)
+        val store = BackupStore(InMemoryPreferencesDataStore(), db, { 1L }, "1.28", { emptySet() }, journal, TableWriteLock {}, Dispatchers.IO)
         val startup = BackupRecoveryStartup(store, admission, startupScope)
 
         startup.onAppStart()
@@ -97,7 +97,7 @@ class BackupRecoveryStartupTest {
         val journal = object : RestoreJournal(tmp.newFolder()) {
             override fun read(): Entry? = throw IllegalStateException("storage gone")
         }
-        val store = BackupStore(InMemoryPreferencesDataStore(), db, { 1L }, "1.28", { emptySet() }, journal, TableWriteLock(), Dispatchers.IO)
+        val store = BackupStore(InMemoryPreferencesDataStore(), db, { 1L }, "1.28", { emptySet() }, journal, TableWriteLock {}, Dispatchers.IO)
         val startup = BackupRecoveryStartup(store, admission, startupScope)
 
         startup.onAppStart()

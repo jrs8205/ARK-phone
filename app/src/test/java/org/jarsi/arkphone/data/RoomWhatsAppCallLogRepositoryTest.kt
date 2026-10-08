@@ -23,7 +23,7 @@ class RoomWhatsAppCallLogRepositoryTest {
     private val db = Room.inMemoryDatabaseBuilder(context, ArkPhoneDatabase::class.java)
         .allowMainThreadQueries()
         .build()
-    private val repository = RoomWhatsAppCallLogRepository(db.whatsAppCallDao(), TableWriteLock())
+    private val repository = RoomWhatsAppCallLogRepository(db.whatsAppCallDao(), TableWriteLock {})
 
     @After
     fun tearDown() {

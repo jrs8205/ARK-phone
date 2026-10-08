@@ -74,17 +74,14 @@ class BackupStore(
      */
     suspend fun recoverInterruptedRestore() {
         withContext(io) {
-            lock.withLock { finishPending() }
+            lock.withRestoreLock { finishPending() }
         }
     }
 
     /** Under [lock]. Throws when the pending restore cannot be finished now. */
-    private suspend fun finishPending() {
+    internal suspend fun finishPending() = withContext(io) {
         val entry = journal.read()
-        if (entry == null) {
-            journal.delete()
-            return
-        }
+        if (entry == null) return@withContext
         withContext(NonCancellable) {
             if (dataStore.data.first()[RESTORE_ID_KEY] == entry.id) {
                 database.withTransaction { replaceTables(entry.snapshot) }
@@ -93,7 +90,8 @@ class BackupStore(
         }
     }
 
-    suspend fun snapshot(): BackupSnapshot {
+    suspend fun snapshot(): BackupSnapshot = lock.withRestoreLock {
+        finishPending()
         val preferences = dataStore.data.first().asMap()
             .mapNotNull { (key, value) -> backupPreference(key.name, value) }
             .filter { it.key !in DEVICE_ONLY_KEYS }
@@ -113,7 +111,7 @@ class BackupStore(
                 sourcePackage = it.sourcePackage,
             )
         }
-        return BackupSnapshot(clock.nowMillis(), appVersion, preferences, links, calls)
+        BackupSnapshot(clock.nowMillis(), appVersion, preferences, links, calls)
     }
 
     /**
@@ -135,9 +133,9 @@ class BackupStore(
      * a process death): new preferences next to old tables. For that the
      * snapshot is journalled before anything changes and the preferences
      * carry the restore's id: a failed commit is retried at once, and a
-     * retry that fails too leaves the journal for the next process start
-     * ([recoverInterruptedRestore]). The table lock is held across both
-     * attempts, so a WhatsApp call or a link recorded meanwhile queues
+     * retry that fails too leaves the journal for the next table access or
+     * process start ([recoverInterruptedRestore]). The table lock is held
+     * across both attempts, so a WhatsApp call or a link recorded meanwhile queues
      * behind the whole restore instead of landing between them, and a
      * restore an earlier process left unfinished is finished first — or,
      * if it cannot be, this one is refused rather than take its journal's
@@ -151,7 +149,7 @@ class BackupStore(
                 preferences = clean.preferences.filterNot { it.key in SIM_KEYS && it.value !in sims },
             )
         }
-        lock.withLock {
+        lock.withRestoreLock {
             withContext(NonCancellable) {
                 finishPending()
                 val restoreId = UUID.randomUUID().toString()
