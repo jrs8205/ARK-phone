@@ -196,6 +196,10 @@ class BackupSanitizerTest {
                     string("speed_dial_4", "+358 (40) 123-4567"),
                     string("speed_dial_5", "tel:0401234567"),
                     string("speed_dial_6", "040123456;7"),
+                    // Contact-card spellings the app itself stores.
+                    string("speed_dial_7", "(212) 555-0123"),
+                    string("speed_dial_8", "09.123.4567"),
+                    string("speed_dial_9", "0401234567,1"),
                 ),
                 links = listOf(
                     good,
@@ -203,6 +207,8 @@ class BackupSanitizerTest {
                     // The key is what the app would compute for the number, never the file's word.
                     good.copy(numberKey = "999999999"),
                     good.copy(numberKey = "1", number = "+1"),
+                    good.copy(numberKey = "125550123", number = "(212) 555-0123"),
+                    good.copy(numberKey = "", number = "( ) -"),
                 ),
                 calls = listOf(
                     goodCall,
@@ -216,7 +222,17 @@ class BackupSanitizerTest {
         assertEquals("+358 (40) 123-4567", cleaned.preferences.value("speed_dial_4"))
         assertNull(cleaned.preferences.value("speed_dial_5"))
         assertNull(cleaned.preferences.value("speed_dial_6"))
-        assertEquals(listOf(good, good.copy(numberKey = "1", number = "+1")), cleaned.arkLinks)
+        assertEquals("(212) 555-0123", cleaned.preferences.value("speed_dial_7"))
+        assertEquals("09.123.4567", cleaned.preferences.value("speed_dial_8"))
+        assertNull(cleaned.preferences.value("speed_dial_9"))
+        assertEquals(
+            listOf(
+                good,
+                good.copy(numberKey = "1", number = "+1"),
+                good.copy(numberKey = "125550123", number = "(212) 555-0123"),
+            ),
+            cleaned.arkLinks,
+        )
         assertEquals(listOf(goodCall, goodCall.copy(callerNumber = null)), cleaned.whatsAppCalls)
     }
 

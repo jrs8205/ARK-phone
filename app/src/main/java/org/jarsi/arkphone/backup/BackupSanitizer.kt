@@ -67,10 +67,14 @@ object BackupSanitizer {
 
     /**
      * Anything stored here ends up in a call intent (speed dial long-press,
-     * call back from the history, an ARK link's number): digits with the
-     * usual formatting only, so no MMI sequence (`*21*…#`) can ride in.
+     * call back from the history, an ARK link's number): digits in any of
+     * the spellings a contact card uses — "(212) 555-0123", "09.123.4567" —
+     * so no MMI sequence (`*21*…#`) or DTMF pause (`,` `;`) can ride in.
      */
-    private val PHONE_NUMBER_PATTERN = Regex("^\\+?[0-9][0-9 ()-]{0,63}$")
+    private val PHONE_NUMBER_PATTERN = Regex("^\\+?[0-9 ()./-]{1,64}$")
+
+    private fun isPhoneNumber(value: String): Boolean =
+        PHONE_NUMBER_PATTERN.matches(value) && value.any(Char::isDigit)
 
     fun isKnownKey(key: String): Boolean = key in KNOWN || SPEED_DIAL_PATTERN.matches(key)
 
@@ -122,7 +126,7 @@ object BackupSanitizer {
             "blocking_schedule_start_minutes", "blocking_schedule_end_minutes" ->
                 preference.clampInt(0, 24 * 60 - 1)
             else -> if (SPEED_DIAL_PATTERN.matches(key)) {
-                preference.takeIf { PHONE_NUMBER_PATTERN.matches(value as String) }
+                preference.takeIf { isPhoneNumber(value as String) }
             } else {
                 preference
             }
@@ -134,7 +138,7 @@ object BackupSanitizer {
 
     private fun acceptableLink(link: BackupArkLink): Boolean =
         ArkCode.isValid(link.code) &&
-            PHONE_NUMBER_PATTERN.matches(link.number) &&
+            isPhoneNumber(link.number) &&
             // The key is what the app computes for the number, never the file's word.
             link.numberKey == arkLinkKey(link.number) &&
             link.nickname.length <= MAX_ROW_TEXT_LENGTH &&
@@ -145,6 +149,6 @@ object BackupSanitizer {
             call.durationSeconds >= 0 &&
             call.timestampMillis >= 0 &&
             (call.callerName?.length ?: 0) <= MAX_ROW_TEXT_LENGTH &&
-            (call.callerNumber == null || PHONE_NUMBER_PATTERN.matches(call.callerNumber)) &&
+            (call.callerNumber == null || isPhoneNumber(call.callerNumber)) &&
             call.sourcePackage.length <= MAX_ROW_TEXT_LENGTH
 }
