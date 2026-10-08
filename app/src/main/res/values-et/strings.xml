@@ -289,6 +289,7 @@
     <string name="ark_link_invalid">See pole kehtiv ARK-kood</string>
     <string name="ark_link_not_found">Selle koodiga kontot pole</string>
     <string name="ark_link_lookup_failed">Otsing ebaõnnestus – kontrolli ühendust</string>
+    <string name="ark_link_storage_failed">Seost ei saanud salvestada. Proovi uuesti.</string>
     <string name="ark_link_confirm">Seo %1$s</string>
     <string name="incall_ark_call">ARK-kõne</string>
     <string name="call_feature_ark">ARK</string>

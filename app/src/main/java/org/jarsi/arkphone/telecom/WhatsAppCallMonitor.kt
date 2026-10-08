@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.telecom
 
+import android.database.sqlite.SQLiteException
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -12,6 +13,7 @@ import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.di.ApplicationScope
 import org.jarsi.arkphone.util.Clock
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -136,17 +138,27 @@ class WhatsAppCallMonitor @Inject constructor(
         durationSeconds: Long,
     ) {
         scope.launch {
-            repository.record(
-                WhatsAppCallRecord(
-                    callerName = caller.callerName,
-                    callerNumber = caller.callerNumber ?: numberFromContacts(caller.callerName),
-                    type = type,
-                    timestampMillis = timestampMillis,
-                    durationSeconds = durationSeconds,
-                    isVideo = caller.isVideo,
-                    sourcePackage = caller.sourcePackage,
-                ),
+            val record = WhatsAppCallRecord(
+                callerName = caller.callerName,
+                callerNumber = caller.callerNumber ?: numberFromContacts(caller.callerName),
+                type = type,
+                timestampMillis = timestampMillis,
+                durationSeconds = durationSeconds,
+                isVideo = caller.isVideo,
+                sourcePackage = caller.sourcePackage,
             )
+            // A table write is refused while a backup restore is left pending
+            // on a failing disk; on the application scope an uncaught
+            // exception would take the process down after every call.
+            try {
+                repository.record(record)
+            } catch (e: IOException) {
+                Log.w(TAG, "WhatsApp call not recorded", e)
+                return@launch
+            } catch (e: SQLiteException) {
+                Log.w(TAG, "WhatsApp call not recorded", e)
+                return@launch
+            }
             Log.i(TAG, "WhatsApp call recorded: type=$type duration=${durationSeconds}s")
         }
     }

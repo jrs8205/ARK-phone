@@ -54,6 +54,11 @@ fun ArkLinkDialog(
                                     stringResource(R.string.ark_link_lookup_failed),
                                     color = MaterialTheme.colorScheme.error,
                                 )
+                            ArkLinkError.STORAGE_FAILED ->
+                                Text(
+                                    stringResource(R.string.ark_link_storage_failed),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             null -> Unit
                         }
                     },

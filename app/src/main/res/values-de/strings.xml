@@ -289,6 +289,7 @@
     <string name="ark_link_invalid">Das ist kein gültiger ARK-Code</string>
     <string name="ark_link_not_found">Kein Konto mit diesem Code</string>
     <string name="ark_link_lookup_failed">Suche fehlgeschlagen – prüfe deine Verbindung</string>
+    <string name="ark_link_storage_failed">Die Verknüpfung konnte nicht gespeichert werden. Versuche es erneut.</string>
     <string name="ark_link_confirm">%1$s verknüpfen</string>
     <string name="incall_ark_call">ARK-Anruf</string>
     <string name="call_feature_ark">ARK</string>

@@ -5,14 +5,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import java.io.IOException
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.testing.FakeContactsRepository
 import org.jarsi.arkphone.testing.FakeWhatsAppCallLogRepository
 import org.jarsi.arkphone.util.Clock
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -36,6 +39,21 @@ class WhatsAppCallMonitorTest {
         number: String? = null,
         video: Boolean = false,
     ) = WhatsAppCall(name, number, video)
+
+    @Test
+    fun aStorageFailureWhileRecordingIsLoggedNotThrown() = runTest {
+        // A table write is refused while a backup restore is left pending
+        // on a failing disk; the monitor runs on the application scope,
+        // where an uncaught exception would take the process down at the
+        // end of every WhatsApp call.
+        val repository = FakeWhatsAppCallLogRepository().apply { failWith = IOException("storage unavailable") }
+        val monitor = monitor(repository)
+        monitor.onCallNotificationPosted("key-1", WhatsAppCallNotificationKind.ONGOING, caller(), established = true)
+        advanceTimeBy(10_000)
+        monitor.onCallNotificationRemoved("key-1")
+        advanceUntilIdle()
+        assertTrue(repository.recorded.isEmpty())
+    }
 
     @Test
     fun unansweredRingingRecordsAMissedCall() = runTest {

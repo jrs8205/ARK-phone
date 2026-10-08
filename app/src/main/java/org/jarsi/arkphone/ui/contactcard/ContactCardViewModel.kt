@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.contactcard
 
+import android.database.sqlite.SQLiteException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,10 +20,11 @@ import org.jarsi.arkphone.voip.ArkLinkRepository
 import org.jarsi.arkphone.voip.ArkLookupResult
 import org.jarsi.arkphone.voip.VoipAccountGateway
 import org.jarsi.arkphone.voip.arkLinkKey
+import java.io.IOException
 import java.util.Optional
 import javax.inject.Inject
 
-enum class ArkLinkError { INVALID_CODE, NOT_FOUND, LOOKUP_FAILED }
+enum class ArkLinkError { INVALID_CODE, NOT_FOUND, LOOKUP_FAILED, STORAGE_FAILED }
 
 data class ContactCardUiState(
     val loading: Boolean = true,
@@ -114,18 +116,28 @@ class ContactCardViewModel @Inject constructor(
         val account = _uiState.value.arkPending ?: return
         val number = _uiState.value.details?.phones?.firstOrNull()?.value ?: return
         viewModelScope.launch {
-            arkLinkRepository.link(
-                number = number,
-                code = account.code,
-                nickname = account.nickname,
-                publicKey = account.publicKey,
-                atMillis = clock.nowMillis(),
-            )
-            _uiState.value = _uiState.value.copy(
-                arkPending = null,
-                arkError = null,
-                arkLink = linkFor(number),
-            )
+            // The table write is refused while a backup restore is left
+            // pending on a failing disk: back to the code entry, with the
+            // reason, rather than down with the screen.
+            val stored = try {
+                arkLinkRepository.link(
+                    number = number,
+                    code = account.code,
+                    nickname = account.nickname,
+                    publicKey = account.publicKey,
+                    atMillis = clock.nowMillis(),
+                )
+                true
+            } catch (e: IOException) {
+                false
+            } catch (e: SQLiteException) {
+                false
+            }
+            _uiState.value = if (stored) {
+                _uiState.value.copy(arkPending = null, arkError = null, arkLink = linkFor(number))
+            } else {
+                _uiState.value.copy(arkPending = null, arkError = ArkLinkError.STORAGE_FAILED)
+            }
         }
     }
 
@@ -136,7 +148,13 @@ class ContactCardViewModel @Inject constructor(
     fun onArkUnlink() {
         val number = _uiState.value.details?.phones?.firstOrNull()?.value ?: return
         viewModelScope.launch {
-            arkLinkRepository.unlink(number)
+            try {
+                arkLinkRepository.unlink(number)
+            } catch (e: IOException) {
+                return@launch // The link stays on the card; the write was refused.
+            } catch (e: SQLiteException) {
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(arkLink = null)
         }
     }

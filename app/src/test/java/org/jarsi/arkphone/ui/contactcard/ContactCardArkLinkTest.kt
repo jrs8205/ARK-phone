@@ -121,6 +121,41 @@ class ContactCardArkLinkTest {
     }
 
     @Test
+    fun `a link that cannot be stored is reported for another try`() = runTest {
+        // The table write is refused while a backup restore is left pending
+        // on a failing disk; the dialog must say so, not take the screen down.
+        givenContact()
+        gateway.lookUpResult =
+            ArkLookupResult.Found(ArkAccount("ARK-7K3M-Q2FP", "Jarsi", "pk-test"))
+        val model = viewModel()
+        model.load(1L)
+        runCurrent()
+        model.onArkCodeEntered("ARK-7K3M-Q2FP")
+        runCurrent()
+        links.failWith = java.io.IOException("storage unavailable")
+        model.onArkLinkConfirmed()
+        runCurrent()
+        assertEquals(ArkLinkError.STORAGE_FAILED, model.uiState.value.arkError)
+        assertNull(model.uiState.value.arkPending)
+        assertNull(model.uiState.value.arkLink)
+        assertTrue(links.state.value.isEmpty())
+    }
+
+    @Test
+    fun `an unlink that cannot be stored keeps the link`() = runTest {
+        givenContact()
+        links.link("+358 44 5552841", "ARK-7K3M-Q2FP", "Jarsi", "pk", 1_000L)
+        val model = viewModel()
+        model.load(1L)
+        runCurrent()
+        links.failWith = android.database.sqlite.SQLiteException("disk I/O error")
+        model.onArkUnlink()
+        runCurrent()
+        assertEquals("Jarsi", model.uiState.value.arkLink?.nickname)
+        assertEquals(1, links.state.value.size)
+    }
+
+    @Test
     fun `unlinking removes the row`() = runTest {
         givenContact()
         links.link("+358 44 5552841", "ARK-7K3M-Q2FP", "Jarsi", "pk", 1_000L)

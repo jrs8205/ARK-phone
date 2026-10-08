@@ -305,6 +305,7 @@
     <string name="ark_link_invalid">To nie jest prawidłowy kod ARK</string>
     <string name="ark_link_not_found">Brak konta z tym kodem</string>
     <string name="ark_link_lookup_failed">Wyszukiwanie nie powiodło się – sprawdź połączenie</string>
+    <string name="ark_link_storage_failed">Nie udało się zapisać powiązania. Spróbuj ponownie.</string>
     <string name="ark_link_confirm">Powiąż %1$s</string>
     <string name="incall_ark_call">Połączenie ARK</string>
     <string name="call_feature_ark">ARK</string>

@@ -64,7 +64,10 @@ class FakeWhatsAppCallLogRepository : WhatsAppCallLogRepository {
     val deletedNumbers = mutableListOf<String>()
     val deletedNames = mutableListOf<String>()
     override fun calls(): Flow<List<CallLogEntry>> = entries
+    /** Thrown by [record] instead of storing, like a refused table write. */
+    var failWith: Exception? = null
     override suspend fun record(call: WhatsAppCallRecord) {
+        failWith?.let { throw it }
         recorded += call
     }
     override suspend fun deleteCallsFor(number: String) {
@@ -350,6 +353,8 @@ class FakeArkIdentityRepository : org.jarsi.arkphone.data.ArkIdentityRepository 
 class FakeArkLinkRepository : org.jarsi.arkphone.voip.ArkLinkRepository {
     val state = MutableStateFlow<List<org.jarsi.arkphone.voip.ArkLink>>(emptyList())
     override val links: Flow<List<org.jarsi.arkphone.voip.ArkLink>> = state
+    /** Thrown by [link] and [unlink] instead of storing, like a refused table write. */
+    var failWith: Exception? = null
     override suspend fun link(
         number: String,
         code: String,
@@ -357,11 +362,13 @@ class FakeArkLinkRepository : org.jarsi.arkphone.voip.ArkLinkRepository {
         publicKey: String,
         atMillis: Long,
     ) {
+        failWith?.let { throw it }
         val key = org.jarsi.arkphone.voip.arkLinkKey(number)
         state.value = state.value.filterNot { it.numberKey == key } +
             org.jarsi.arkphone.voip.ArkLink(key, number, code, nickname, publicKey, atMillis)
     }
     override suspend fun unlink(number: String) {
+        failWith?.let { throw it }
         val key = org.jarsi.arkphone.voip.arkLinkKey(number)
         state.value = state.value.filterNot { it.numberKey == key }
     }

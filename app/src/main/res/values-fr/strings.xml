@@ -297,6 +297,7 @@
     <string name="ark_link_invalid">Ce n\'est pas un code ARK valide</string>
     <string name="ark_link_not_found">Aucun compte avec ce code</string>
     <string name="ark_link_lookup_failed">Échec de la recherche – vérifiez votre connexion</string>
+    <string name="ark_link_storage_failed">Le lien n\'a pas pu être enregistré. Réessayez.</string>
     <string name="ark_link_confirm">Lier %1$s</string>
     <string name="incall_ark_call">Appel ARK</string>
     <string name="call_feature_ark">ARK</string>

@@ -305,6 +305,7 @@
     <string name="ark_link_invalid">Это недействительный ARK-код</string>
     <string name="ark_link_not_found">Аккаунта с таким кодом нет</string>
     <string name="ark_link_lookup_failed">Поиск не удался — проверьте подключение</string>
+    <string name="ark_link_storage_failed">Не удалось сохранить связь. Попробуйте ещё раз.</string>
     <string name="ark_link_confirm">Привязать %1$s</string>
     <string name="incall_ark_call">ARK-вызов</string>
     <string name="call_feature_ark">ARK</string>

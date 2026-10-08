@@ -289,6 +289,7 @@
     <string name="ark_link_invalid">Det är inte en giltig ARK-kod</string>
     <string name="ark_link_not_found">Inget konto med den koden</string>
     <string name="ark_link_lookup_failed">Sökningen misslyckades – kontrollera anslutningen</string>
+    <string name="ark_link_storage_failed">Länken kunde inte sparas. Försök igen.</string>
     <string name="ark_link_confirm">Länka %1$s</string>
     <string name="incall_ark_call">ARK-samtal</string>
     <string name="call_feature_ark">ARK</string>
