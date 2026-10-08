@@ -361,3 +361,78 @@ Review the three fix commits `896f039`, `bcdaae4`, `9783317` on top of
    ringing-but-not-yet-added window it misses?
 5. Part D for the new string `backup_error_call_in_progress` in all nine
    languages plus Finnish, and for the seven corrected strings.
+
+## Round 2 (2026-10-07 21:46) — findings and what was done
+
+Codex reviewed `896f039`, `bcdaae4`, `9783317` and reported 5 P2, no
+translation corrections. Every finding was verified against the code and
+found real. Fixes, all TDD (983 tests, lint clean), on 2026-10-08:
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P2 | `ark_device_token` only length-checked; `token\ncontrol` made OkHttp throw on the Authorization header at every connect, taking the startup coroutine with it | the sanitizer accepts only the base64url shape the worker issues (`^[A-Za-z0-9._~-]{1,256}$`) and drops the whole identity otherwise; `OkHttpWebSocketConnector` reports a bearer it cannot send as a failed connect (1006, on a dispatcher thread) instead of throwing | `43225d3` |
+| P2 | `runCatching { replaceTables(previous) }` hid a failed rollback: imported rows next to the old preferences, original rows gone | the preferences edit now runs **inside** the Room transaction that replaces the tables: a failed preferences write is rolled back by SQLite itself, there is no compensating write left to fail. Test fault-injects framework SQLite (writes refused on demand from inside the failing DataStore) | `93c8b3b` |
+| P2 | `WhatsAppCallMonitor` could insert between the table replacement and the preferences write; the rollback deleted the real call | same transaction: the SQLite write lock keeps every other table writer out until the outcome is known, so the call lands on whichever tables survive. Test races a real insert on `Dispatchers.IO` against the restore | `93c8b3b` |
+| P2 | the call check preceded file read / PBKDF2 / SIM query; an ARK call arriving meanwhile was dropped by the identity swap | two-step restore: "Restore" decodes + sanitises off Main and the confirmation shows what the file brings; confirming applies it under a hold on ARK call admission (`ArkCallAdmission`, implemented by `VoipCallCoordinator`, taken on Main before the carrier-call check): a live or ringing ARK call refuses the hold, an incoming ARK call under the hold is dropped (caller's connect timeout → carrier), an outgoing one goes to the carrier, released however the apply ends | `fa64256` |
+| P2 | identity re-read and `setSyncedFcmToken` were two DataStore operations; a restore between them marked B synced for A's POST | `markFcmTokenSynced(identity, token)` checks the stored identity and writes the marker in ONE `dataStore.edit`; the marker is bound to its account (`ark_synced_fcm_account`, device-only) so one left by another identity never satisfies the unchanged-token shortcut. Tests use the real repository over an in-memory `DataStore` with a hook that lands a restore right before the marker's edit | `918eec3` |
+| own | speed dials, link numbers and WhatsApp numbers are dialled; an MMI sequence could ride in on a file | they must match `^\+?[0-9][0-9 ()-]{0,63}$`; a link's `numberKey` must equal `arkLinkKey(number)` | `43225d3` |
+| own | a foreign backup was indistinguishable until applied | the confirmation lists the ARK code (with nickname) and the number of linked contacts the sanitizer will keep, or "no ARK code"; 2 new strings × 11 languages | `fa64256` |
+
+Decisions worth a second look:
+
+- The restore-journal alternative (durable undo/redo log in
+  `filesDir/no_backup`, replayed at the next start) was rejected in favour
+  of the single transaction: it needed a startup hook that itself races
+  the table writers, and its only extra coverage is a process death
+  between the preferences file's rename and the SQLite commit (new
+  preferences next to old tables). That window is documented in
+  `BackupStore.restore()` and the spec, not closed.
+- The DataStore edit runs on the Room transaction thread (`withTransaction`
+  → `runBlocking` on the transaction executor; the DataStore's actor runs
+  on `Dispatchers.IO` in production). The view-model test therefore uses an
+  in-memory `DataStore` (`InMemoryPreferencesDataStore`), since there Room's
+  executors are the test dispatcher and a file-backed store would need the
+  same thread.
+- `holdForRestore()` refuses on `active != null` only — a call the
+  coordinator has already handed to Telecom but not yet rung counts; a
+  carrier call is still checked through `CallController` under the hold.
+- The FCM marker is bound by `code`, not by `code.deviceToken`: the marker
+  states what the worker's row for that code holds. The write guard
+  compares both code and device token.
+
+## Round 3 request
+
+Review the five fix commits on top of `6672da4` with the same ground
+rules. Concentrate on:
+
+1. `BackupStore.restore()`: the DataStore edit inside the Room transaction.
+   Can it deadlock in production (DataStore actor on `Dispatchers.IO`,
+   Room transaction executor = `ArchTaskExecutor` IO pool)? Does a
+   `SQLiteConnectionPool` wait by a concurrent writer (the monitor's
+   `insert`, the link screen's `upsert`) interact badly with the 30 s
+   "connection pool busy" diagnostics or with Room's invalidation tracker?
+   Is the residual process-death window acceptable for a P2, or does it
+   deserve the journal after all?
+2. `ArkCallAdmission`: every path by which an ARK call becomes `active`
+   or reaches Telecom — is there one that neither `holdForRestore()` nor
+   the two `heldForRestore` checks in `onIncoming()`/`startCall()` sees
+   (the FCM wake path, `VoipEngine` flush reconciliation, a call answered
+   from the notification)? Is the hold released on every exit of
+   `applyRestore()`, including `viewModelScope` cancellation?
+3. `DataStoreArkIdentityRepository`: with the marker bound by code, is
+   there an ordering (registration after a restore that removed the
+   identity, a re-registration under the same code, a backup from the same
+   phone restored onto itself) in which a token the worker does not hold
+   is reported as synced, or a held one is posted forever?
+4. `BackupSanitizer`: the new patterns against every reader — can a value
+   that passes `^\+?[0-9][0-9 ()-]{0,63}$` still misbehave in
+   `PhoneCaller.placeCall()` / `Uri.fromParts("tel", …)`, in
+   `PhoneNumberUtils.compare`, or in `arkLinkKey`? Is dropping a user's own
+   speed dial that contains `#` (a saved USSD contact) acceptable?
+5. The two-step restore in `BackupViewModel`/`BackupScreen`: a decoded
+   snapshot kept in the view model across a configuration change, a second
+   `chooseRestore()` while a preview is open, `busy` during the decode, and
+   the dialog driven by `pendingRestore.preview` state.
+6. Part D for `backup_restore_details_identity` and
+   `backup_restore_details_no_identity` in all nine languages plus Finnish
+   (the `%1$s` is "ARK-XXXX-XXXX (nickname)" composed in code).
