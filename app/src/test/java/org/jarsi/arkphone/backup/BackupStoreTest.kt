@@ -1,10 +1,19 @@
 package org.jarsi.arkphone.backup
 
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.fail
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.launch
 import android.app.Application
+import android.content.ContentValues
+import android.database.sqlite.SQLiteException
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -34,6 +43,60 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.io.File
+
+/** Framework SQLite whose writes can be made to fail on demand. */
+private class FaultyWrites : SupportSQLiteOpenHelper.Factory {
+    @Volatile
+    var failWrites = false
+
+    override fun create(configuration: SupportSQLiteOpenHelper.Configuration): SupportSQLiteOpenHelper {
+        val real = FrameworkSQLiteOpenHelperFactory().create(configuration)
+        return object : SupportSQLiteOpenHelper by real {
+            override val writableDatabase: SupportSQLiteDatabase get() = faulty(real.writableDatabase)
+            override val readableDatabase: SupportSQLiteDatabase get() = faulty(real.readableDatabase)
+        }
+    }
+
+    private fun refuse() {
+        if (failWrites) throw SQLiteException("disk I/O error")
+    }
+
+    private fun faulty(db: SupportSQLiteDatabase): SupportSQLiteDatabase = object : SupportSQLiteDatabase by db {
+        override fun compileStatement(sql: String): SupportSQLiteStatement {
+            val statement = db.compileStatement(sql)
+            return object : SupportSQLiteStatement by statement {
+                override fun execute() {
+                    refuse()
+                    statement.execute()
+                }
+                override fun executeInsert(): Long {
+                    refuse()
+                    return statement.executeInsert()
+                }
+                override fun executeUpdateDelete(): Int {
+                    refuse()
+                    return statement.executeUpdateDelete()
+                }
+            }
+        }
+        override fun execSQL(sql: String) {
+            refuse()
+            db.execSQL(sql)
+        }
+        override fun execSQL(sql: String, bindArgs: Array<out Any?>) {
+            refuse()
+            db.execSQL(sql, bindArgs)
+        }
+        override fun delete(table: String, whereClause: String?, whereArgs: Array<out Any?>?): Int {
+            refuse()
+            return db.delete(table, whereClause, whereArgs)
+        }
+        override fun insert(table: String, conflictAlgorithm: Int, values: ContentValues): Long {
+            refuse()
+            return db.insert(table, conflictAlgorithm, values)
+        }
+    }
+}
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35])
@@ -151,22 +214,28 @@ class BackupStoreTest {
     @Test
     fun aFailedTableWriteLeavesThePreferencesAsTheyWere() = runTest {
         val dataStore = createDataStore()
+        val faults = FaultyWrites()
+        val faultyDb = Room.inMemoryDatabaseBuilder(context, ArkPhoneDatabase::class.java)
+            .allowMainThreadQueries()
+            .openHelperFactory(faults)
+            .build()
         val snapshot = BackupSnapshot(
             1L, "1.28",
             listOf(BackupPreference("ark_code", BackupPreference.Type.STRING, "ARK-E5HU-JVA8")),
             listOf(BackupArkLink("445552841", "+358 44 5552841", "ARK-E5HU-JVA8", "Jarsi", "pk", 5L)),
             emptyList(),
         )
-        db.close()
+        faults.failWrites = true
 
         try {
-            store(dataStore).restore(snapshot)
-            fail("expected the closed database to fail the restore")
-        } catch (e: IllegalStateException) {
-            // Room refuses a closed database.
+            BackupStore(dataStore, faultyDb, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            fail("expected the refused table write to fail the restore")
+        } catch (e: SQLiteException) {
+            // The tables could not be replaced; nothing else may change.
         }
 
         assertNull(dataStore.data.first()[stringPreferencesKey("ark_code")])
+        faultyDb.close()
     }
 
     @Test
@@ -193,6 +262,82 @@ class BackupStoreTest {
 
         assertEquals(listOf(link), db.arkLinkDao().links().first())
         assertEquals(listOf(call.copy(id = db.whatsAppCallDao().callsOnce().single().id)), db.whatsAppCallDao().callsOnce())
+    }
+
+    @Test
+    fun theOriginalRowsSurviveAPreferencesFailureEvenWhenTheDatabaseRefusesToWriteAgain() = runTest {
+        // A compensating table write after a failed preferences write can
+        // itself fail (disk full hits both stores); the original rows must
+        // not have been the only copy that is gone by then.
+        val faults = FaultyWrites()
+        val faultyDb = Room.inMemoryDatabaseBuilder(context, ArkPhoneDatabase::class.java)
+            .allowMainThreadQueries()
+            .openHelperFactory(faults)
+            .build()
+        faultyDb.arkLinkDao().upsert(link)
+        faultyDb.whatsAppCallDao().insert(call)
+        val dataStore = createDataStore()
+        val failing = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+                faults.failWrites = true
+                throw IOException("disk full")
+            }
+        }
+        val snapshot = BackupSnapshot(
+            1L, "1.28", emptyList(),
+            listOf(BackupArkLink("1", "+1", "ARK-AAAA-AAAA", "Other", "pk", 1L)),
+            listOf(BackupWhatsAppCall("Imported", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")),
+        )
+
+        try {
+            BackupStore(failing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            // The preferences write failed after the tables were replaced.
+        }
+        faults.failWrites = false
+
+        assertEquals(listOf(link), faultyDb.arkLinkDao().links().first())
+        assertEquals(listOf("Alice"), faultyDb.whatsAppCallDao().callsOnce().map { it.callerName })
+        faultyDb.close()
+    }
+
+    @Test
+    fun aCallRecordedWhileTheRestoreIsWritingIsNeverRolledAway() = runTest {
+        // WhatsAppCallMonitor records a call on its own thread whenever one
+        // ends; one that lands while the restore is between its two stores
+        // must survive the restore's failure.
+        val dataStore = createDataStore()
+        db.whatsAppCallDao().insert(call)
+        val monitor = CoroutineScope(Dispatchers.IO + Job())
+        val recorded = CountDownLatch(1)
+        var recording: Job? = null
+        val failing = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+                recording = monitor.launch {
+                    db.whatsAppCallDao().insert(call.copy(callerName = "Live"))
+                    recorded.countDown()
+                }
+                // Gives the monitor its chance; a store that keeps it out
+                // until the outcome is known simply times out here.
+                recorded.await(300, TimeUnit.MILLISECONDS)
+                throw IOException("disk full")
+            }
+        }
+        val snapshot = BackupSnapshot(
+            1L, "1.28", emptyList(), emptyList(),
+            listOf(BackupWhatsAppCall("Imported", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")),
+        )
+
+        try {
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }).restore(snapshot)
+            fail("expected IOException")
+        } catch (e: IOException) {
+            // The preferences write failed after the tables were replaced.
+        }
+        recording!!.join()
+
+        assertEquals(setOf("Alice", "Live"), db.whatsAppCallDao().callsOnce().map { it.callerName }.toSet())
     }
 
     @Test

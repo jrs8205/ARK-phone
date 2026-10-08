@@ -72,9 +72,18 @@ class BackupStore(
      * Applies a file. The file is untrusted ([BackupSanitizer]); SIM
      * restrictions naming an account this phone does not have are dropped,
      * since a stale `blocking_sim_account_id` would make every rule read as
-     * "not this SIM". The tables go first (one transaction) and the
-     * preferences second (one edit); a preferences failure puts the tables
-     * back, so the phone is never half old, half new. The whole apply runs
+     * "not this SIM".
+     *
+     * One SQLite transaction spans both stores: the preferences are written
+     * (one edit) while the table replacement is still uncommitted, so a
+     * failed preferences write is rolled back by SQLite itself — there is
+     * no compensating write that could fail and lose the only copy of the
+     * original rows — and the write lock keeps WhatsAppCallMonitor and
+     * the link screen out until the outcome is known, so a call recorded
+     * meanwhile lands on whichever tables survive. What remains is the
+     * commit of an already written transaction after the preferences file
+     * has been renamed into place; that is where a process death would
+     * leave new preferences next to old tables. The whole apply runs
      * non-cancellable: leaving the screen must not cut it in half.
      */
     suspend fun restore(untrusted: BackupSnapshot) {
@@ -85,44 +94,32 @@ class BackupStore(
             )
         }
         withContext(NonCancellable) {
-            val previousLinks = database.arkLinkDao().all()
-            val previousCalls = database.whatsAppCallDao().callsOnce()
-            replaceTables(
-                links = snapshot.arkLinks.map {
-                    ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis)
-                },
-                calls = snapshot.whatsAppCalls.map {
-                    WhatsAppCallEntity(
-                        callerName = it.callerName,
-                        callerNumber = it.callerNumber,
-                        type = it.type,
-                        timestampMillis = it.timestampMillis,
-                        durationSeconds = it.durationSeconds,
-                        isVideo = it.isVideo,
-                        sourcePackage = it.sourcePackage,
-                    )
-                },
-            )
-            try {
+            database.withTransaction {
+                val linkDao = database.arkLinkDao()
+                linkDao.clear()
+                snapshot.arkLinks.forEach {
+                    linkDao.upsert(ArkLinkEntity(it.numberKey, it.number, it.code, it.nickname, it.publicKey, it.linkedAtMillis))
+                }
+                val callDao = database.whatsAppCallDao()
+                callDao.clear()
+                callDao.insertAll(
+                    snapshot.whatsAppCalls.map {
+                        WhatsAppCallEntity(
+                            callerName = it.callerName,
+                            callerNumber = it.callerNumber,
+                            type = it.type,
+                            timestampMillis = it.timestampMillis,
+                            durationSeconds = it.durationSeconds,
+                            isVideo = it.isVideo,
+                            sourcePackage = it.sourcePackage,
+                        )
+                    },
+                )
                 dataStore.edit { prefs ->
                     prefs.clear()
                     snapshot.preferences.forEach { put(prefs, it) }
                 }
-            } catch (e: Exception) {
-                runCatching { replaceTables(previousLinks, previousCalls) }
-                throw e
             }
-        }
-    }
-
-    private suspend fun replaceTables(links: List<ArkLinkEntity>, calls: List<WhatsAppCallEntity>) {
-        database.withTransaction {
-            val linkDao = database.arkLinkDao()
-            linkDao.clear()
-            links.forEach { linkDao.upsert(it) }
-            val callDao = database.whatsAppCallDao()
-            callDao.clear()
-            callDao.insertAll(calls)
         }
     }
 

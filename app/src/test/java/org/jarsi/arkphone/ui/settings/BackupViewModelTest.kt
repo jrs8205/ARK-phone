@@ -6,16 +6,13 @@ import org.jarsi.arkphone.telecom.CallController
 import kotlinx.coroutines.asCoroutineDispatcher
 import android.app.Application
 import android.net.Uri
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -28,6 +25,7 @@ import org.jarsi.arkphone.backup.BackupPreference
 import org.jarsi.arkphone.backup.BackupSnapshot
 import org.jarsi.arkphone.backup.BackupStore
 import org.jarsi.arkphone.data.ArkPhoneDatabase
+import org.jarsi.arkphone.testing.InMemoryPreferencesDataStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,9 +56,10 @@ class BackupViewModelTest {
         .setQueryExecutor(dispatcher.asExecutor())
         .setTransactionExecutor(dispatcher.asExecutor())
         .build()
-    private val dataStore = PreferenceDataStoreFactory.create(
-        scope = CoroutineScope(dispatcher + Job()),
-    ) { File(tmp.root, "settings.preferences_pb") }
+    // In memory: the restore writes the preferences inside the Room
+    // transaction, whose thread here is the test thread — a file-backed
+    // store would need that same thread to run its own writer.
+    private val dataStore = InMemoryPreferencesDataStore()
     private val store = BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() })
     private val callController = CallController()
     private val codec = BackupCodec()
