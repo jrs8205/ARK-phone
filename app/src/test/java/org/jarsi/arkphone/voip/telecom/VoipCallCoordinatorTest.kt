@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.voip.telecom
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -262,6 +263,35 @@ class VoipCallCoordinatorTest {
         val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
         assertTrue(coordinator.holdForRestore())
         assertFalse(coordinator.startCall(link) { })
+        assertTrue(session.calls.isEmpty())
+    }
+
+    @Test
+    fun aSecondRestoreCannotTakeTheHoldWhileOneIsHeld() = runTest {
+        // A slow restore outlives its screen (NonCancellable); a second one
+        // from a fresh Settings screen must not share the hold, or the
+        // first one's release would admit calls under the second's swap.
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        assertTrue(coordinator.holdForRestore())
+        assertFalse(coordinator.holdForRestore())
+        coordinator.releaseRestoreHold()
+        assertTrue(coordinator.holdForRestore())
+    }
+
+    @Test
+    fun anIncomingCallThatWaitedAcrossARestoreIsDropped() = runTest {
+        // onIncoming suspends on the link cache and the rules; a restore
+        // that starts AND ends meanwhile leaves the hold released, but the
+        // call belongs to the identity the client no longer runs under.
+        val rules = CompletableDeferred<Boolean>()
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true), blockCheck = { rules.await() })
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "sdp"))
+        runCurrent()
+        assertTrue(coordinator.holdForRestore())
+        coordinator.releaseRestoreHold()
+        rules.complete(false)
+        runCurrent()
+        assertFalse(ui.events.contains("showIncoming"))
         assertTrue(session.calls.isEmpty())
     }
 

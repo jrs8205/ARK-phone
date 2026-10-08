@@ -74,9 +74,20 @@ class VoipCallCoordinator(
     /** Set while a backup restore swaps the identity: no ARK call may start under it. */
     private var heldForRestore = false
 
+    /**
+     * Counts restores. An incoming call that suspended on the link cache or
+     * the rules while a whole restore came and went belongs to the identity
+     * the client no longer runs under; the hold alone would be released by
+     * the time it looks again.
+     */
+    private var restoreGeneration = 0
+
     override fun holdForRestore(): Boolean {
-        if (active != null) return false
+        // One restore at a time: a slow apply outlives its screen, and a
+        // second one sharing the flag would be exposed by the first's release.
+        if (active != null || heldForRestore) return false
         heldForRestore = true
+        restoreGeneration++
         return true
     }
 
@@ -207,6 +218,7 @@ class VoipCallCoordinator(
             Log.i(TAG, "ARK onIncoming dropped: restore in progress")
             return
         }
+        val generation = restoreGeneration
         scope.launch {
             // A cold-start flush can beat Room's first link emission, and an
             // unlinked verdict off an empty cache would drop a legitimate
@@ -238,8 +250,12 @@ class VoipCallCoordinator(
                 return@launch
             }
             // Re-checked after the suspensions above: a restore may have
-            // taken the hold while the link cache or the rules were loading.
-            if (active != null || heldForRestore) return@launch
+            // taken the hold — or come and gone — while the link cache or
+            // the rules were loading.
+            if (active != null || heldForRestore || generation != restoreGeneration) {
+                Log.i(TAG, "ARK onIncoming dropped: restore during admission")
+                return@launch
+            }
             ring(call, number, nickname)
         }
     }
