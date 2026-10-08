@@ -493,3 +493,60 @@ Concentrate on:
 5. Whether `^\+?[0-9 ()./-]{1,64}$` still lets anything through that
    `PhoneCaller.placeCall()` or `Uri.fromParts("tel", …)` would treat as
    other than a dialable number.
+
+## Round 4 (2026-10-08 08:46) — findings and what was done
+
+Codex reviewed the round-3 fixes twice (two reports, overlapping) and
+reported 5 distinct P2 and 1 P3, all in the restore journal and its
+startup path. Every finding was verified against the code and found real.
+Fixes, all TDD (1 001 tests, lint clean, debug APK + release/beta build):
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P2 | a new restore overwrote the journal of one that could not be finished (recovery failed at start, the app went on); the new one's clean failure then deleted it | `restore()` first finishes any pending journal under the table lock and is refused (the recovery's exception) when that is not possible, so it never takes the journal's place | `c9e1610` |
+| P2 | startup recovery read journal A, suspended on the preferences, and then deleted whatever journal was there — the user's restore B had written its own meanwhile | `TableWriteLock` (one mutex, singleton): `restore()` and `recoverInterruptedRestore()` run under it, so B queues behind the recovery | `c9e1610` |
+| P2 | a WhatsApp call queued behind the failed COMMIT landed between the rollback and the retry and was wiped by the retry's `clear()` | every table writer (`RoomWhatsAppCallLogRepository.record/delete*`, `RoomArkLinkRepository.link/unlink`) takes the same lock, which the restore holds across both attempts; the call lands on whichever tables the restore leaves. Test records through the repository from another thread during the first transaction | `c9e1610` |
+| P2 | `voipStartup.onAppStart()` did not wait for recovery; `ArkLinkCache.await()` only guarantees a first emission, so a call could be checked against old links under the restored identity | `BackupRecoveryStartup` takes the ARK admission hold on Main before launching the recovery and releases it after (also on failure); `releaseRestoreHold()` is now suspend and refreshes the link cache (`ArkLinkCache.refresh()` re-reads the table) before opening admission — for the startup path and the user's restore alike | `c9e1610` |
+| P2 | `journal.read()` (file + JSON of up to 12 000 rows) ran on Main, the application scope's dispatcher, before the first suspension | `recoverInterruptedRestore()` runs under `withContext(io)` (`@IoDispatcher`), lock and all | `c9e1610` |
+| P3 | `FaultyWrites` tracked transaction depth across threads; a non-exclusive begin on another thread blocked after incrementing, so the restore saw depth 2 and committed | depth and arming are `ThreadLocal`, moved only after the real begin returned; arming consumes `failNextCommit` so one thread owns the fault | `c9e1610` |
+| own | Room reports a refused write as `SQLiteException` (a RuntimeException the view model did not map) — the apply's coroutine died with it | mapped to `BackupError.Io`; test | `c9e1610` |
+
+Decisions worth a second look:
+
+- The table lock is a coroutine `Mutex` taken by the two repositories'
+  write methods and by the restore; reads (flows, `callsOnce`) are not
+  serialised. `BlockedNumbersMigration` writes the DataStore, not Room.
+- A restore refused because an earlier one is still unfinished reports the
+  generic "could not be read or written"; the journal is retried at every
+  start and by every later restore attempt until the database writes again.
+- `releaseRestoreHold()` swallows a failed cache refresh (logged) so the
+  hold can never stick; the cache then catches up through its collector.
+- `BackupRecoveryStartup.onAppStart()` holds admission at every start, for
+  the duration of a journal stat + read on IO (no journal: sub-millisecond).
+
+## Round 5 request
+
+Review the round-4 fix commit with the same ground rules. Concentrate on:
+
+1. `TableWriteLock`: every writer of `whatsapp_calls` and `ark_links`
+   really goes through the two repositories; any path (a DAO injected
+   elsewhere, a migration, Room's own invalidation) that writes without the
+   lock; and whether holding a coroutine mutex across `withTransaction`
+   (which parks a transaction thread) can deadlock against a writer that
+   holds the mutex and waits for Room's transaction executor.
+2. The pending-journal rule in `restore()`: the user keeps getting "could
+   not be read or written" until the database writes again — is there a
+   case where the journal can never be finished (its snapshot no longer
+   valid for this phone, a SIM gone, a version mismatch) and the user is
+   locked out of restoring for good?
+3. `BackupRecoveryStartup` + `ArkVoipStartup` ordering on a cold FCM wake:
+   the hold is taken in `Application.onCreate` before `onAppStart()`; the
+   FCM service's `awaitWake()` and the engine's flush reconciliation —
+   can a call be reconciled and rung before the hold is in place, or
+   dropped (carrier fallback) at every wake for the duration of a long
+   journal replay?
+4. `ArkLinkCache.refresh()` versus its collector: a refresh racing the
+   collector's next emission (older snapshot overwriting the newer).
+5. Anything in the two repositories' `withLock` wrappers that changes
+   their cancellation or exception behaviour for existing callers
+   (`WhatsAppCallMonitor`, the call detail delete paths, the link screen).

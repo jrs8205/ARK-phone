@@ -89,9 +89,16 @@ a forgotten password.
    restore too; an incoming ARK call is dropped (the caller's connect
    timeout hands it to the carrier) and an outgoing one goes straight to
    the carrier. The hold is released when the apply ends, however it ends;
-   it is granted to one restore at a time, and an incoming call that
-   suspended on the link cache or the rules while a whole restore came and
-   went is dropped by a restore generation captured at admission.
+   releasing it first refreshes the link cache (`ArkLinkCache.refresh()`
+   re-reads the table), so the next call is admitted against the restored
+   links and not against what the cache's collector last saw. It is
+   granted to one restore at a time, and an incoming call that suspended
+   on the link cache or the rules while a whole restore came and went is
+   dropped by a restore generation captured at admission. The startup
+   recovery (`BackupRecoveryStartup`, from `ArkPhoneApp.onCreate` before
+   the VoIP engine starts) holds admission the same way: the identity in
+   the preferences is already the restored one while the tables may not
+   be.
 3. The snapshot is sanitised (`BackupSanitizer`): the file is untrusted
    input, so nothing is written that the app could not have written itself.
    Only keys the app knows are accepted, each with the type the app reads
@@ -131,8 +138,17 @@ a forgotten password.
    journal, and `recoverInterruptedRestore()` at process start replaces the
    tables from it when the preferences carry its id, or discards it when
    they do not (SQLite had already rolled the tables back). A cleanly
-   failed restore deletes its journal. The whole apply runs
-   non-cancellable: leaving the screen cannot cut it in half.
+   failed restore deletes its journal. One table lock (`TableWriteLock`, a
+   coroutine mutex) is held across both attempts and by the startup
+   recovery, and every writer of the two tables (the WhatsApp call log and
+   link repositories) takes it too: a call or a link recorded meanwhile
+   queues behind the whole restore instead of landing between its
+   attempts, a restore the user starts during the startup recovery queues
+   behind it instead of replacing its journal, and a restore always
+   finishes a pending journal first — or is refused when that is not
+   possible, so the pending one is never lost. The recovery runs on the IO
+   dispatcher (the journal can hold thousands of rows). The whole apply
+   runs non-cancellable: leaving the screen cannot cut it in half.
 6. The ARK engine keys on the identity *code* (`ArkVoipStartup`): any
    change drops the current inbox client (`VoipEngine.dropClient()`,
    which also cancels a pending flush drain) and, when an identity exists,
@@ -225,7 +241,16 @@ damaged file, password required, could not read/write the file.
 - Coordinator: an incoming ARK call is dropped and an outgoing one goes to
   the carrier while a restore holds admission; a live (ringing) ARK call
   refuses the hold; a second restore cannot take the hold while one is
-  held; an incoming call that waited across a whole restore is dropped.
+  held; an incoming call that waited across a whole restore is dropped;
+  releasing the hold refreshes the link cache first.
+- Link cache: `refresh()` reads the table now, not when the collector gets
+  to it.
+- Startup recovery: ARK calls are held off until the recovery is done,
+  and released when it fails.
+- Store, continued: a new restore does not replace the journal of one it
+  cannot finish; a startup recovery in flight does not discard a journal a
+  restore writes meanwhile; a call recorded while the COMMIT fails lands
+  on the restored tables; the journal is read on the IO dispatcher.
 - Startup: an identity whose code changes without passing through `null`
   closes the old inbox socket and dials with the new token.
   Without an identity, startup never asks Firebase for a token; removing
