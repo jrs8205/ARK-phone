@@ -314,7 +314,7 @@ to fix should say so explicitly so the maintainer knows it was read.
 
 ## Round 1 (2026-10-07 21:09) — findings and what was done
 
-Codex reviewed `fe55679..325232f` (the committed state; the then-uncommitted
+The external reviewer reviewed `fe55679..325232f` (the committed state; the then-uncommitted
 `BackupSanitizer` was not part of it) and reported 1 P1, 10 P2, 7 P3. Every
 finding was verified against the code and found real. Fixes, all TDD
 (967 tests, lint clean):
@@ -364,7 +364,7 @@ Review the three fix commits `896f039`, `bcdaae4`, `9783317` on top of
 
 ## Round 2 (2026-10-07 21:46) — findings and what was done
 
-Codex reviewed `896f039`, `bcdaae4`, `9783317` and reported 5 P2, no
+The external reviewer reviewed `896f039`, `bcdaae4`, `9783317` and reported 5 P2, no
 translation corrections. Every finding was verified against the code and
 found real. Fixes, all TDD (983 tests, lint clean), on 2026-10-08:
 
@@ -439,7 +439,7 @@ rules. Concentrate on:
 
 ## Round 3 (2026-10-08 08:00) — findings and what was done
 
-Codex reviewed the five round-2 fix commits on top of `6672da4` and
+The external reviewer reviewed the five round-2 fix commits on top of `6672da4` and
 reported 5 P2, all in the restore/admission work. Every finding was
 verified against the code and found real. Fixes, all TDD (990 tests,
 lint clean, debug APK + release/beta variants build):
@@ -496,7 +496,7 @@ Concentrate on:
 
 ## Round 4 (2026-10-08 08:46) — findings and what was done
 
-Codex reviewed the round-3 fixes twice (two reports, overlapping) and
+The external reviewer reviewed the round-3 fixes twice (two reports, overlapping) and
 reported 5 distinct P2 and 1 P3, all in the restore journal and its
 startup path. Every finding was verified against the code and found real.
 Fixes, all TDD (1 001 tests, lint clean, debug APK + release/beta build):
@@ -553,7 +553,7 @@ Review the round-4 fix commit with the same ground rules. Concentrate on:
 
 ## Round 5 (2026-10-08 09:41) — findings fixed by the reviewer, and what followed
 
-Codex reviewed `c9e1610` and this time applied its fixes in the working
+The external reviewer reviewed `c9e1610` and this time applied its fixes in the working
 tree (three P2 plus the journal's error handling, sixteen regression
 tests); its own report is `2026-10-08-backup-release-fixes.md`. The tree
 was verified here (1 017 tests, lint clean, `git diff --check`) and
