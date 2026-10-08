@@ -6,6 +6,7 @@ import org.jarsi.arkphone.data.model.BlockedCallAction
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Settings
 import org.jarsi.arkphone.voip.ArkCode
+import org.jarsi.arkphone.voip.arkLinkKey
 
 /**
  * A backup file is untrusted input once it has been shared around. Nothing
@@ -57,6 +58,20 @@ object BackupSanitizer {
     private val SPEED_DIAL_PATTERN = Regex("^speed_dial_([2-9])$")
     private val IDENTITY_KEYS = setOf("ark_code", "ark_nickname", "ark_device_token")
 
+    /**
+     * The worker issues 43 base64url characters (worker/src/registry.ts);
+     * the token then rides in an Authorization header, where a control
+     * character makes OkHttp throw at every inbox connect.
+     */
+    private val DEVICE_TOKEN_PATTERN = Regex("^[A-Za-z0-9._~-]{1,256}$")
+
+    /**
+     * Anything stored here ends up in a call intent (speed dial long-press,
+     * call back from the history, an ARK link's number): digits with the
+     * usual formatting only, so no MMI sequence (`*21*…#`) can ride in.
+     */
+    private val PHONE_NUMBER_PATTERN = Regex("^\\+?[0-9][0-9 ()-]{0,63}$")
+
     fun isKnownKey(key: String): Boolean = key in KNOWN || SPEED_DIAL_PATTERN.matches(key)
 
     private fun expectedType(key: String): Type? = KNOWN[key] ?: Type.STRING.takeIf { SPEED_DIAL_PATTERN.matches(key) }
@@ -72,10 +87,13 @@ object BackupSanitizer {
             .filter { it.key !in BackupStore.DEVICE_ONLY_KEYS }
             .mapNotNull(::sanitizePreference)
             .distinctBy { it.key }
-        // The identity is all or nothing: a code the worker would never have
-        // issued must not leave a half identity behind.
+        // The identity is all or nothing: a code or token the worker would
+        // never have issued must not leave a half identity behind.
         val code = kept.firstOrNull { it.key == "ark_code" }?.value as? String
-        return if (code != null && !ArkCode.isValid(code)) kept.filter { it.key !in IDENTITY_KEYS } else kept
+        val token = kept.firstOrNull { it.key == "ark_device_token" }?.value as? String
+        val impossible = (code != null && !ArkCode.isValid(code)) ||
+            (token != null && !DEVICE_TOKEN_PATTERN.matches(token))
+        return if (impossible) kept.filter { it.key !in IDENTITY_KEYS } else kept
     }
 
     private fun sanitizePreference(preference: BackupPreference): BackupPreference? {
@@ -103,7 +121,11 @@ object BackupSanitizer {
             )
             "blocking_schedule_start_minutes", "blocking_schedule_end_minutes" ->
                 preference.clampInt(0, 24 * 60 - 1)
-            else -> preference
+            else -> if (SPEED_DIAL_PATTERN.matches(key)) {
+                preference.takeIf { PHONE_NUMBER_PATTERN.matches(value as String) }
+            } else {
+                preference
+            }
         }
     }
 
@@ -112,8 +134,9 @@ object BackupSanitizer {
 
     private fun acceptableLink(link: BackupArkLink): Boolean =
         ArkCode.isValid(link.code) &&
-            link.numberKey.isNotBlank() && link.numberKey.length <= MAX_ROW_TEXT_LENGTH &&
-            link.number.isNotBlank() && link.number.length <= MAX_ROW_TEXT_LENGTH &&
+            PHONE_NUMBER_PATTERN.matches(link.number) &&
+            // The key is what the app computes for the number, never the file's word.
+            link.numberKey == arkLinkKey(link.number) &&
             link.nickname.length <= MAX_ROW_TEXT_LENGTH &&
             link.publicKey.length <= MAX_STRING_LENGTH
 
@@ -122,6 +145,6 @@ object BackupSanitizer {
             call.durationSeconds >= 0 &&
             call.timestampMillis >= 0 &&
             (call.callerName?.length ?: 0) <= MAX_ROW_TEXT_LENGTH &&
-            (call.callerNumber?.length ?: 0) <= MAX_ROW_TEXT_LENGTH &&
+            (call.callerNumber == null || PHONE_NUMBER_PATTERN.matches(call.callerNumber)) &&
             call.sourcePackage.length <= MAX_ROW_TEXT_LENGTH
 }

@@ -18,10 +18,19 @@ class OkHttpWebSocketConnector(
         onText: (String) -> Unit,
         onClosed: (code: Int, reason: String) -> Unit,
     ): WebSocketHandle {
-        val request = Request.Builder()
-            .url(url)
-            .header("Authorization", "Bearer $bearer")
-            .build()
+        val request = try {
+            Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer $bearer")
+                .build()
+        } catch (e: IllegalArgumentException) {
+            // A bearer OkHttp cannot put in a header (a stored token with a
+            // control character) is a failed connect, not a crash of the
+            // startup coroutine; reported on a dispatcher thread like any
+            // other transport failure.
+            client.dispatcher.executorService.execute { onClosed(FAILURE_CLOSE, e.message.orEmpty()) }
+            return DeadHandle
+        }
         val socket = client.newWebSocket(
             request,
             object : WebSocketListener() {
@@ -37,6 +46,11 @@ class OkHttpWebSocketConnector(
             override fun send(text: String): Boolean = socket.send(text)
             override fun close() { socket.close(NORMAL_CLOSE, null) }
         }
+    }
+
+    private object DeadHandle : WebSocketHandle {
+        override fun send(text: String): Boolean = false
+        override fun close() = Unit
     }
 
     private companion object {

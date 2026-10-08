@@ -155,6 +155,72 @@ class BackupSanitizerTest {
     }
 
     @Test
+    fun aDeviceTokenTheWorkerCouldNotHaveIssuedDropsTheWholeIdentity() {
+        // The token becomes the Authorization header of every inbox connect;
+        // OkHttp throws on a control character there, at every launch.
+        val bad = listOf("token\ncontrol", "tok en", "", "t".repeat(257), "tök", "tok\u0000")
+        for (token in bad) {
+            val cleaned = BackupSanitizer.sanitize(
+                snapshot(
+                    preferences = listOf(
+                        string("ark_code", "ARK-E5HU-JVA8"),
+                        string("ark_nickname", "Jarsi"),
+                        string("ark_device_token", token),
+                    ),
+                ),
+            ).preferences
+            assertEquals("token ${token.encodeToByteArray().toList()}", emptyList<BackupPreference>(), cleaned)
+        }
+        val issued = BackupSanitizer.sanitize(
+            snapshot(
+                preferences = listOf(
+                    string("ark_code", "ARK-E5HU-JVA8"),
+                    string("ark_device_token", "AbC-xYz_0123456789.~"),
+                ),
+            ),
+        ).preferences
+        assertEquals("AbC-xYz_0123456789.~", issued.value("ark_device_token"))
+    }
+
+    @Test
+    fun aNumberThatIsNotAPhoneNumberNeverReachesTheDialer() {
+        // Speed dials, link numbers and WhatsApp numbers all end up in a
+        // call intent; an MMI sequence ("*21*…#") must not ride in on a file.
+        val good = BackupArkLink("445552841", "+358 44 5552841", "ARK-E5HU-JVA8", "Jarsi", "pk", 5L)
+        val goodCall = BackupWhatsAppCall("Alice", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")
+        val cleaned = BackupSanitizer.sanitize(
+            snapshot(
+                preferences = listOf(
+                    string("speed_dial_2", "*#06#"),
+                    string("speed_dial_3", "0401234567"),
+                    string("speed_dial_4", "+358 (40) 123-4567"),
+                    string("speed_dial_5", "tel:0401234567"),
+                    string("speed_dial_6", "040123456;7"),
+                ),
+                links = listOf(
+                    good,
+                    good.copy(numberKey = "1", number = "*21*0401234567#"),
+                    // The key is what the app would compute for the number, never the file's word.
+                    good.copy(numberKey = "999999999"),
+                    good.copy(numberKey = "1", number = "+1"),
+                ),
+                calls = listOf(
+                    goodCall,
+                    goodCall.copy(callerNumber = "*100#"),
+                    goodCall.copy(callerNumber = null),
+                ),
+            ),
+        )
+        assertNull(cleaned.preferences.value("speed_dial_2"))
+        assertEquals("0401234567", cleaned.preferences.value("speed_dial_3"))
+        assertEquals("+358 (40) 123-4567", cleaned.preferences.value("speed_dial_4"))
+        assertNull(cleaned.preferences.value("speed_dial_5"))
+        assertNull(cleaned.preferences.value("speed_dial_6"))
+        assertEquals(listOf(good, good.copy(numberKey = "1", number = "+1")), cleaned.arkLinks)
+        assertEquals(listOf(goodCall, goodCall.copy(callerNumber = null)), cleaned.whatsAppCalls)
+    }
+
+    @Test
     fun rowsTheAppCannotUseAreDropped() {
         val good = BackupArkLink("445552841", "+358 44 5552841", "ARK-E5HU-JVA8", "Jarsi", "pk", 5L)
         val goodCall = BackupWhatsAppCall("Alice", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")
@@ -184,7 +250,7 @@ class BackupSanitizerTest {
         val call = BackupWhatsAppCall("Alice", "+358401234567", "INCOMING", 9L, 61, false, "com.whatsapp")
         val cleaned = BackupSanitizer.sanitize(
             snapshot(
-                links = (1..5_000).map { link.copy(numberKey = "$it") },
+                links = (1..5_000).map { link.copy(numberKey = "$it", number = "0$it") },
                 calls = (1..50_000).map { call.copy(timestampMillis = it.toLong()) },
             ),
         )
