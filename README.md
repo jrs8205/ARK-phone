@@ -101,6 +101,11 @@ Requires Android 8.0 (API 26) or newer. Tested on Pixel and Samsung Galaxy
 phones. Everything else — ARK calls, blocking rules, backups, troubleshooting
 — is in the [user guide](docs/USAGE.md).
 
+**Registered with Google.** The package name and signing key are registered in
+Google's Android Developer Console, so the app keeps installing as usual under
+Google's new [sideloading
+rules](https://developer.android.com/developer-verification).
+
 ## Development
 
 ```
