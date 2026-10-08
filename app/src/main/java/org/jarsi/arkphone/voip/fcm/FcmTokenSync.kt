@@ -42,11 +42,8 @@ class FcmTokenSync @Inject constructor(
             "${identity.code}.${identity.deviceToken}",
         )
         // A backup restore can swap the identity while the POST is on the
-        // wire; the marker then belongs to an account the worker never saw
-        // this token for, and that account would skip its own POST.
-        val current = identityRepository.identity.first()
-        if (current?.code != identity.code || current.deviceToken != identity.deviceToken) return false
-        if (posted) identityRepository.setSyncedFcmToken(token)
-        return posted
+        // wire; the marker is written only if the identity is still the one
+        // posted for, checked inside the same edit.
+        return posted && identityRepository.markFcmTokenSynced(identity, token)
     }
 }

@@ -17,7 +17,12 @@ class TestArkIdentityRepository(identity: ArkIdentity? = null) : ArkIdentityRepo
     override val identity: Flow<ArkIdentity?> = state
     override suspend fun save(identity: ArkIdentity) { state.value = identity }
     override val syncedFcmToken: Flow<String?> = fcm
-    override suspend fun setSyncedFcmToken(token: String) { fcm.value = token }
+    override suspend fun markFcmTokenSynced(identity: ArkIdentity, token: String): Boolean {
+        val current = state.value
+        if (current?.code != identity.code || current.deviceToken != identity.deviceToken) return false
+        fcm.value = token
+        return true
+    }
 }
 
 class TestArkKeyPairSource(private val key: String?) : ArkKeyPairSource {

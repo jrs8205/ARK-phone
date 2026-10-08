@@ -158,7 +158,7 @@ class BackupStore(
          * This phone's push registration. Restoring another phone's token
          * would keep the worker waking that phone instead of this one.
          */
-        val DEVICE_ONLY_KEYS = setOf("ark_synced_fcm_token")
+        val DEVICE_ONLY_KEYS = setOf("ark_synced_fcm_token", "ark_synced_fcm_account")
 
         /** Phone-account ids are per phone; a restored one must exist here. */
         val SIM_KEYS = setOf("call_sim_account_id", "blocking_sim_account_id")

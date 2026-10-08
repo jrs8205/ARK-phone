@@ -29,10 +29,15 @@ interface ArkIdentityRepository {
 
     suspend fun save(identity: ArkIdentity)
 
-    /** The FCM registration token the worker has already been told about. */
+    /** The FCM registration token the worker already holds for the current identity. */
     val syncedFcmToken: Flow<String?>
 
-    suspend fun setSyncedFcmToken(token: String)
+    /**
+     * Records that the worker holds [token] for [identity]. False, and nothing
+     * written, when the stored identity is no longer [identity] — the marker
+     * must never claim a POST made under another account.
+     */
+    suspend fun markFcmTokenSynced(identity: ArkIdentity, token: String): Boolean
 }
 
 @Singleton
@@ -45,6 +50,7 @@ class DataStoreArkIdentityRepository @Inject constructor(
         val NICKNAME = stringPreferencesKey("ark_nickname")
         val DEVICE_TOKEN = stringPreferencesKey("ark_device_token")
         val SYNCED_FCM_TOKEN = stringPreferencesKey("ark_synced_fcm_token")
+        val SYNCED_FCM_ACCOUNT = stringPreferencesKey("ark_synced_fcm_account")
     }
 
     private val preferences: Flow<Preferences> = dataStore.data
@@ -68,10 +74,24 @@ class DataStoreArkIdentityRepository @Inject constructor(
         }
     }
 
-    override val syncedFcmToken: Flow<String?> =
-        preferences.map { it[Keys.SYNCED_FCM_TOKEN]?.takeIf(String::isNotBlank) }
+    // The marker is bound to the account it was posted for: left behind by
+    // another identity it would stop this one from ever posting its own.
+    override val syncedFcmToken: Flow<String?> = preferences.map { stored ->
+        stored[Keys.SYNCED_FCM_TOKEN]
+            ?.takeIf { it.isNotBlank() && stored[Keys.SYNCED_FCM_ACCOUNT] == stored[Keys.CODE] }
+    }
 
-    override suspend fun setSyncedFcmToken(token: String) {
-        dataStore.edit { it[Keys.SYNCED_FCM_TOKEN] = token }
+    override suspend fun markFcmTokenSynced(identity: ArkIdentity, token: String): Boolean {
+        var written = false
+        // One edit: the identity check and the write cannot be separated by
+        // a restore's edit, which once left the new identity marked as
+        // synced for a token the worker held for the old one.
+        dataStore.edit {
+            if (it[Keys.CODE] != identity.code || it[Keys.DEVICE_TOKEN] != identity.deviceToken) return@edit
+            it[Keys.SYNCED_FCM_TOKEN] = token
+            it[Keys.SYNCED_FCM_ACCOUNT] = identity.code
+            written = true
+        }
+        return written
     }
 }

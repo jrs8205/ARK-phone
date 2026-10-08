@@ -10,7 +10,10 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.jarsi.arkphone.testing.InMemoryPreferencesDataStore
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -48,8 +51,18 @@ class DataStoreArkIdentityRepositoryTest {
 
     @Test
     fun theSyncedFcmTokenRoundTrips() = runTest {
-        val repository = DataStoreArkIdentityRepository(createDataStore())
-        repository.setSyncedFcmToken("fcm-1")
+        val repository = DataStoreArkIdentityRepository(InMemoryPreferencesDataStore())
+        val identity = ArkIdentity("ARK-7K3M-Q2FP", "Jarsi", "token-abc")
+        repository.save(identity)
+        assertTrue(repository.markFcmTokenSynced(identity, "fcm-1"))
         assertEquals("fcm-1", repository.syncedFcmToken.first())
+    }
+
+    @Test
+    fun theMarkerIsNotWrittenForAnIdentityNoLongerStored() = runTest {
+        val repository = DataStoreArkIdentityRepository(InMemoryPreferencesDataStore())
+        repository.save(ArkIdentity("ARK-7K3M-Q2FP", "Jarsi", "token-abc"))
+        assertFalse(repository.markFcmTokenSynced(ArkIdentity("ARK-7K3M-Q2FP", "Jarsi", "token-old"), "fcm-1"))
+        assertNull(repository.syncedFcmToken.first())
     }
 }

@@ -339,8 +339,11 @@ class FakeArkIdentityRepository : org.jarsi.arkphone.data.ArkIdentityRepository 
         state.value = identity
     }
     override val syncedFcmToken: Flow<String?> = fcmState
-    override suspend fun setSyncedFcmToken(token: String) {
+    override suspend fun markFcmTokenSynced(identity: org.jarsi.arkphone.data.ArkIdentity, token: String): Boolean {
+        val current = state.value
+        if (current?.code != identity.code || current.deviceToken != identity.deviceToken) return false
         fcmState.value = token
+        return true
     }
 }
 
