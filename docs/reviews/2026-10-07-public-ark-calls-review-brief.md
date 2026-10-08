@@ -436,3 +436,60 @@ rules. Concentrate on:
 6. Part D for `backup_restore_details_identity` and
    `backup_restore_details_no_identity` in all nine languages plus Finnish
    (the `%1$s` is "ARK-XXXX-XXXX (nickname)" composed in code).
+
+## Round 3 (2026-10-08 08:00) — findings and what was done
+
+Codex reviewed the five round-2 fix commits on top of `6672da4` and
+reported 5 P2, all in the restore/admission work. Every finding was
+verified against the code and found real. Fixes, all TDD (990 tests,
+lint clean, debug APK + release/beta variants build):
+
+| # | Finding | Fix | Commit |
+|---|---|---|---|
+| P2 | the number pattern required a leading digit, so "(212) 555-0123" — the spelling the contact picker and the link screen store — lost its speed dial, link and WhatsApp rows on restore | `^\+?[0-9 ()./-]{1,64}$` with at least one digit: any contact-card spelling, still no `*` `#` `,` `;` | `bb35206` |
+| P2 | a failed SQLite COMMIT after the preferences rename (disk full, no process death needed) left new preferences next to old tables | `RestoreJournal` (no-backup dir): the sanitised snapshot is journalled before anything changes and the preferences carry `backup_restore_id` (device-only). A failed commit is retried at once in a new transaction; a retry that fails too leaves the journal and `recoverInterruptedRestore()` at process start (`ArkPhoneApp`) replaces the tables from it when the preferences carry its id, or discards it when they do not. A clean failure deletes the journal. Test fault-injects the outermost exclusive transaction's COMMIT (the DAOs and the invalidation tracker use non-exclusive ones — the first attempt hit the tracker's `syncTriggers` transaction instead), with and without the retry failing | `66beb24` |
+| P2 | `onIncoming()` that suspended on the link cache / rules while a whole restore came and went found the hold released and rang under the new client | `restoreGeneration` counter, bumped by `holdForRestore()`, captured at admission and compared before `ring()` | `0451fbb` |
+| P2 | `holdForRestore()` granted the hold to a second restore while one was held; the first's release exposed the second's swap | refused while a hold is held (one restore at a time) | `0451fbb` |
+| P2 | the preview dialog stayed open during the apply with Cancel pressable (it only forgot a snapshot the apply no longer read) | `applyRestore()` clears the preview (and the decoded snapshot) synchronously with the confirmation, so the dialog closes and the screen shows the busy state; on failure the chosen file stays for another try | `8a0dc4b` |
+
+Decisions worth a second look:
+
+- Journal replay replaces the tables wholesale; a WhatsApp call recorded
+  in the milliseconds between process start and the replay's transaction
+  would be lost. Accepted for a path that only runs after a crash or a
+  disk-full COMMIT.
+- The journal carries the device token in the clear, like the preferences
+  file beside it; it lives for the milliseconds of one apply unless that
+  apply is cut short.
+- A journal this version cannot parse is deleted (it is written before the
+  transaction begins, so a corrupt one means nothing changed).
+- The `backup_restore_id` preference stays after a successful restore; it
+  is device-only (never exported, dropped from files as unknown).
+
+## Round 4 request
+
+Review the five round-3 fix commits with the same ground rules.
+Concentrate on:
+
+1. `BackupStore.restore()` / `recoverInterruptedRestore()` /
+   `RestoreJournal`: every ordering of {journal write, table replacement,
+   preferences rename, SQLite COMMIT, retry, journal delete, process death,
+   next start}. Is there one that ends with the two stores disagreeing and
+   no journal, or with a journal that replays the wrong direction? Is the
+   `preferencesCommitted` flag set at the right point (after
+   `dataStore.edit` returns)? Can the replay at start race `ArkVoipStartup`
+   or the link cache in a way that matters?
+2. The fault injection in `BackupStoreTest.FaultyWrites`: does it model
+   a real failed COMMIT faithfully (success swallowed at depth 1, throw
+   after the real `endTransaction`), and is the depth tracking right for
+   Room 2.8's mix of exclusive (`withTransaction`) and non-exclusive
+   (`performSuspending`, invalidation tracker) transactions?
+3. `VoipCallCoordinator`: with `restoreGeneration` and the one-at-a-time
+   hold, any remaining path by which a call admitted before a restore rings
+   after it, or by which a hold is never released.
+4. `BackupViewModel.applyRestore()` after the preview is cleared: a second
+   `applyRestore()` press, `chooseRestore()` during the apply, and the
+   screen's "Working…" state.
+5. Whether `^\+?[0-9 ()./-]{1,64}$` still lets anything through that
+   `PhoneCaller.placeCall()` or `Uri.fromParts("tel", …)` would treat as
+   other than a dialable number.

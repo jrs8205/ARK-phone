@@ -88,7 +88,10 @@ a forgotten password.
    yet). Under the hold a carrier call in `CallController` refuses the
    restore too; an incoming ARK call is dropped (the caller's connect
    timeout hands it to the carrier) and an outgoing one goes straight to
-   the carrier. The hold is released when the apply ends, however it ends.
+   the carrier. The hold is released when the apply ends, however it ends;
+   it is granted to one restore at a time, and an incoming call that
+   suspended on the link cache or the rules while a whole restore came and
+   went is dropped by a restore generation captured at admission.
 3. The snapshot is sanitised (`BackupSanitizer`): the file is untrusted
    input, so nothing is written that the app could not have written itself.
    Only keys the app knows are accepted, each with the type the app reads
@@ -101,8 +104,9 @@ a forgotten password.
    it becomes an Authorization header, where a control character makes
    OkHttp throw at every connect), drops the whole identity; every value
    that can end up in a call intent — speed dials, link numbers, WhatsApp
-   caller numbers — must look like a phone number
-   (`^\+?[0-9][0-9 ()-]{0,63}$`, so no MMI `*`/`#` sequence), and a link's
+   caller numbers — must look like a phone number in any contact-card
+   spelling (`^\+?[0-9 ()./-]{1,64}$` with at least one digit, so no MMI
+   `*`/`#` sequence and no DTMF `,`/`;` pause), and a link's
    `numberKey` must be what `arkLinkKey(number)` computes; links need a
    valid code; WhatsApp rows need a known call type and non-negative
    duration and time. Offending entries are dropped, the rest restores. A test checks the known-key list against the
@@ -117,10 +121,18 @@ a forgotten password.
    only copy of the original rows — and the write lock keeps
    `WhatsAppCallMonitor` and the link screen out until the outcome is
    known, so a call recorded meanwhile lands on whichever tables survive.
-   What remains is a process death between the preferences file's rename
-   and the transaction commit, which would leave new preferences next to
-   old tables. The whole apply runs non-cancellable: leaving the screen
-   cannot cut it in half.
+   The final SQLite COMMIT can still fail (disk full) after the
+   preferences file has been renamed into place, and a process can die
+   between the two: new preferences next to old tables. For that the
+   sanitised snapshot is journalled (`RestoreJournal`, in the no-backup
+   directory) before anything changes and the preferences carry the
+   restore's id (`backup_restore_id`, device-only). A failed commit is
+   retried at once in a new transaction; a retry that fails too leaves the
+   journal, and `recoverInterruptedRestore()` at process start replaces the
+   tables from it when the preferences carry its id, or discards it when
+   they do not (SQLite had already rolled the tables back). A cleanly
+   failed restore deletes its journal. The whole apply runs
+   non-cancellable: leaving the screen cannot cut it in half.
 6. The ARK engine keys on the identity *code* (`ArkVoipStartup`): any
    change drops the current inbox client (`VoipEngine.dropClient()`,
    which also cancels a pending flush drain) and, when an identity exists,
@@ -152,8 +164,9 @@ ARK calls screen: own composable, `BackupViewModel` via Hilt, switched in
   (`OpenDocument`). The view model inspects the file; if it is encrypted a
   password field appears. "Restore" decodes the file (off the main thread)
   and opens the confirmation with what it brings; "Restore" there applies
-  it and shows "Backup restored" or the error. Cancel forgets the decoded
-  file.
+  it and shows "Backup restored" or the error, closing the confirmation
+  with the confirmation (the screen shows "Working…" meanwhile). Cancel
+  forgets the decoded file.
 
 Errors shown: not a backup file, unsupported version, wrong password or
 damaged file, password required, could not read/write the file.
@@ -197,7 +210,12 @@ damaged file, password required, could not read/write the file.
   then refuses to write again (fault-injected framework SQLite), keeps a
   WhatsApp call recorded on another thread while the restore is between
   its stores, leaves the preferences alone when the tables fail, finishes
-  when its caller is cancelled; export carries preferences, links and calls
+  the restore when the final COMMIT fails after the preferences committed
+  (fault-injected on the outermost exclusive transaction), leaves a
+  journal the next start finishes when the retry fails too, discards a
+  journal whose preferences never committed, leaves no journal after a
+  clean failure, finishes when its caller is cancelled; export carries
+  preferences, links and calls
   and omits the synced push token; restore replaces all three in one edit
   and leaves the synced token empty even when the file carries one.
 - Identity repository: the marker is written only when the stored identity
@@ -206,7 +224,8 @@ damaged file, password required, could not read/write the file.
   another account does not satisfy the unchanged-token shortcut.
 - Coordinator: an incoming ARK call is dropped and an outgoing one goes to
   the carrier while a restore holds admission; a live (ringing) ARK call
-  refuses the hold.
+  refuses the hold; a second restore cannot take the hold while one is
+  held; an incoming call that waited across a whole restore is dropped.
 - Startup: an identity whose code changes without passing through `null`
   closes the old inbox socket and dials with the new token.
   Without an identity, startup never asks Firebase for a token; removing
@@ -215,7 +234,8 @@ damaged file, password required, could not read/write the file.
   records no marker.
 - View model: codec and store work runs on the IO dispatcher, the decode
   included; decoding shows the ARK code, nickname and link count the
-  sanitizer will keep, with nothing applied until confirmed; dismissing the
+  sanitizer will keep, with nothing applied until confirmed; confirming
+  closes the preview and Cancel cannot stop the apply; dismissing the
   preview forgets the decoded file; a restore during a carrier call or a
   live ARK call is refused; ARK calls are held off for the whole apply and
   released after a failure; an export larger than the import limit is
