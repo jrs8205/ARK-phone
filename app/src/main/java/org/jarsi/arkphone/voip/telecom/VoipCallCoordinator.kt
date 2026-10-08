@@ -67,6 +67,7 @@ class VoipCallCoordinator(
     // emission — a disabled phone rang anyway.
     private val arkCallsEnabled: suspend () -> Boolean = { true },
     private val ringback: RingbackController = RingbackController.None,
+    private val refreshLinkCache: suspend () -> Unit = {},
 ) : VoipCallGateway, ArkCallAdmission {
 
     private var active: ActiveCall? = null
@@ -91,8 +92,17 @@ class VoipCallCoordinator(
         return true
     }
 
-    override fun releaseRestoreHold() {
-        heldForRestore = false
+    override suspend fun releaseRestoreHold() {
+        // The restore replaced the link table; the cache's collector may not
+        // have caught up, and the next call is admitted against the cache.
+        // A refresh that fails must not leave the hold stuck.
+        try {
+            refreshLinkCache()
+        } catch (e: Exception) {
+            Log.w(TAG, "ARK link cache refresh after restore failed", e)
+        } finally {
+            heldForRestore = false
+        }
     }
 
     private class ActiveCall(

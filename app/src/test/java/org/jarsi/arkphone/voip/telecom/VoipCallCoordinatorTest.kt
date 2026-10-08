@@ -173,6 +173,7 @@ class VoipCallCoordinatorTest {
         blockCheck: suspend (String?) -> Boolean = { false },
         hasMic: () -> Boolean = { true },
         arkEnabled: suspend () -> Boolean = { true },
+        refreshLinks: suspend () -> Unit = {},
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
         sessionFactory = { _, _, _, _, callId, _ ->
@@ -191,6 +192,7 @@ class VoipCallCoordinatorTest {
         hasMicPermission = hasMic,
         arkCallsEnabled = arkEnabled,
         ringback = ringback,
+        refreshLinkCache = refreshLinks,
     )
 
     @Test
@@ -275,6 +277,26 @@ class VoipCallCoordinatorTest {
         assertTrue(coordinator.holdForRestore())
         assertFalse(coordinator.holdForRestore())
         coordinator.releaseRestoreHold()
+        assertTrue(coordinator.holdForRestore())
+    }
+
+    @Test
+    fun releasingTheHoldRefreshesTheLinkCacheBeforeCallsAreAdmitted() = runTest {
+        // The restore replaced the link table; the cache's collector may
+        // not have caught up, and the next call is admitted against it.
+        val events = mutableListOf<String>()
+        lateinit var coordinator: VoipCallCoordinator
+        coordinator = coordinator(
+            backgroundScope, FakeReach(reachable = true),
+            refreshLinks = {
+                events += "refresh"
+                // Still held while the cache is being refreshed.
+                events += if (coordinator.holdForRestore()) "open" else "held"
+            },
+        )
+        assertTrue(coordinator.holdForRestore())
+        coordinator.releaseRestoreHold()
+        assertEquals(listOf("refresh", "held"), events)
         assertTrue(coordinator.holdForRestore())
     }
 

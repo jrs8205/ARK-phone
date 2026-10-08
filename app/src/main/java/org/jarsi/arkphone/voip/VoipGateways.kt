@@ -50,5 +50,5 @@ interface ArkCallAdmission {
     /** False, and nothing held, while an ARK call is live — ringing included. */
     fun holdForRestore(): Boolean
 
-    fun releaseRestoreHold()
+    suspend fun releaseRestoreHold()
 }

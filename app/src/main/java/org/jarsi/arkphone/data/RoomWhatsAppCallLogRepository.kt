@@ -13,12 +13,13 @@ import javax.inject.Singleton
 @Singleton
 class RoomWhatsAppCallLogRepository @Inject constructor(
     private val dao: WhatsAppCallDao,
+    private val lock: TableWriteLock,
 ) : WhatsAppCallLogRepository {
 
     override fun calls(): Flow<List<CallLogEntry>> =
         dao.calls().map { entities -> entities.map { it.toEntry() } }
 
-    override suspend fun record(call: WhatsAppCallRecord) {
+    override suspend fun record(call: WhatsAppCallRecord) = lock.withLock {
         dao.insert(
             WhatsAppCallEntity(
                 callerName = call.callerName,
@@ -32,14 +33,14 @@ class RoomWhatsAppCallLogRepository @Inject constructor(
         )
     }
 
-    override suspend fun deleteCallsFor(number: String) {
+    override suspend fun deleteCallsFor(number: String) = lock.withLock {
         val ids = dao.callsOnce()
             .filter { it.callerNumber != null && PhoneNumberUtils.compare(it.callerNumber, number) }
             .map { it.id }
         if (ids.isNotEmpty()) dao.deleteByIds(ids)
     }
 
-    override suspend fun deleteCallsForName(name: String) {
+    override suspend fun deleteCallsForName(name: String) = lock.withLock {
         val ids = dao.callsOnce()
             .filter { it.callerNumber == null && it.callerName == name }
             .map { it.id }

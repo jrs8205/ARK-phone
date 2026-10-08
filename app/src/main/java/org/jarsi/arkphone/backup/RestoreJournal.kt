@@ -16,7 +16,7 @@ import java.nio.file.StandardCopyOption
  * identity like the preferences file next to it does; it lives for the
  * milliseconds of one apply unless that apply is cut short.
  */
-internal class RestoreJournal(private val dir: File) {
+open class RestoreJournal(private val dir: File) {
 
     data class Entry(val id: String, val snapshot: BackupSnapshot)
 
@@ -34,7 +34,7 @@ internal class RestoreJournal(private val dir: File) {
     }
 
     /** Null when there is no journal, or none this version can read. */
-    fun read(): Entry? {
+    open fun read(): Entry? {
         val current = file.takeIf { it.exists() } ?: return null
         return runCatching {
             val json = Json.parseToJsonElement(current.readText(Charsets.UTF_8)).jsonObject

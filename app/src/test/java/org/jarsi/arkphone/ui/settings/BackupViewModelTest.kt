@@ -5,6 +5,7 @@ import org.jarsi.arkphone.telecom.CallHandle
 import org.jarsi.arkphone.telecom.CallController
 import kotlinx.coroutines.asCoroutineDispatcher
 import android.app.Application
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -25,6 +26,8 @@ import org.jarsi.arkphone.backup.BackupError
 import org.jarsi.arkphone.backup.BackupPreference
 import org.jarsi.arkphone.backup.BackupSnapshot
 import org.jarsi.arkphone.backup.BackupStore
+import org.jarsi.arkphone.backup.RestoreJournal
+import org.jarsi.arkphone.data.TableWriteLock
 import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.testing.InMemoryPreferencesDataStore
 import org.jarsi.arkphone.voip.ArkCallAdmission
@@ -64,7 +67,7 @@ class BackupViewModelTest {
     // transaction, whose thread here is the test thread — a file-backed
     // store would need that same thread to run its own writer.
     private val dataStore = InMemoryPreferencesDataStore()
-    private val store by lazy { BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() }, journalDir = tmp.newFolder()) }
+    private val store by lazy { BackupStore(dataStore, db, { 42L }, appVersion = "1.28", simAccountIds = { emptySet() }, journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher) }
     private val callController = CallController()
     private val admission = FakeAdmission()
     private val codec = BackupCodec()
@@ -79,7 +82,7 @@ class BackupViewModelTest {
             events += "hold"
             return true
         }
-        override fun releaseRestoreHold() {
+        override suspend fun releaseRestoreHold() {
             held = false
             events += "release"
         }
@@ -292,7 +295,7 @@ class BackupViewModelTest {
                 heldDuringApply = admission.held
                 throw IOException("sim query failed")
             },
-            journalDir = tmp.newFolder(),
+            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher,
         )
         val viewModel = viewModel(failingStore)
 
@@ -307,6 +310,29 @@ class BackupViewModelTest {
         assertEquals(BackupMessage.Failed(BackupError.Io), viewModel.uiState.value.message)
         assertEquals(listOf("hold", "release"), admission.events)
         assertFalse(admission.held)
+    }
+
+    @Test
+    fun aDatabaseFailureDuringTheApplyIsReportedNotThrown() = runTest(dispatcher) {
+        // Room reports a refused write as SQLiteException, a RuntimeException
+        // the message mapping did not know; it took the coroutine down.
+        val failingStore = BackupStore(
+            dataStore, db, { 42L }, "1.28",
+            simAccountIds = { throw SQLiteException("disk I/O error") },
+            journal = RestoreJournal(tmp.newFolder()), lock = TableWriteLock(), io = dispatcher,
+        )
+        val viewModel = viewModel(failingStore)
+
+        viewModel.chooseRestore(file(identityFile))
+        testScheduler.advanceUntilIdle()
+        viewModel.decodeRestore(password = null)
+        testScheduler.advanceUntilIdle()
+        viewModel.applyRestore()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(BackupMessage.Failed(BackupError.Io), viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.busy)
+        assertEquals(listOf("hold", "release"), admission.events)
     }
 
     @Test
@@ -331,7 +357,7 @@ class BackupViewModelTest {
         // export block ran.
         val io = Executors.newSingleThreadExecutor { Thread(it, "backup-io") }.asCoroutineDispatcher()
         var snapshotThread: String? = null
-        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() }, tmp.newFolder())
+        val offMainStore = BackupStore(dataStore, db, { snapshotThread = Thread.currentThread().name; 42L }, "1.28", { emptySet() }, RestoreJournal(tmp.newFolder()), TableWriteLock(), dispatcher)
         val viewModel = BackupViewModel(
             context.contentResolver, offMainStore, codec, io,
             iterations = 1_000, callController = callController, admission = admission, maxFileBytes = 16 * 1024 * 1024,

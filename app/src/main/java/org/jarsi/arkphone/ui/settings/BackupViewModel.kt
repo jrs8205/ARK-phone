@@ -2,12 +2,14 @@ package org.jarsi.arkphone.ui.settings
 
 import android.content.ContentResolver
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -147,7 +149,9 @@ class BackupViewModel(
                     store.restore(snapshot)
                 }
             } finally {
-                admission.releaseRestoreHold()
+                // Also when the screen is gone: the apply itself ran to its
+                // end under NonCancellable, the hold must not outlive it.
+                withContext(NonCancellable) { admission.releaseRestoreHold() }
             }
             decoded = null
             _uiState.update { it.copy(pendingRestore = null) }
@@ -196,6 +200,10 @@ class BackupViewModel(
             } catch (e: IOException) {
                 BackupMessage.Failed(BackupError.Io)
             } catch (e: SecurityException) {
+                BackupMessage.Failed(BackupError.Io)
+            } catch (e: SQLiteException) {
+                // Room's word for a refused write; the stores are as the
+                // restore's own recovery left them.
                 BackupMessage.Failed(BackupError.Io)
             }
             _uiState.update { it.copy(busy = false, message = message) }

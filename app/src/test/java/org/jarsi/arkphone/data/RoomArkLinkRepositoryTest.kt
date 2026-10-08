@@ -21,7 +21,7 @@ class RoomArkLinkRepositoryTest {
     private val db = Room.inMemoryDatabaseBuilder(context, ArkPhoneDatabase::class.java)
         .allowMainThreadQueries()
         .build()
-    private val repository = RoomArkLinkRepository(db.arkLinkDao())
+    private val repository = RoomArkLinkRepository(db.arkLinkDao(), TableWriteLock())
 
     @After
     fun tearDown() {

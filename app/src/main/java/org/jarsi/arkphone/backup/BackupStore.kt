@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -21,9 +22,10 @@ import org.jarsi.arkphone.BuildConfig
 import org.jarsi.arkphone.data.ArkLinkEntity
 import org.jarsi.arkphone.data.ArkPhoneDatabase
 import org.jarsi.arkphone.data.SimAccountRepository
+import org.jarsi.arkphone.data.TableWriteLock
+import org.jarsi.arkphone.di.IoDispatcher
 import org.jarsi.arkphone.data.WhatsAppCallEntity
 import org.jarsi.arkphone.util.Clock
-import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,7 +42,9 @@ class BackupStore(
     private val clock: Clock,
     private val appVersion: String,
     private val simAccountIds: suspend () -> Set<String>,
-    journalDir: File,
+    private val journal: RestoreJournal,
+    private val lock: TableWriteLock,
+    private val io: CoroutineDispatcher,
 ) {
     @Inject
     constructor(
@@ -49,21 +53,33 @@ class BackupStore(
         database: ArkPhoneDatabase,
         clock: Clock,
         simAccounts: SimAccountRepository,
+        lock: TableWriteLock,
+        @IoDispatcher io: CoroutineDispatcher,
     ) : this(
         dataStore, database, clock, BuildConfig.VERSION_NAME,
         { simAccounts.accounts().map { it.id }.toSet() },
-        context.noBackupFilesDir,
+        RestoreJournal(context.noBackupFilesDir),
+        lock,
+        io,
     )
-
-    private val journal = RestoreJournal(journalDir)
 
     /**
      * Finishes a restore an earlier process did not get to finish: one whose
      * preferences committed (they carry its id) but whose tables did not.
-     * Called at process start; a journal whose preferences never committed
-     * is simply discarded, since SQLite has already rolled its tables back.
+     * Called at process start, off the main thread (the journal can hold
+     * thousands of rows) and under the table lock, so a restore the user
+     * starts meanwhile queues behind it rather than replacing its journal.
+     * A journal whose preferences never committed is simply discarded,
+     * since SQLite has already rolled its tables back.
      */
     suspend fun recoverInterruptedRestore() {
+        withContext(io) {
+            lock.withLock { finishPending() }
+        }
+    }
+
+    /** Under [lock]. Throws when the pending restore cannot be finished now. */
+    private suspend fun finishPending() {
         val entry = journal.read()
         if (entry == null) {
             journal.delete()
@@ -120,8 +136,13 @@ class BackupStore(
      * snapshot is journalled before anything changes and the preferences
      * carry the restore's id: a failed commit is retried at once, and a
      * retry that fails too leaves the journal for the next process start
-     * ([recoverInterruptedRestore]). The whole apply runs non-cancellable:
-     * leaving the screen must not cut it in half.
+     * ([recoverInterruptedRestore]). The table lock is held across both
+     * attempts, so a WhatsApp call or a link recorded meanwhile queues
+     * behind the whole restore instead of landing between them, and a
+     * restore an earlier process left unfinished is finished first — or,
+     * if it cannot be, this one is refused rather than take its journal's
+     * place. The whole apply runs non-cancellable: leaving the screen must
+     * not cut it in half.
      */
     suspend fun restore(untrusted: BackupSnapshot) {
         val sims = simAccountIds()
@@ -130,38 +151,42 @@ class BackupStore(
                 preferences = clean.preferences.filterNot { it.key in SIM_KEYS && it.value !in sims },
             )
         }
-        withContext(NonCancellable) {
-            val restoreId = UUID.randomUUID().toString()
-            journal.write(restoreId, snapshot)
-            var preferencesCommitted = false
-            try {
-                database.withTransaction {
-                    replaceTables(snapshot)
-                    dataStore.edit { prefs ->
-                        prefs.clear()
-                        snapshot.preferences.forEach { put(prefs, it) }
-                        prefs[RESTORE_ID_KEY] = restoreId
-                    }
-                    preferencesCommitted = true
-                }
-            } catch (e: Exception) {
-                if (!preferencesCommitted) {
-                    // SQLite rolled the tables back and the preferences are
-                    // as they were: nothing is left for anyone to finish.
-                    journal.delete()
-                    throw e
-                }
-                // The preferences are in, the tables are not. Finish now if
-                // the database lets us; otherwise the journal stays and
-                // the next start finishes it.
+        lock.withLock {
+            withContext(NonCancellable) {
+                finishPending()
+                val restoreId = UUID.randomUUID().toString()
+                journal.write(restoreId, snapshot)
+                var preferencesCommitted = false
                 try {
-                    database.withTransaction { replaceTables(snapshot) }
-                } catch (retry: Exception) {
-                    e.addSuppressed(retry)
-                    throw e
+                    database.withTransaction {
+                        replaceTables(snapshot)
+                        dataStore.edit { prefs ->
+                            prefs.clear()
+                            snapshot.preferences.forEach { put(prefs, it) }
+                            prefs[RESTORE_ID_KEY] = restoreId
+                        }
+                        preferencesCommitted = true
+                    }
+                } catch (e: Exception) {
+                    if (!preferencesCommitted) {
+                        // SQLite rolled the tables back and the preferences
+                        // are as they were: nothing is left for anyone to
+                        // finish.
+                        journal.delete()
+                        throw e
+                    }
+                    // The preferences are in, the tables are not. Finish now
+                    // if the database lets us; otherwise the journal stays
+                    // and the next start finishes it.
+                    try {
+                        database.withTransaction { replaceTables(snapshot) }
+                    } catch (retry: Exception) {
+                        e.addSuppressed(retry)
+                        throw e
+                    }
                 }
+                journal.delete()
             }
-            journal.delete()
         }
     }
 

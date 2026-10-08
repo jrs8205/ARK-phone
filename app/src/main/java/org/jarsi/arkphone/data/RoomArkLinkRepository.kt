@@ -11,6 +11,7 @@ import javax.inject.Singleton
 @Singleton
 class RoomArkLinkRepository @Inject constructor(
     private val dao: ArkLinkDao,
+    private val lock: TableWriteLock,
 ) : ArkLinkRepository {
 
     override val links: Flow<List<ArkLink>> = dao.links().map { rows ->
@@ -32,7 +33,7 @@ class RoomArkLinkRepository @Inject constructor(
         nickname: String,
         publicKey: String,
         atMillis: Long,
-    ) {
+    ) = lock.withLock {
         dao.upsert(
             ArkLinkEntity(
                 numberKey = arkLinkKey(number),
@@ -45,7 +46,7 @@ class RoomArkLinkRepository @Inject constructor(
         )
     }
 
-    override suspend fun unlink(number: String) {
+    override suspend fun unlink(number: String) = lock.withLock {
         dao.delete(arkLinkKey(number))
     }
 }

@@ -3,6 +3,7 @@ package org.jarsi.arkphone.voip
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.di.ApplicationScope
 import javax.inject.Inject
@@ -17,7 +18,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ArkLinkCache @Inject constructor(
-    repository: ArkLinkRepository,
+    private val repository: ArkLinkRepository,
     @ApplicationScope scope: CoroutineScope,
 ) {
 
@@ -45,5 +46,15 @@ class ArkLinkCache @Inject constructor(
     suspend fun await(): Map<String, ArkLink> {
         firstLoad.await()
         return state.value
+    }
+
+    /**
+     * Re-reads the table now. A restore has just replaced it, and the next
+     * call is admitted against this map — the collector above may not have
+     * caught up by then.
+     */
+    suspend fun refresh() {
+        state.value = repository.links.first().associateBy { it.numberKey }
+        if (!firstLoad.isCompleted) firstLoad.complete(Unit)
     }
 }

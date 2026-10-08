@@ -35,6 +35,23 @@ class ArkLinkCacheTest {
     }
 
     @Test
+    fun `refresh reads the table now rather than waiting for the collector`() = runTest {
+        // A restore has just replaced the table; the next call is admitted
+        // against the cache, which must not still hold the old links.
+        val repository = FakeArkLinkRepository()
+        repository.state.value = listOf(link("+358 44 5552841", "ARK-7K3M-Q2FP"))
+        val cache = ArkLinkCache(repository, backgroundScope)
+        cache.await()
+        // The collector has not run since: nothing advances the scheduler.
+        repository.state.value = listOf(link("+358 40 1234567", "ARK-AAAA-AAAA"))
+
+        cache.refresh()
+
+        assertNull(cache.linkFor("044 555 2841"))
+        assertEquals("ARK-AAAA-AAAA", cache.linkFor("040 123 4567")?.code)
+    }
+
+    @Test
     fun `a number with no digits never matches`() = runTest {
         val repository = FakeArkLinkRepository()
         repository.state.value = listOf(link("+358 44 5552841", "ARK-7K3M-Q2FP"))

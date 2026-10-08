@@ -2,9 +2,15 @@ package org.jarsi.arkphone.backup
 
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.fail
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.launch
 import android.app.Application
@@ -33,6 +39,10 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.jarsi.arkphone.data.ArkLinkEntity
 import org.jarsi.arkphone.data.ArkPhoneDatabase
+import org.jarsi.arkphone.data.TableWriteLock
+import org.jarsi.arkphone.data.RoomWhatsAppCallLogRepository
+import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.data.model.WhatsAppCallRecord
 import org.jarsi.arkphone.data.WhatsAppCallEntity
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -72,8 +82,11 @@ private class FaultyWrites : SupportSQLiteOpenHelper.Factory {
     @Volatile
     var failWritesAfterCommitFault = false
 
-    private var depth = 0
-    private var armed = false
+    // SQLite nests transactions per thread; a non-exclusive begin on
+    // another thread blocks until the restore's connection is free, so the
+    // count must be per thread too and move only after the begin returned.
+    private val depth = ThreadLocal.withInitial { 0 }
+    private val armed = ThreadLocal.withInitial { false }
 
     private fun refuse() {
         if (failWrites) throw SQLiteException("disk I/O error")
@@ -81,24 +94,26 @@ private class FaultyWrites : SupportSQLiteOpenHelper.Factory {
 
     private fun faulty(db: SupportSQLiteDatabase): SupportSQLiteDatabase = object : SupportSQLiteDatabase by db {
         override fun beginTransaction() {
-            if (depth == 0 && failNextCommit) armed = true
-            depth++
             db.beginTransaction()
+            if (depth.get() == 0 && failNextCommit) {
+                failNextCommit = false
+                armed.set(true)
+            }
+            depth.set(depth.get() + 1)
         }
         override fun beginTransactionNonExclusive() {
-            depth++
             db.beginTransactionNonExclusive()
+            depth.set(depth.get() + 1)
         }
         override fun setTransactionSuccessful() {
-            if (armed && depth == 1) return
+            if (armed.get() && depth.get() == 1) return
             db.setTransactionSuccessful()
         }
         override fun endTransaction() {
-            depth--
+            depth.set(depth.get() - 1)
             db.endTransaction()
-            if (armed && depth == 0) {
-                armed = false
-                failNextCommit = false
+            if (armed.get() && depth.get() == 0) {
+                armed.set(false)
                 if (failWritesAfterCommitFault) failWrites = true
                 throw SQLiteException("disk I/O error")
             }
@@ -160,9 +175,10 @@ class BackupStoreTest {
         ) { File(tmp.root, "settings.preferences_pb") }
 
     private val journalDir: File by lazy { tmp.newFolder("no_backup") }
+    private val lock = TableWriteLock()
 
     private fun store(dataStore: DataStore<Preferences>, database: ArkPhoneDatabase = db) =
-        BackupStore(dataStore, database, { 1_700_000_000_000L }, appVersion = "1.28", simAccountIds = { setOf("sim-a") }, journalDir = journalDir)
+        BackupStore(dataStore, database, { 1_700_000_000_000L }, appVersion = "1.28", simAccountIds = { setOf("sim-a") }, journal = RestoreJournal(journalDir), lock = lock, io = Dispatchers.IO)
 
     @After
     fun tearDown() {
@@ -271,7 +287,7 @@ class BackupStoreTest {
         faults.failWrites = true
 
         try {
-            BackupStore(dataStore, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
+            BackupStore(dataStore, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO).restore(snapshot)
             fail("expected the refused table write to fail the restore")
         } catch (e: SQLiteException) {
             // The tables could not be replaced; nothing else may change.
@@ -297,7 +313,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -333,7 +349,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
+            BackupStore(failing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -373,7 +389,7 @@ class BackupStoreTest {
         )
 
         try {
-            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(snapshot)
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO).restore(snapshot)
             fail("expected IOException")
         } catch (e: IOException) {
             // The preferences write failed after the tables were replaced.
@@ -469,13 +485,145 @@ class BackupStoreTest {
         }
 
         try {
-            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, journalDir).restore(importedFile)
+            BackupStore(failing, db, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO).restore(importedFile)
             fail("expected IOException")
         } catch (e: IOException) {
             // SQLite rolled back; nothing is left to finish later.
         }
 
         assertFalse(File(journalDir, "restore.journal").exists())
+    }
+
+    @Test
+    fun aNewRestoreDoesNotReplaceTheJournalOfOneItCannotFinish() = runTest {
+        // Restore A: preferences committed, tables not, retry failed, the
+        // next start's recovery failed too (the database still refuses).
+        // Restore B must not overwrite A's journal — its own failure would
+        // delete it, and A could never be finished.
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        faultyDb.arkLinkDao().upsert(link)
+        val dataStore = createDataStore()
+        faults.failNextCommit = true
+        faults.failWritesAfterCommitFault = true
+        try {
+            store(dataStore, faultyDb).restore(importedFile)
+            fail("expected SQLiteException")
+        } catch (e: SQLiteException) {
+            // A is pending in the journal.
+        }
+        val second = importedFile.copy(arkLinks = listOf(BackupArkLink("2", "+2", "ARK-BBBB-BBBB", "Second", "pk", 2L)))
+
+        try {
+            store(dataStore, faultyDb).restore(second)
+            fail("expected the unfinished restore to refuse a new one")
+        } catch (e: SQLiteException) {
+            // Still A's preferences, still A's journal.
+        }
+        assertEquals("ARK-NEW2-NEW2", dataStore.data.first()[stringPreferencesKey("ark_code")])
+        faults.failWrites = false
+        store(dataStore, faultyDb).recoverInterruptedRestore()
+
+        assertEquals(listOf("1"), faultyDb.arkLinkDao().all().map { it.numberKey })
+        assertFalse(File(journalDir, "restore.journal").exists())
+        faultyDb.close()
+    }
+
+    @Test
+    fun aStartupRecoveryInFlightDoesNotDiscardAJournalARestoreWritesMeanwhile() = runTest {
+        // The recovery has read journal A and is waiting on the preferences
+        // when the user's restore B runs: B's journal must survive the
+        // recovery's clean-up of A, or B can never be finished.
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        faultyDb.arkLinkDao().upsert(link)
+        val dataStore = createDataStore()
+        RestoreJournal(journalDir).write("never-committed", importedFile)
+        val recoveryWaiting = CountDownLatch(1)
+        val gate = CompletableDeferred<Unit>()
+        val gated = object : DataStore<Preferences> by dataStore {
+            override val data: Flow<Preferences> = flow {
+                recoveryWaiting.countDown()
+                gate.await()
+                emitAll(dataStore.data)
+            }
+        }
+        val actors = CoroutineScope(Dispatchers.IO + Job())
+        val recovery = actors.launch {
+            BackupStore(gated, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO)
+                .recoverInterruptedRestore()
+        }
+        assertTrue(recoveryWaiting.await(5, TimeUnit.SECONDS))
+        faults.failNextCommit = true
+        faults.failWritesAfterCommitFault = true
+        val second = importedFile.copy(arkLinks = listOf(BackupArkLink("2", "+2", "ARK-BBBB-BBBB", "Second", "pk", 2L)))
+        val restoreB = actors.launch {
+            runCatching { store(dataStore, faultyDb).restore(second) }
+        }
+        Thread.sleep(300)
+        gate.complete(Unit)
+        recovery.join()
+        restoreB.join()
+
+        assertEquals("ARK-NEW2-NEW2", dataStore.data.first()[stringPreferencesKey("ark_code")])
+        faults.failWrites = false
+        store(dataStore, faultyDb).recoverInterruptedRestore()
+
+        assertEquals(listOf("2"), faultyDb.arkLinkDao().all().map { it.numberKey })
+        faultyDb.close()
+    }
+
+    @Test
+    fun aCallRecordedWhileTheCommitFailsLandsOnTheRestoredTables() = runTest {
+        // The failed COMMIT releases SQLite's lock before the retry begins;
+        // a WhatsApp call queued behind it must not be wiped by the retry.
+        val faults = FaultyWrites()
+        val faultyDb = faultyDatabase(faults)
+        faultyDb.whatsAppCallDao().insert(call)
+        val dataStore = createDataStore()
+        val monitor = RoomWhatsAppCallLogRepository(faultyDb.whatsAppCallDao(), lock)
+        val recorded = CountDownLatch(1)
+        var recording: Job? = null
+        val observing = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+                recording = CoroutineScope(Dispatchers.IO + Job()).launch {
+                    monitor.record(WhatsAppCallRecord("Live", "+358401234567", CallType.INCOMING, 10L, 5, false))
+                    recorded.countDown()
+                }
+                // Queued behind the restore; a store that keeps it out until
+                // the outcome is known simply times out here.
+                recorded.await(300, TimeUnit.MILLISECONDS)
+                return dataStore.updateData(transform)
+            }
+        }
+        faults.failNextCommit = true
+
+        BackupStore(observing, faultyDb, { 1L }, "1.28", { setOf("sim-a") }, RestoreJournal(journalDir), lock, Dispatchers.IO)
+            .restore(importedFile)
+        recording!!.join()
+
+        assertEquals(setOf("Imported", "Live"), faultyDb.whatsAppCallDao().callsOnce().map { it.callerName }.toSet())
+        faultyDb.close()
+    }
+
+    @Test
+    fun theJournalIsReadOnTheIoDispatcher() = runTest {
+        // Recovery runs from the application scope (Main.immediate); a
+        // journal of thousands of rows must not be parsed on Main.
+        val io = Executors.newSingleThreadExecutor { Thread(it, "backup-io") }.asCoroutineDispatcher()
+        var readOn: String? = null
+        val journal = object : RestoreJournal(journalDir) {
+            override fun read(): Entry? {
+                readOn = Thread.currentThread().name
+                return super.read()
+            }
+        }
+        journal.write("never-committed", importedFile)
+
+        BackupStore(createDataStore(), db, { 1L }, "1.28", { setOf("sim-a") }, journal, lock, io).recoverInterruptedRestore()
+
+        assertTrue("read on $readOn", readOn?.startsWith("backup-io") == true)
+        io.close()
     }
 
     @Test
