@@ -33,7 +33,6 @@
     <string name="number_copied">Numero copiato</string>
     <string name="dialpad_long_press_voicemail">Chiama la segreteria</string>
     <string name="dialpad_long_press_speed_dial">Chiamata rapida</string>
-    <string name="dialpad_paste">Incolla numero</string>
     <string name="dialpad_clear">Cancella numero</string>
     <string name="dialpad_history_suggestion">Chiamata precedente</string>
     <string name="recents_search_hint">Cerca chiamate</string>
@@ -183,6 +182,7 @@
     <string name="notification_channel_incoming">Chiamate in arrivo</string>
     <string name="notification_channel_ongoing">Chiamate in corso</string>
     <string name="notification_incoming_title">Chiamata in arrivo</string>
+    <string name="return_to_call">Torna alla chiamata · %1$s</string>
     <string name="notification_ongoing_title">Chiamata in corso</string>
     <string name="onboarding_title">Ti diamo il benvenuto in ARK-telefono</string>
     <string name="onboarding_body">Per gestire le tue chiamate, ARK-telefono deve essere la tua app Telefono predefinita e avere accesso a registro chiamate, contatti e telefono.</string>

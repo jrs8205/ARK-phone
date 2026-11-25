@@ -33,7 +33,6 @@
     <string name="number_copied">Nummer kopiert</string>
     <string name="dialpad_long_press_voicemail">Mailbox anrufen</string>
     <string name="dialpad_long_press_speed_dial">Kurzwahl</string>
-    <string name="dialpad_paste">Nummer einfügen</string>
     <string name="dialpad_clear">Nummer löschen</string>
     <string name="dialpad_history_suggestion">Früherer Anruf</string>
     <string name="recents_search_hint">Anrufe durchsuchen</string>
@@ -178,6 +177,7 @@
     <string name="notification_channel_incoming">Eingehende Anrufe</string>
     <string name="notification_channel_ongoing">Laufende Anrufe</string>
     <string name="notification_incoming_title">Eingehender Anruf</string>
+    <string name="return_to_call">Zurück zum Anruf · %1$s</string>
     <string name="notification_ongoing_title">Laufender Anruf</string>
     <string name="onboarding_title">Willkommen bei ARK-Telefon</string>
     <string name="onboarding_body">Um deine Anrufe zu verwalten, muss ARK-Telefon deine Standard-Telefon-App sein und Zugriff auf Anrufliste, Kontakte und Telefon haben.</string>

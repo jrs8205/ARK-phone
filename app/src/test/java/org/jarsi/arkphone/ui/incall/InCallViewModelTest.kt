@@ -46,6 +46,30 @@ class InCallViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    @Test
+    fun freshScreenReadsThePrimaryCallsDigitsAndForgetsThemAfterRemoval() = runTest {
+        val controller = CallController()
+        controller.onCallAdded(TestCallHandle(telecomState = Call.STATE_ACTIVE))
+        val first = viewModel(controller)
+        first.uiState.test {
+            while (awaitItem().call == null) { }
+            first.onDtmf('7')
+            while (awaitItem().dtmfDigits != "7") { }
+            cancelAndIgnoreRemainingEvents()
+        }
+        val next = viewModel(controller)
+        next.uiState.test {
+            while (awaitItem().dtmfDigits != "7") { }
+            next.onToggleKeypad()
+            var state = awaitItem()
+            while (!state.showKeypad) state = awaitItem()
+            assertEquals("7", state.dtmfDigits)
+            controller.onCallRemoved("call-1")
+            while (state.call?.status != CallStatus.DISCONNECTED) state = awaitItem()
+            assertEquals("", state.dtmfDigits)
+        }
+    }
+
     private val clock = Clock { 100_000L }
     private val silencedCalls = mutableListOf<String>()
     private val sentMessages = mutableListOf<Pair<String, String>>()

@@ -1,13 +1,16 @@
 package org.jarsi.arkphone.telecom
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.jarsi.arkphone.ui.incall.InCallActivity
 
 private const val DTMF_TONE_MILLIS = 150L
 
@@ -16,7 +19,14 @@ private const val DTMF_TONE_MILLIS = 150L
 enum class AudioControllerOwner { CARRIER, ARK }
 
 @Singleton
-class CallController @Inject constructor() {
+class CallController internal constructor(private val removeCallTask: () -> Unit = {}) {
+
+    @Inject constructor(@ApplicationContext context: Context) : this({ InCallActivity.removeTask(context) })
+
+    // The foreground screen owns its closing grace. If it leaves during
+    // that grace, or Telecom removes the call with no screen alive, retire
+    // the task from here while still serialized with the next call's arrival.
+    private var removeTaskWhenHidden = false
 
     private val handles = LinkedHashMap<String, CallHandle>()
 
@@ -28,7 +38,9 @@ class CallController @Inject constructor() {
         dtmfExecutor.schedule(action, DTMF_TONE_MILLIS, TimeUnit.MILLISECONDS)
     }
 
-    private var pendingDtmfStop: Future<*>? = null
+    private val pendingDtmfStops = mutableMapOf<String, Future<*>>()
+    private val _dtmfDigits = MutableStateFlow<Map<String, String>>(emptyMap())
+    val dtmfDigits = _dtmfDigits.asStateFlow()
 
     private val _calls = MutableStateFlow<List<CallInfo>>(emptyList())
     val calls: StateFlow<List<CallInfo>> = _calls.asStateFlow()
@@ -65,12 +77,22 @@ class CallController @Inject constructor() {
     /** True while InCallActivity is resumed; arms the proximity screen-off. */
     val inCallUiVisible: StateFlow<Boolean> = _inCallUiVisible.asStateFlow()
 
+    @Synchronized
     fun onInCallUiVisibility(visible: Boolean) {
         _inCallUiVisible.value = visible
+        removeBackgroundTaskIfEnded()
+    }
+
+    private fun removeBackgroundTaskIfEnded() {
+        if (removeTaskWhenHidden && !_inCallUiVisible.value) {
+            removeTaskWhenHidden = false
+            removeCallTask()
+        }
     }
 
     @Synchronized
     fun onCallAdded(handle: CallHandle) {
+        removeTaskWhenHidden = false
         handles[handle.id] = handle
         _endedCall.value = null
         publish()
@@ -87,13 +109,15 @@ class CallController @Inject constructor() {
 
     @Synchronized
     fun onCallRemoved(id: String) {
-        val removed = handles.remove(id)
-        if (removed?.disconnectError != null) {
+        val removed = handles.remove(id) ?: return
+        if (removed.disconnectError != null) {
             _endedCall.value = infoOf(removed).copy(status = CallStatus.DISCONNECTED)
         }
-        pendingDtmfStop?.cancel(false)
-        pendingDtmfStop = null
+        pendingDtmfStops.remove(id)?.cancel(false)
+        _dtmfDigits.value -= id
         publish()
+        removeTaskWhenHidden = handles.isEmpty() && _endedCall.value == null
+        removeBackgroundTaskIfEnded()
     }
 
     @Synchronized
@@ -120,11 +144,14 @@ class CallController @Inject constructor() {
     @Synchronized
     fun playDtmf(id: String, digit: Char) {
         val handle = handles[id] ?: return
+        if (digit !in "0123456789*#" || handle.viaArkCall) return
+        if (mapTelecomState(handle.telecomState) == CallStatus.DISCONNECTED) return
         // A rapid second digit must not be cut short by the previous digit's
         // stop task: replace the pending stop and end the old tone now.
-        pendingDtmfStop?.let { if (it.cancel(false)) handle.stopDtmf() }
+        pendingDtmfStops[id]?.let { if (it.cancel(false)) handle.stopDtmf() }
         handle.playDtmf(digit)
-        pendingDtmfStop = scheduleDtmfStop { handle.stopDtmf() }
+        _dtmfDigits.value += id to (_dtmfDigits.value[id].orEmpty() + digit)
+        pendingDtmfStops[id] = scheduleDtmfStop { handle.stopDtmf() }
     }
 
     fun toggleMute() {

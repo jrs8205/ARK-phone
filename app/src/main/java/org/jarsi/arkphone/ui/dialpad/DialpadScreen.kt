@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
@@ -41,10 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,17 +81,18 @@ fun DialpadScreen(
     Surface(Modifier.fillMaxSize()) {
         DialpadContent(
             uiState = uiState,
+            field = viewModel.field,
+            countryIso = viewModel.countryIso,
             onKey = viewModel::onKey,
             onDelete = viewModel::onDelete,
-            onCall = { onCall(uiState.number) },
+            onCall = { onCall(viewModel.field.text.toString()) },
             onSuggestion = { number -> viewModel.setNumber(number) },
-            onPaste = viewModel::onPaste,
             onClear = viewModel::onClear,
             onVoicemail = onVoicemail,
             onSpeedDial = { digit ->
                 val assigned = uiState.speedDial[digit]
                 if (assigned != null) {
-                    onCall(assigned)
+                    onCall(assigned.filterNot(Char::isDialSeparator))
                 } else {
                     pendingSpeedDialDigit = digit
                     runCatching {
@@ -120,17 +120,17 @@ private fun phoneNumberFromPickedUri(context: Context, uri: Uri): String? = runC
 @Composable
 fun DialpadContent(
     uiState: DialpadUiState,
+    field: TextFieldState,
+    countryIso: String,
     onKey: (Char) -> Unit,
     onDelete: () -> Unit,
     onCall: () -> Unit,
     onSuggestion: (String) -> Unit,
-    onPaste: (String) -> Unit = {},
     onVoicemail: () -> Unit = {},
     onSpeedDial: (Int) -> Unit = {},
     onClear: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
-    val clipboard = LocalClipboardManager.current
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Bottom,
@@ -167,22 +167,7 @@ fun DialpadContent(
                 modifier = Modifier.padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val pasteLabel = stringResource(R.string.dialpad_paste)
-                Text(
-                    text = uiState.displayNumber.ifEmpty { uiState.number },
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClickLabel = pasteLabel,
-                            onLongClick = {
-                                haptics.longPress()
-                                clipboard.getText()?.text?.let(onPaste)
-                            },
-                        ),
-                )
+                DialpadNumberField(field, countryIso, Modifier.weight(1f))
                 val clearLabel = stringResource(R.string.dialpad_clear)
                 Box(
                     contentAlignment = Alignment.Center,

@@ -89,6 +89,16 @@ class LocalesTest {
     }
 
     @Test
+    fun `return to call includes the caller in every language`() {
+        val english = stringIn("en", R.string.return_to_call, "Ada")
+        for (tag in supported) {
+            val label = stringIn(tag, R.string.return_to_call, "Ada")
+            assertTrue("caller missing in $tag", label.contains("Ada"))
+            if (tag != "en") assertNotEquals("English fallback in $tag", english, label)
+        }
+    }
+
+    @Test
     fun `the Finnish announcements read as the family hears them`() {
         assertEquals("Tuntematon soittaja soittaa", stringIn("fi", R.string.announce_unknown_caller))
         assertEquals("Jarsi soittaa", stringIn("fi", R.string.announce_caller, "Jarsi"))

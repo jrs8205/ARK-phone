@@ -158,12 +158,13 @@
             </intent-filter>
         </service>
 
-        <!-- The Google-dialer task model: the in-call screen lives alone in
-             its own recents-hidden task, so finishing it never touches the
-             main app and nothing outside can tear it down mid-dialog. -->
+        <!-- The call has its own visible Recents card. Its isolated task
+             can finish independently of the main app, and a pending
+             disconnect explanation keeps the call screen alive. -->
         <activity
             android:name=".ui.incall.InCallActivity"
-            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
+            android:label="@string/notification_ongoing_title"
             android:exported="false"
             android:launchMode="singleInstance"
             android:showWhenLocked="true"

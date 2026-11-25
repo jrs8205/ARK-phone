@@ -33,7 +33,6 @@
     <string name="number_copied">Número copiado</string>
     <string name="dialpad_long_press_voicemail">Ligar para o correio de voz</string>
     <string name="dialpad_long_press_speed_dial">Discagem rápida</string>
-    <string name="dialpad_paste">Colar número</string>
     <string name="dialpad_clear">Apagar número</string>
     <string name="dialpad_history_suggestion">Chamada anterior</string>
     <string name="recents_search_hint">Pesquisar chamadas</string>
@@ -183,6 +182,7 @@
     <string name="notification_channel_incoming">Chamadas recebidas</string>
     <string name="notification_channel_ongoing">Chamadas em andamento</string>
     <string name="notification_incoming_title">Chamada recebida</string>
+    <string name="return_to_call">Voltar à chamada · %1$s</string>
     <string name="notification_ongoing_title">Chamada em andamento</string>
     <string name="onboarding_title">Boas-vindas ao ARK-telefone</string>
     <string name="onboarding_body">Para cuidar das suas chamadas, o ARK-telefone precisa ser seu app de telefone padrão e ter acesso ao histórico de chamadas, aos contatos e ao telefone.</string>

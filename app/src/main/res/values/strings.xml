@@ -34,7 +34,6 @@
     <string name="number_copied">Number copied</string>
     <string name="dialpad_long_press_voicemail">Call voicemail</string>
     <string name="dialpad_long_press_speed_dial">Speed dial</string>
-    <string name="dialpad_paste">Paste number</string>
     <string name="dialpad_clear">Clear number</string>
     <string name="dialpad_history_suggestion">Earlier call</string>
     <string name="recents_search_hint">Search calls</string>
@@ -179,6 +178,7 @@
     <string name="notification_channel_incoming">Incoming calls</string>
     <string name="notification_channel_ongoing">Ongoing calls</string>
     <string name="notification_incoming_title">Incoming call</string>
+    <string name="return_to_call">Return to call · %1$s</string>
     <string name="notification_ongoing_title">Ongoing call</string>
     <string name="onboarding_title">Welcome to ARK-phone</string>
     <string name="onboarding_body">To handle your calls, ARK-phone needs to be your default phone app and needs access to your call log, contacts, and phone.</string>

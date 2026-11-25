@@ -7,7 +7,7 @@ import org.junit.Test
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 
-private class FakeCallHandle(
+internal class FakeCallHandle(
     override val id: String = "call-1",
     override val number: String? = "0401234567",
     override val displayName: String? = null,
@@ -15,6 +15,7 @@ private class FakeCallHandle(
     override val connectTimeMillis: Long = 0,
     override val simAccountId: String? = null,
     override var disconnectError: DisconnectError? = null,
+    override val viaArkCall: Boolean = false,
 ) : CallHandle {
     var answered = false
     var rejected = false
@@ -52,6 +53,69 @@ private class FakeAudioController : InCallAudioController {
 }
 
 class CallControllerTest {
+
+    @Test
+    fun digitsAndPendingStopsBelongToTheAddressedCall() {
+        val controller = CallController()
+        val stops = mutableListOf<Pair<Runnable, FakeStopFuture>>()
+        controller.scheduleDtmfStop = { action -> FakeStopFuture().also { stops += action to it } }
+        val first = FakeCallHandle(id = "first", telecomState = Call.STATE_ACTIVE)
+        val second = FakeCallHandle(id = "second", telecomState = Call.STATE_HOLDING)
+        controller.onCallAdded(first)
+        controller.onCallAdded(second)
+        controller.playDtmf(first.id, '1')
+        controller.playDtmf(second.id, '#')
+        controller.playDtmf(first.id, '*')
+        controller.playDtmf("absent", '0')
+        // The shared dial pad offers + on a long press. It has no DTMF tone.
+        controller.playDtmf(first.id, '+')
+        assertEquals(mapOf("first" to "1*", "second" to "#"), controller.dtmfDigits.value)
+        assertEquals("1*", first.dtmf.toString())
+        assertEquals("#", second.dtmf.toString())
+        controller.onCallRemoved(first.id)
+        assertEquals(false, stops[1].second.cancelled)
+        assertEquals(mapOf("second" to "#"), controller.dtmfDigits.value)
+        controller.onCallAdded(FakeCallHandle(id = first.id))
+        assertEquals(null, controller.dtmfDigits.value[first.id])
+        controller.onCallRemoved(second.id)
+        assertTrue(controller.dtmfDigits.value.isEmpty())
+    }
+
+    @Test
+    fun arkKeyPressesDoNotClaimToHaveSentDigits() {
+        val controller = CallController()
+        controller.onCallAdded(FakeCallHandle(viaArkCall = true))
+        controller.playDtmf("call-1", '5')
+        assertTrue(controller.dtmfDigits.value.isEmpty())
+    }
+
+    @Test
+    fun lastNormalRemovalCleansTheBackgroundTaskEvenWithoutAnActivity() {
+        var removals = 0
+        val controller = CallController { removals++ }
+        controller.onCallAdded(FakeCallHandle(id = "1"))
+        controller.onCallAdded(FakeCallHandle(id = "2"))
+        controller.onCallRemoved("1")
+        assertEquals(0, removals)
+        controller.onCallRemoved("2")
+        assertEquals(1, removals)
+    }
+
+    @Test
+    fun backgroundingDuringTheForegroundGraceCleansOnlyAfterANormalEnd() {
+        var removals = 0
+        val controller = CallController { removals++ }
+        controller.onInCallUiVisibility(true)
+        controller.onCallAdded(FakeCallHandle())
+        controller.onCallRemoved("call-1")
+        assertEquals(0, removals)
+        controller.onInCallUiVisibility(false)
+        assertEquals(1, removals)
+        controller.onCallAdded(FakeCallHandle(disconnectError = DisconnectError("Radio unavailable", null)))
+        controller.onCallRemoved("call-1")
+        controller.onInCallUiVisibility(false)
+        assertEquals(1, removals)
+    }
 
     @Test
     fun publishesAddedCalls() {

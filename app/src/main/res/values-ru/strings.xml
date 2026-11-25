@@ -33,7 +33,6 @@
     <string name="number_copied">Номер скопирован</string>
     <string name="dialpad_long_press_voicemail">Позвонить на голосовую почту</string>
     <string name="dialpad_long_press_speed_dial">Быстрый набор</string>
-    <string name="dialpad_paste">Вставить номер</string>
     <string name="dialpad_clear">Очистить номер</string>
     <string name="dialpad_history_suggestion">Предыдущий вызов</string>
     <string name="recents_search_hint">Поиск вызовов</string>
@@ -188,6 +187,7 @@
     <string name="notification_channel_incoming">Входящие вызовы</string>
     <string name="notification_channel_ongoing">Текущие вызовы</string>
     <string name="notification_incoming_title">Входящий вызов</string>
+    <string name="return_to_call">Вернуться к звонку · %1$s</string>
     <string name="notification_ongoing_title">Текущий вызов</string>
     <string name="onboarding_title">Добро пожаловать в ARK-телефон</string>
     <string name="onboarding_body">Чтобы обрабатывать ваши вызовы, ARK-телефон должен быть основным приложением для звонков и иметь доступ к журналу вызовов, контактам и телефону.</string>

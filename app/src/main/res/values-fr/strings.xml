@@ -33,7 +33,6 @@
     <string name="number_copied">Numéro copié</string>
     <string name="dialpad_long_press_voicemail">Appeler la messagerie vocale</string>
     <string name="dialpad_long_press_speed_dial">Numérotation rapide</string>
-    <string name="dialpad_paste">Coller le numéro</string>
     <string name="dialpad_clear">Effacer le numéro</string>
     <string name="dialpad_history_suggestion">Appel précédent</string>
     <string name="recents_search_hint">Rechercher des appels</string>
@@ -183,6 +182,7 @@
     <string name="notification_channel_incoming">Appels entrants</string>
     <string name="notification_channel_ongoing">Appels en cours</string>
     <string name="notification_incoming_title">Appel entrant</string>
+    <string name="return_to_call">Revenir à l’appel · %1$s</string>
     <string name="notification_ongoing_title">Appel en cours</string>
     <string name="onboarding_title">Bienvenue dans ARK-téléphone</string>
     <string name="onboarding_body">Pour gérer vos appels, ARK-téléphone doit être votre application Téléphone par défaut et accéder au journal d\'appels, aux contacts et au téléphone.</string>

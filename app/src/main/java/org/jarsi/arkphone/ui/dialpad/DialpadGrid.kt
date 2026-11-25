@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.rememberHaptics
@@ -32,9 +33,10 @@ fun DialpadGrid(
     onKey: (Char) -> Unit,
     onVoicemail: () -> Unit = {},
     onSpeedDial: (Int) -> Unit = {},
+    compact: Boolean = false,
 ) {
     val haptics = rememberHaptics()
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 12.dp)) {
         dialpadRows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -44,6 +46,7 @@ fun DialpadGrid(
                     DialpadKey(
                         digit = digit,
                         letters = letters,
+                        size = if (compact) 52.dp else 72.dp,
                         onKey = { key ->
                             haptics.keyTap()
                             onKey(key)
@@ -90,6 +93,7 @@ fun DialpadGrid(
 private fun DialpadKey(
     digit: Char,
     letters: String,
+    size: Dp,
     onKey: (Char) -> Unit,
     onLongPress: () -> Unit,
     onLongPressLabel: String? = null,
@@ -98,7 +102,7 @@ private fun DialpadKey(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier
-            .size(72.dp)
+            .size(size)
             .clip(CircleShape)
             .combinedClickable(
                 onClick = { onKey(digit) },

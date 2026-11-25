@@ -33,7 +33,6 @@
     <string name="number_copied">Numret kopierades</string>
     <string name="dialpad_long_press_voicemail">Ring röstbrevlådan</string>
     <string name="dialpad_long_press_speed_dial">Snabbval</string>
-    <string name="dialpad_paste">Klistra in nummer</string>
     <string name="dialpad_clear">Rensa nummer</string>
     <string name="dialpad_history_suggestion">Tidigare samtal</string>
     <string name="recents_search_hint">Sök samtal</string>
@@ -178,6 +177,7 @@
     <string name="notification_channel_incoming">Inkommande samtal</string>
     <string name="notification_channel_ongoing">Pågående samtal</string>
     <string name="notification_incoming_title">Inkommande samtal</string>
+    <string name="return_to_call">Återgå till samtalet · %1$s</string>
     <string name="notification_ongoing_title">Pågående samtal</string>
     <string name="onboarding_title">Välkommen till ARK-telefon</string>
     <string name="onboarding_body">För att hantera dina samtal behöver ARK-telefon vara din standardapp för telefon och ha åtkomst till samtalsloggen, kontakterna och telefonen.</string>

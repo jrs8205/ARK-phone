@@ -28,19 +28,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.telecom.CallInfo
+import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
 import org.jarsi.arkphone.ui.dialpad.DialpadScreen
 import org.jarsi.arkphone.ui.home.HomeScreen
+import org.jarsi.arkphone.ui.incall.InCallActivity
 import org.jarsi.arkphone.ui.messages.MessagesScreen
 
 enum class MainTab { HOME, KEYPAD, MESSAGES, CONTACTS }
 
 @Composable
 fun MainScreen(
+    calls: List<CallInfo>,
     onCall: (String) -> Unit,
     onRequestPermissions: () -> Unit,
     showDefaultDialerBanner: Boolean,
@@ -80,6 +86,7 @@ fun MainScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
+            ReturnToCallBar(calls)
             if (showDefaultDialerBanner) {
                 DefaultDialerBanner(onRequestDefaultDialer)
             }
@@ -100,6 +107,26 @@ fun MainScreen(
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
             }
         }
+    }
+}
+
+@Composable
+internal fun ReturnToCallBar(calls: List<CallInfo>) {
+    val call = calls.firstOrNull { it.status != CallStatus.DISCONNECTED } ?: return
+    val caller = call.displayName ?: call.number ?: stringResource(R.string.incall_unknown_caller)
+    val context = LocalContext.current
+    Surface(
+        onClick = { context.startActivity(InCallActivity.intent(context)) },
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = stringResource(R.string.return_to_call, caller),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 

@@ -1,5 +1,7 @@
 package org.jarsi.arkphone.ui.incall
 
+import android.app.ActivityManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -26,6 +28,18 @@ import javax.inject.Inject
 class InCallActivity : ComponentActivity() {
 
     companion object {
+        internal fun removeTask(context: Context) {
+            val component = ComponentName(context, InCallActivity::class.java)
+            val manager = context.getSystemService(ActivityManager::class.java)
+            for (task in manager.appTasks) {
+                try {
+                    if (task.taskInfo.baseIntent.component == component) task.finishAndRemoveTask()
+                } catch (_: IllegalArgumentException) {
+                    // The system or the user already removed this task.
+                }
+            }
+        }
+
         fun intent(context: Context): Intent =
             Intent(context, InCallActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -67,7 +81,7 @@ class InCallActivity : ComponentActivity() {
                 var errorDismissed by rememberSaveable(call?.id) { mutableStateOf(false) }
                 val disconnectError = call?.disconnectError
                     ?.takeIf { call.status == CallStatus.DISCONNECTED && !errorDismissed }
-                // This screen is alone in its own recents-hidden task (Google
+                // This screen is alone in its own Recents task (Google
                 // dialer model), so removing the task only removes the call
                 // screen — the main app, if open, stays exactly where it was.
                 val close = { finishAndRemoveTask() }
@@ -91,7 +105,6 @@ class InCallActivity : ComponentActivity() {
                         error = error,
                         onDismiss = {
                             errorDismissed = true
-                            // Un-blocks MainActivity's app-close guard too.
                             callController.clearEndedCall()
                             close()
                         },

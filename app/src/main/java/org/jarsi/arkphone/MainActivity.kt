@@ -12,23 +12,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.MessagesRepository
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.telecom.BlockedCallNotifier
+import org.jarsi.arkphone.telecom.CallController
+import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.telecom.DefaultDialerManager
 import org.jarsi.arkphone.telecom.MissedCallNotifier
-import org.jarsi.arkphone.telecom.CallRouter
 import org.jarsi.arkphone.ui.conversation.ConversationActivity
 import org.jarsi.arkphone.ui.messages.NewMessageActivity
 import org.jarsi.arkphone.ui.navigation.MainScreen
 import org.jarsi.arkphone.ui.onboarding.OnboardingScreen
 import org.jarsi.arkphone.ui.theme.ArkPhoneTheme
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
             intent?.component?.className == MESSAGES_LAUNCHER
     }
 
+    @Inject lateinit var callController: CallController
     @Inject lateinit var callRouter: CallRouter
     @Inject lateinit var defaultDialerManager: DefaultDialerManager
     @Inject lateinit var missedCallNotifier: MissedCallNotifier
@@ -76,7 +79,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        readDialIntent(intent)
+        if (savedInstanceState == null) {
+            readDialIntent(intent)
+        } else {
+            dialRequest.value = savedInstanceState.getString("pendingNumber")
+            messagesRequest.value = savedInstanceState.getBoolean("pendingMessages")
+        }
         refreshSetupState()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -102,7 +110,9 @@ class MainActivity : ComponentActivity() {
                         hasPermissions = permissionsGranted,
                     )
                 } else {
+                    val calls by callController.calls.collectAsStateWithLifecycle()
                     MainScreen(
+                        calls = calls,
                         onCall = { number -> callRouter.placeCall(number) },
                         onVoicemail = { callRouter.placeVoicemailCall() },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.requestablePermissions()) },
@@ -129,6 +139,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("pendingNumber", dialRequest.value)
+        outState.putBoolean("pendingMessages", messagesRequest.value)
     }
 
     override fun onResume() {

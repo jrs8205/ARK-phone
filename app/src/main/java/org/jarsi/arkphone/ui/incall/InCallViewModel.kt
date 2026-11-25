@@ -38,6 +38,7 @@ data class InCallUiState(
     val speakerOn: Boolean = false,
     val elapsed: String? = null,
     val showKeypad: Boolean = false,
+    val dtmfDigits: String = "",
     val callerPhotoUri: String? = null,
     val knownCaller: Boolean = true,
     val lastCalledMillis: Long? = null,
@@ -137,8 +138,8 @@ class InCallViewModel @Inject constructor(
         // the list snapshot with the cause can conflate away before the UI
         // collects it.
         combine(callController.calls, callController.endedCall, ::Pair),
-        callController.audio, keypadVisible, ticker, callerContextWithSim,
-    ) { (calls, ended), audio, keypad, now, caller ->
+        callController.audio, combine(keypadVisible, callController.dtmfDigits, ::Pair), ticker, callerContextWithSim,
+    ) { (calls, ended), audio, (keypad, digits), now, caller ->
         val live = primaryCall(calls)
         if (live != null) lastShownCall = live
         val call = live ?: ended ?: lastShownCall?.copy(status = CallStatus.DISCONNECTED)
@@ -148,6 +149,7 @@ class InCallViewModel @Inject constructor(
             speakerOn = audio.speakerOn,
             elapsed = call?.connectedAtMillis?.let { formatDuration((now - it) / 1_000) },
             showKeypad = keypad,
+            dtmfDigits = digits[live?.id].orEmpty(),
             callerPhotoUri = caller.photoUri,
             knownCaller = caller.known,
             lastCalledMillis = caller.lastCalledMillis,

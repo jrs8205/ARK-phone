@@ -33,7 +33,6 @@
     <string name="number_copied">Number kopeeritud</string>
     <string name="dialpad_long_press_voicemail">Helista kõneposti</string>
     <string name="dialpad_long_press_speed_dial">Kiirvalimine</string>
-    <string name="dialpad_paste">Kleebi number</string>
     <string name="dialpad_clear">Kustuta number</string>
     <string name="dialpad_history_suggestion">Varasem kõne</string>
     <string name="recents_search_hint">Otsi kõnesid</string>
@@ -178,6 +177,7 @@
     <string name="notification_channel_incoming">Sissetulevad kõned</string>
     <string name="notification_channel_ongoing">Käimasolevad kõned</string>
     <string name="notification_incoming_title">Sissetulev kõne</string>
+    <string name="return_to_call">Tagasi kõne juurde · %1$s</string>
     <string name="notification_ongoing_title">Käimasolev kõne</string>
     <string name="onboarding_title">Tere tulemast ARK-telefoni</string>
     <string name="onboarding_body">Kõnede haldamiseks peab ARK-telefon olema sinu vaikimisi telefonirakendus ning tal peab olema juurdepääs kõnelogile, kontaktidele ja telefonile.</string>

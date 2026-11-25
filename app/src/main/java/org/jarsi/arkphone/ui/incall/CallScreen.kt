@@ -1,5 +1,8 @@
 package org.jarsi.arkphone.ui.incall
 
+import android.text.format.DateUtils
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,9 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import android.text.format.DateUtils
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Message
 import androidx.compose.material.icons.filled.Call
@@ -32,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +46,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.telecom.CallStatus
@@ -59,16 +65,19 @@ fun CallScreen(
     onOpenContactCard: (Long) -> Unit = {},
 ) {
     val call = uiState.call
+    val keypadOpen = uiState.showKeypad && call?.status != CallStatus.RINGING
     val haptics = rememberHaptics()
     Surface(Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
+            modifier = Modifier.fillMaxSize().systemBarsPadding()
+                .then(if (keypadOpen) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(if (keypadOpen) 8.dp else 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 48.dp),
+                modifier = Modifier.padding(top = if (keypadOpen) 0.dp else 48.dp),
             ) {
                 val contactId = uiState.callerContactId
                 // Telecom only provides the contact name from API 30 on; the
@@ -77,10 +86,10 @@ fun CallScreen(
                 ContactAvatar(
                     displayName = callerName,
                     photoUri = uiState.callerPhotoUri,
-                    size = 112.dp,
-                    initialTextStyle = MaterialTheme.typography.displaySmall,
+                    size = if (keypadOpen) 40.dp else 112.dp,
+                    initialTextStyle = if (keypadOpen) MaterialTheme.typography.titleLarge else MaterialTheme.typography.displaySmall,
                     modifier = Modifier
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = if (keypadOpen) 2.dp else 16.dp)
                         .testTag("callerAvatar")
                         .then(
                             if (contactId != null) {
@@ -99,6 +108,8 @@ fun CallScreen(
                     text = callerName ?: call?.number
                         ?: stringResource(R.string.incall_unknown_caller),
                     style = MaterialTheme.typography.headlineMedium,
+                    maxLines = if (keypadOpen) 1 else Int.MAX_VALUE,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = when (call?.status) {
@@ -152,8 +163,21 @@ fun CallScreen(
                 }
             }
 
-            if (uiState.showKeypad) {
-                DialpadGrid(onKey = actions::onDtmf)
+            if (keypadOpen) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val scroll = rememberScrollState()
+                    LaunchedEffect(uiState.dtmfDigits) { scroll.scrollTo(0) }
+                    Text(
+                        text = uiState.dtmfDigits,
+                        maxLines = 1,
+                        softWrap = false,
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().testTag("dtmfDigits")
+                            .horizontalScroll(scroll, reverseScrolling = true),
+                    )
+                    DialpadGrid(onKey = actions::onDtmf, compact = true)
+                }
             }
 
             if (call?.status == CallStatus.RINGING) {
@@ -326,7 +350,11 @@ private fun OngoingCallActions(uiState: InCallUiState, actions: InCallActions) {
             containerColor = CallDeclineRed,
             contentColor = Color.White,
             shape = CircleShape,
-            modifier = Modifier.padding(top = 24.dp, bottom = 72.dp).size(72.dp),
+            modifier = if (uiState.showKeypad) {
+                Modifier.size(56.dp)
+            } else {
+                Modifier.padding(top = 24.dp, bottom = 72.dp).size(72.dp)
+            },
         ) {
             Icon(
                 Icons.Filled.CallEnd,

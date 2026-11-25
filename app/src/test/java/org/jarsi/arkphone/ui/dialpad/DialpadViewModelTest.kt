@@ -1,5 +1,7 @@
 package org.jarsi.arkphone.ui.dialpad
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
@@ -24,6 +26,26 @@ class DialpadViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    @Test
+    fun externalNumbersKeyPressesAndBackspaceRespectRawSelection() {
+        val vm = viewModel()
+        vm.setNumber("040 123-4567")
+        assertEquals("0401234567", vm.field.text.toString())
+        assertEquals(TextRange(10), vm.field.selection)
+        vm.field.edit { selection = TextRange(4, 2) }
+        vm.onKey('9')
+        assertEquals("049234567", vm.field.text.toString())
+        assertEquals(TextRange(3), vm.field.selection)
+        vm.onDelete()
+        assertEquals("04234567", vm.field.text.toString())
+        vm.field.edit { selection = TextRange(1, 3) }
+        vm.onDelete()
+        assertEquals("034567", vm.field.text.toString())
+        vm.onClear()
+        vm.onDelete()
+        assertEquals(TextRange.Zero, vm.field.selection)
+    }
+
     private val contacts = FakeContactsRepository()
     private val speedDial = FakeSpeedDialRepository()
     private val callLog = FakeCallLogRepository()
@@ -33,32 +55,17 @@ class DialpadViewModelTest {
     ) = DialpadViewModel(contacts, speedDial, callLog, DialingRegion { "FI" }, matchDispatcher)
 
     @Test
-    fun pasteKeepsOnlyPhoneCharacters() = runTest {
-        val viewModel = viewModel()
-        viewModel.onPaste("Soita: +358 (44) 555-2841 heti!")
-        viewModel.uiState.test {
-            skipItems(1)
-            assertEquals("+358445552841", awaitItem().number)
-        }
-    }
-
-    @Test
-    fun displayNumberIsFormattedForTheDialingRegion() = runTest {
-        val viewModel = viewModel()
-        viewModel.setNumber("0401234567")
-        viewModel.uiState.test {
-            skipItems(1)
-            assertEquals(
-                formatDialpadNumber("0401234567", "FI"),
-                awaitItem().displayNumber,
-            )
-        }
-    }
-
-    @Test
     fun starAndHashNumbersAreShownAsTyped() {
         assertEquals("*#06#", formatDialpadNumber("*#06#", "FI"))
         assertEquals("", formatDialpadNumber("", "FI"))
+    }
+
+    @Test
+    fun externalNumberKeepsVanityLettersPausesAndWaits() {
+        val vm = viewModel()
+        vm.setNumber("1 (800) FLOWERS,12;3")
+        assertEquals("1800FLOWERS,12;3", vm.field.text.toString())
+        assertEquals(TextRange(vm.field.text.length), vm.field.selection)
     }
 
     @Test
@@ -91,6 +98,26 @@ class DialpadViewModelTest {
                 listOf(formatDialpadNumber("0407654321", "FI")),
                 state.historySuggestions.map { it.display },
             )
+        }
+    }
+
+    @Test
+    fun suggestionsFollowAnEditInTheMiddle() = runTest {
+        callLog.entries.value = listOf(
+            CallLogEntry(1, "0407654321", null, CallType.OUTGOING, 5, 10),
+        )
+        val vm = viewModel()
+        vm.setNumber("047")
+        vm.uiState.test {
+            awaitItem()
+            mainDispatcherRule.dispatcher.scheduler.runCurrent()
+            vm.field.edit { selection = TextRange(2) }
+            vm.onKey('0')
+            Snapshot.sendApplyNotifications()
+            var state = awaitItem()
+            while (state.historySuggestions.isEmpty()) state = awaitItem()
+            assertEquals("0407", vm.field.text.toString())
+            assertEquals(listOf("0407654321"), state.historySuggestions.map { it.number })
         }
     }
 
@@ -129,12 +156,13 @@ class DialpadViewModelTest {
         }
         val viewModel =
             DialpadViewModel(contacts, speedDial, silentLog, DialingRegion { "FI" }, mainDispatcherRule.dispatcher)
-        viewModel.setNumber("040")
+        speedDial.state.value = mapOf(2 to "123")
         viewModel.uiState.test {
             var state = awaitItem()
-            while (state.number != "040") {
-                state = awaitItem()
-            }
+            while (state.speedDial.isEmpty()) state = awaitItem()
+            viewModel.onKey('0')
+            viewModel.onKey('4')
+            assertEquals("04", viewModel.field.text.toString())
         }
     }
 

@@ -1,11 +1,18 @@
 package org.jarsi.arkphone.ui.dialpad
 
 import android.telephony.PhoneNumberUtils
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.delete
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.TextRange
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -13,19 +20,15 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.CallLogRepository
-import org.jarsi.arkphone.di.DefaultDispatcher
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.model.Contact
+import org.jarsi.arkphone.di.DefaultDispatcher
 import org.jarsi.arkphone.util.DialingRegion
-import javax.inject.Inject
 
 data class DialpadUiState(
-    val number: String = "",
-    val displayNumber: String = "",
     val suggestions: List<Contact> = emptyList(),
     val historySuggestions: List<HistorySuggestion> = emptyList(),
     val speedDial: Map<Int, String> = emptyMap(),
@@ -34,14 +37,16 @@ data class DialpadUiState(
 /** A call-log number matching the typed prefix, offered like a contact hit. */
 data class HistorySuggestion(val number: String, val display: String)
 
+// External numbers may contain vanity letters, pauses or waits. Remove
+// visual separators without changing the dial sequence handed to Telecom.
+internal fun Char.isDialSeparator() = isWhitespace() || category == CharCategory.DASH_PUNCTUATION || this in "()./"
+
 /** The typed number as shown: formatted for [countryIso], except for star/hash codes. */
 internal fun formatDialpadNumber(number: String, countryIso: String): String {
     if (number.isBlank()) return number
     if (number.any { it == '*' || it == '#' }) return number
     return PhoneNumberUtils.formatNumber(number, countryIso) ?: number
 }
-
-private val PHONE_CHARACTERS = setOf('+', '*', '#')
 
 @HiltViewModel
 class DialpadViewModel @Inject constructor(
@@ -54,7 +59,9 @@ class DialpadViewModel @Inject constructor(
 
     private val callLog = callLogRepository.callLog()
 
-    private val number = MutableStateFlow("")
+    val field = TextFieldState()
+    val countryIso: String get() = dialingRegion.countryIso()
+    private val number = snapshotFlow { field.text.toString() }
 
     private data class Suggestions(
         val contacts: List<Contact> = emptyList(),
@@ -85,20 +92,16 @@ class DialpadViewModel @Inject constructor(
                     .map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
             )
         }.flowOn(matchDispatcher)
-            // The typed number must echo before the call-log query answers:
-            // returning to the dialpad restarts the upstream flows, and a
-            // combine without this seed swallows the first keystrokes.
+            // The editor echoes immediately. Seed the other controls too, so
+            // returning to the tab never waits for the first call-log result.
             .onStart { emit(Suggestions()) }
 
     val uiState: StateFlow<DialpadUiState> =
         combine(
-            number,
             speedDialRepository.entries,
             suggestions,
-        ) { number, speedDial, matched ->
+        ) { speedDial, matched ->
             DialpadUiState(
-                number = number,
-                displayNumber = formatDialpadNumber(number, dialingRegion.countryIso()),
                 suggestions = matched.contacts,
                 historySuggestions = matched.history,
                 speedDial = speedDial,
@@ -109,27 +112,31 @@ class DialpadViewModel @Inject constructor(
             initialValue = DialpadUiState(),
         )
 
-    fun onPaste(text: String) {
-        number.value += text.filter { it.isDigit() || it in PHONE_CHARACTERS }
-    }
-
     fun saveSpeedDial(digit: Int, number: String) {
         viewModelScope.launch { speedDialRepository.set(digit, number) }
     }
 
     fun onKey(digit: Char) {
-        number.value += digit
+        field.edit {
+            val start = selection.min
+            replace(start, selection.max, digit.toString())
+            selection = TextRange(start + 1)
+        }
     }
 
     fun onDelete() {
-        number.value = number.value.dropLast(1)
+        field.edit {
+            val start = if (selection.collapsed) (selection.start - 1).coerceAtLeast(0) else selection.min
+            delete(start, selection.max)
+            selection = TextRange(start)
+        }
     }
 
     fun onClear() {
-        number.value = ""
+        field.clearText()
     }
 
     fun setNumber(value: String) {
-        number.value = value
+        field.setTextAndPlaceCursorAtEnd(value.filterNot(Char::isDialSeparator))
     }
 }
