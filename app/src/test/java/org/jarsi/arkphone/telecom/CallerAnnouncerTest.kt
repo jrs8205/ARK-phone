@@ -1,6 +1,10 @@
 package org.jarsi.arkphone.telecom
 
 import android.app.Application
+import android.content.Intent
+import android.os.Looper
+import android.os.PowerManager
+import org.robolectric.Shadows.shadowOf
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +59,7 @@ class CallerAnnouncerTest {
         speech,
         { gate },
         CoroutineScope(StandardTestDispatcher(testScheduler)),
+        RingingScreenOff(context),
     )
 
     @Test
@@ -129,6 +134,32 @@ class CallerAnnouncerTest {
     }
 
     @Test
+    fun screenOffStopsWhatsAppSpeechAndARefreshCannotRestartIt() = runTest {
+        val power = context.getSystemService(PowerManager::class.java)
+        shadowOf(power).setIsInteractive(true)
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa", "Alice")
+        runCurrent()
+        assertEquals(1, speech.spoken.size)
+        shadowOf(power).setIsInteractive(false)
+        context.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        shadowOf(Looper.getMainLooper()).idle()
+        runCurrent()
+        assertEquals(1, speech.stops)
+        announcer.onWhatsAppRinging("wa", "Alice")
+        advanceTimeBy(12_000)
+        runCurrent()
+        assertEquals(1, speech.spoken.size)
+        announcer.onWhatsAppRingingStopped("wa")
+        assertEquals(1, speech.stops)
+        announcer.onWhatsAppRinging("wa", "Bob")
+        runCurrent()
+        assertEquals("Bob is calling on WhatsApp", speech.spoken.last())
+        announcer.onWhatsAppRingingStopped("wa")
+    }
+
+    @Test
     fun whatsAppRepeatsAtTheSliderIntervalUntilStopped() = runTest {
         val speech = FakeSpeechEngine()
         val announcer = announcer(speech, mode = AnnounceMode.OFF, intervalSeconds = 6, announceWhatsApp = true)
@@ -146,12 +177,48 @@ class CallerAnnouncerTest {
     }
 
     @Test
+    fun silencingWhatsAppDoesNotInterruptANewerCarrierUtterance() = runTest {
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, announceWhatsApp = true)
+        shadowOf(context.getSystemService(PowerManager::class.java)).setIsInteractive(true)
+        announcer.onWhatsAppRinging("wa", "Alice")
+        runCurrent()
+        announcer.onRinging(ringingCall("Bob"))
+        runCurrent()
+        shadowOf(context.getSystemService(PowerManager::class.java)).setIsInteractive(false)
+        context.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        shadowOf(Looper.getMainLooper()).idle()
+        runCurrent()
+        assertEquals(0, speech.stops)
+        announcer.onWhatsAppRingingStopped("wa")
+        announcer.onRingingStopped("call-1")
+        assertEquals(1, speech.stops)
+    }
+
+    @Test
+    fun losingTheListenerReleasesTheWhatsAppReceiverAndStopsRepeats() = runTest {
+        val baseline = shadowOf(context).getReceiversForIntent(Intent(Intent.ACTION_SCREEN_OFF)).size
+        val speech = FakeSpeechEngine()
+        val announcer = announcer(speech, announceWhatsApp = true)
+        announcer.onWhatsAppRinging("wa", "Alice")
+        runCurrent()
+        assertEquals(baseline + 1, shadowOf(context).getReceiversForIntent(Intent(Intent.ACTION_SCREEN_OFF)).size)
+        announcer.onWhatsAppListenerDisconnected()
+        runCurrent()
+        assertEquals(baseline, shadowOf(context).getReceiversForIntent(Intent(Intent.ACTION_SCREEN_OFF)).size)
+        advanceTimeBy(12_000)
+        assertEquals(1, speech.spoken.size)
+    }
+
+    @Test
     fun whatsAppAnnouncementStopsAtTheSafetyWindow() = runTest {
         val speech = FakeSpeechEngine()
         val announcer = announcer(speech, mode = AnnounceMode.OFF, intervalSeconds = 10, announceWhatsApp = true)
         announcer.onWhatsAppRinging("wa-key-1", "Jarsi")
         advanceTimeBy(600_000)
         runCurrent()
+        assertEquals(0, shadowOf(context).getReceiversForIntent(Intent(Intent.ACTION_SCREEN_OFF)).size)
+        assertEquals(1, speech.stops)
         val spokenAfterWindow = speech.spoken.size
         advanceTimeBy(600_000)
         runCurrent()

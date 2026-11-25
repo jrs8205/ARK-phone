@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.components
 
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 
@@ -29,6 +31,7 @@ fun SearchField(
 ) {
     val haptics = rememberHaptics()
     OutlinedTextField(
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,

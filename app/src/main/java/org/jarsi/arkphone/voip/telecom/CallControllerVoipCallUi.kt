@@ -7,7 +7,10 @@ import org.jarsi.arkphone.data.model.AnnounceMode
 import org.jarsi.arkphone.telecom.AudioControllerOwner
 import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallNotifications
+import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.telecom.CallerAnnouncer
+import org.jarsi.arkphone.telecom.RingSilencer
+import org.jarsi.arkphone.telecom.RingingScreenOff
 import org.jarsi.arkphone.ui.incall.InCallActivity
 import org.jarsi.arkphone.voip.VoipForegroundService
 import javax.inject.Inject
@@ -26,6 +29,8 @@ class CallControllerVoipCallUi @Inject constructor(
     private val callNotifications: CallNotifications,
     private val callerAnnouncer: CallerAnnouncer,
     private val settingsCache: SettingsCache,
+    private val ringSilencer: RingSilencer,
+    private val screenOff: RingingScreenOff,
 ) : VoipCallUi {
 
     override fun added(handle: VoipCallHandle) {
@@ -33,10 +38,16 @@ class CallControllerVoipCallUi @Inject constructor(
         callController.onCallAdded(handle)
     }
 
-    override fun changed() = callController.onCallChanged()
+    override fun changed() {
+        callController.onCallChanged()
+        for (call in callController.calls.value) {
+            if (call.viaArkCall && call.status != CallStatus.RINGING) screenOff.stop(call.id)
+        }
+    }
 
     override fun removed(id: String) {
         // An ARK ring that ends unanswered must also stop mid-announcement.
+        screenOff.stop(id)
         callerAnnouncer.onRingingStopped(id)
         callController.onCallRemoved(id)
     }
@@ -44,7 +55,11 @@ class CallControllerVoipCallUi @Inject constructor(
     override fun showIncoming(handle: VoipCallHandle) {
         val info = callController.calls.value.firstOrNull { it.id == handle.id }
         android.util.Log.i("ArkPhone", "ARK showIncoming id=${handle.id} found=${info != null}")
-        if (info == null) return
+        if (info?.status != CallStatus.RINGING) return
+        screenOff.watch(info.id) {
+            val ringing = callController.calls.value.firstOrNull { it.id == info.id && it.status == CallStatus.RINGING }
+            if (ringing != null) ringSilencer.silenceRinging(ringing)
+        }
         // The same announce contract as a ringing carrier call: the announcer
         // decides what to speak from settings, and voice-only mode silences
         // the channel ringtone under it — an ARK call used to ring the tone
@@ -73,9 +88,8 @@ class CallControllerVoipCallUi @Inject constructor(
     }
 
     override fun silenceRinging(handle: VoipCallHandle) {
-        callerAnnouncer.onRingingStopped(handle.id)
         callController.calls.value.firstOrNull { it.id == handle.id }
-            ?.let(callNotifications::silenceRinging)
+            ?.let(ringSilencer::silenceRinging)
     }
 
     override fun clearNotification() = callNotifications.clear()

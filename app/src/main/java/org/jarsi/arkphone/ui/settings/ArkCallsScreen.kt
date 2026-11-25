@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.settings
 
+import androidx.compose.foundation.text.KeyboardOptions
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -196,6 +198,7 @@ fun ArkCallsContent(
             val code = uiState.code
             if (code == null) {
                 OutlinedTextField(
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     value = uiState.nickname,
                     onValueChange = onNicknameChanged,
                     singleLine = true,

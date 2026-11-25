@@ -189,6 +189,22 @@ class ProximityControllerTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
+    fun waitingRingReleasesTheActiveCallsProximityLockUntilRingingEnds() = proximityTest { controller, lock ->
+        controller.onInCallUiVisibility(true)
+        controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)
+        controller.onCallAdded(ProximityFakeCallHandle())
+        advanceUntilIdle()
+        assertTrue(lock.held)
+        controller.onCallAdded(ProximityFakeCallHandle("waiting", Call.STATE_RINGING))
+        advanceUntilIdle()
+        assertFalse(lock.held)
+        controller.onCallRemoved("waiting")
+        advanceUntilIdle()
+        assertTrue(lock.held)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
     fun neverAcquiresForRingingOnlyCall() = proximityTest { controller, lock ->
         controller.onInCallUiVisibility(true)
         controller.onAudioStateChanged(muted = false, speakerOn = false, earpiece = true)

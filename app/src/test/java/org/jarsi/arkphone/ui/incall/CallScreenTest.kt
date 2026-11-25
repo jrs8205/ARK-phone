@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -107,6 +108,8 @@ class CallScreenTest {
         }
         composeRule.onNodeWithText("Silence").performClick()
         assertEquals(1, silenced)
+        assertEquals(1, ShadowLog.getLogsForTag("ArkPhone")
+            .count { it.msg == "Ring silence source=button" })
     }
 
     @Test

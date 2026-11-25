@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.settings
 
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -318,6 +320,7 @@ fun BlockingContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 OutlinedTextField(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     value = newAllowed,
                     onValueChange = { newAllowed = it },
                     placeholder = { Text(stringResource(R.string.blocking_allowed_hint)) },
@@ -374,6 +377,7 @@ fun BlockingContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 OutlinedTextField(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     value = newPrefix,
                     onValueChange = { newPrefix = it },
                     placeholder = { Text(stringResource(R.string.blocking_prefix_hint)) },
@@ -430,6 +434,7 @@ fun BlockingContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 OutlinedTextField(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     value = newBlocked,
                     onValueChange = { newBlocked = it },
                     placeholder = { Text(stringResource(R.string.blocking_numbers_hint)) },

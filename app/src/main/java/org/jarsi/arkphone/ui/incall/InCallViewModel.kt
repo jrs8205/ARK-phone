@@ -178,7 +178,9 @@ class InCallViewModel @Inject constructor(
     override fun onToggleKeypad() { keypadVisible.value = !keypadVisible.value }
     override fun onDtmf(digit: Char) { primaryId?.let { callController.playDtmf(it, digit) } }
     override fun onSilence() {
-        uiState.value.call?.let(ringSilencer::silenceRinging)
+        val id = primaryId ?: return
+        val call = callController.calls.value.firstOrNull { it.id == id && it.status == CallStatus.RINGING } ?: return
+        ringSilencer.silenceRinging(call)
     }
 
     override fun onRejectWithMessage(message: String) {

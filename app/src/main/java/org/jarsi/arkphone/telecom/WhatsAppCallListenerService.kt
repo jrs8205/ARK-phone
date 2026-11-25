@@ -24,6 +24,11 @@ class WhatsAppCallListenerService : NotificationListenerService() {
         Log.i(TAG, "WhatsApp listener connected")
     }
 
+    override fun onListenerDisconnected() {
+        callerAnnouncer.onWhatsAppListenerDisconnected()
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         logWhatsAppCallNotification("posted", sbn)
         // Signal-less transitional updates return null and must fall through

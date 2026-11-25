@@ -32,7 +32,8 @@ internal fun shouldHoldProximityLock(
     statuses: List<CallStatus>,
     earpieceRoute: Boolean,
     inCallUiVisible: Boolean,
-): Boolean = earpieceRoute && inCallUiVisible && statuses.any { it.isOffHook }
+): Boolean = earpieceRoute && inCallUiVisible &&
+    CallStatus.RINGING !in statuses && statuses.any { it.isOffHook }
 
 /** Applies [shouldHoldProximityLock] to every call, route and UI change. */
 @Singleton

@@ -1,6 +1,7 @@
 package org.jarsi.arkphone.ui.incall
 
 import android.text.format.DateUtils
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -231,6 +232,7 @@ private fun IncomingCallActions(actions: InCallActions) {
             FilledTonalButton(
                 onClick = {
                     haptics.click()
+                    Log.i("ArkPhone", "Ring silence source=button")
                     actions.onSilence()
                 },
             ) {

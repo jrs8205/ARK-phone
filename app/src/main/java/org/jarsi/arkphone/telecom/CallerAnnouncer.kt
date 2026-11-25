@@ -5,10 +5,13 @@ import android.content.Context
 import android.media.AudioManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SettingsRepository
@@ -46,12 +49,28 @@ class CallerAnnouncer @Inject constructor(
     private val speechEngine: SpeechEngine,
     private val announceGate: AnnounceGate,
     @ApplicationScope private val scope: CoroutineScope,
+    private val screenOff: RingingScreenOff,
 ) {
     companion object {
         const val REPEAT_DELAY_MILLIS = 8_000L
 
         /** Stops the WhatsApp repeat loop even if a removal event is lost. */
         const val WHATSAPP_ANNOUNCE_WINDOW_MILLIS = 120_000L
+    }
+
+    // The speech engine flushes the previous utterance. A silence request
+    // for an overlapping ring must only stop the utterance it still owns.
+    private var speechOwner: String? = null
+
+    private fun speak(owner: String, text: String) {
+        speechOwner = owner
+        speechEngine.speak(text)
+    }
+
+    private fun stopSpeech(owner: String) {
+        if (speechOwner != owner) return
+        speechOwner = null
+        speechEngine.stop()
     }
 
     private var ringingCallId: String? = null
@@ -78,13 +97,13 @@ class CallerAnnouncer @Inject constructor(
             }
             when (settings.announceMode) {
                 AnnounceMode.WITH_RINGTONE -> {
-                    speechEngine.speak(text)
+                    speak(info.id, text)
                     delay(REPEAT_DELAY_MILLIS)
-                    speechEngine.speak(text)
+                    speak(info.id, text)
                 }
                 AnnounceMode.VOICE_ONLY -> {
                     while (true) {
-                        speechEngine.speak(text)
+                        speak(info.id, text)
                         delay(settings.announceIntervalSeconds * 1_000L)
                     }
                 }
@@ -94,44 +113,57 @@ class CallerAnnouncer @Inject constructor(
     }
 
     fun onRingingStopped(callId: String) {
-        if (ringingCallId != callId) return
-        ringingCallId = null
-        job?.cancel()
-        speechEngine.stop()
+        if (ringingCallId == callId) {
+            ringingCallId = null
+            job?.cancel()
+        }
+        stopSpeech(callId)
     }
 
     fun onWhatsAppRinging(notificationKey: String, callerName: String?, callerNumber: String? = null) {
         if (whatsAppKey == notificationKey) return
         whatsAppKey = notificationKey
         whatsAppJob?.cancel()
-        whatsAppJob = scope.launch {
-            val settings = settingsRepository.settings.first()
-            if (!settings.announceWhatsApp) return@launch
-            if (!announceGate.canAnnounce()) return@launch
-            val name = callerName
-                ?: callerNumber?.let { number ->
-                    contactsRepository.lookupContact(number)?.displayName?.takeIf { it.isNotBlank() }
+        whatsAppJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            val announcement = coroutineContext.job
+            val owner = "whatsapp:$notificationKey"
+            screenOff.watch(owner) {
+                // Keep the key until removal: WhatsApp can refresh it during
+                // the same silent ring. Cancel pending lookup and repeats too.
+                announcement.cancel()
+                stopSpeech(owner)
+            }.use {
+                withTimeoutOrNull(WHATSAPP_ANNOUNCE_WINDOW_MILLIS) {
+                    val settings = settingsRepository.settings.first()
+                    if (!settings.announceWhatsApp || !announceGate.canAnnounce()) return@withTimeoutOrNull
+                    val name = callerName ?: callerNumber?.let {
+                        contactsRepository.lookupContact(it)?.displayName?.takeIf(String::isNotBlank)
+                    } ?: callerNumber
+                    val text = if (name != null) {
+                        context.getString(R.string.announce_whatsapp_caller, name)
+                    } else {
+                        context.getString(R.string.announce_whatsapp_unknown_caller)
+                    }
+                    while (true) {
+                        speak(owner, text)
+                        delay(settings.announceIntervalSeconds * 1_000L)
+                    }
                 }
-                ?: callerNumber
-            val text = if (name != null) {
-                context.getString(R.string.announce_whatsapp_caller, name)
-            } else {
-                context.getString(R.string.announce_whatsapp_unknown_caller)
-            }
-            val intervalMillis = settings.announceIntervalSeconds * 1_000L
-            var elapsedMillis = 0L
-            while (elapsedMillis <= WHATSAPP_ANNOUNCE_WINDOW_MILLIS) {
-                speechEngine.speak(text)
-                delay(intervalMillis)
-                elapsedMillis += intervalMillis
+                // The last utterance can still be playing when the window ends.
+                stopSpeech(owner)
             }
         }
+    }
+
+    fun onWhatsAppListenerDisconnected() {
+        whatsAppKey?.let(::onWhatsAppRingingStopped)
     }
 
     fun onWhatsAppRingingStopped(notificationKey: String) {
         if (whatsAppKey != notificationKey) return
         whatsAppKey = null
         whatsAppJob?.cancel()
-        speechEngine.stop()
+        whatsAppJob = null
+        stopSpeech("whatsapp:$notificationKey")
     }
 }

@@ -1,5 +1,6 @@
 package org.jarsi.arkphone.ui.conversation
 
+import androidx.compose.foundation.text.KeyboardOptions
 import android.content.Intent
 import android.text.format.DateUtils
 import android.widget.Toast
@@ -73,6 +74,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -499,6 +501,7 @@ private fun ComposerRow(
                 )
             }
             OutlinedTextField(
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 value = text,
                 onValueChange = { text = it },
                 enabled = enabled,

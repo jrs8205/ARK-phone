@@ -21,6 +21,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ArkInCallService : InCallService() {
 
+    @Inject lateinit var ringSilencer: RingSilencer
+    @Inject lateinit var carrierRingAlerts: CarrierRingAlerts
     @Inject lateinit var callController: CallController
     @Inject lateinit var callNotifications: CallNotifications
     // Created with the service so the proximity lock tracks every call.
@@ -58,6 +60,7 @@ class ArkInCallService : InCallService() {
     }
 
     override fun onDestroy() {
+        handlesByCall.values.forEach { carrierRingAlerts.end(it.id) }
         callController.detachAudioController(AudioControllerOwner.CARRIER)
         super.onDestroy()
     }
@@ -80,6 +83,7 @@ class ArkInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         callbacksByCall.remove(call)?.let(call::unregisterCallback)
         handlesByCall.remove(call)?.let { handle ->
+            carrierRingAlerts.end(handle.id)
             lastStatus.remove(handle.id)
             callerAnnouncer.onRingingStopped(handle.id)
             callController.onCallRemoved(handle.id)
@@ -88,6 +92,12 @@ class ArkInCallService : InCallService() {
             }
         }
         if (calls.isEmpty()) callNotifications.clear()
+    }
+
+    override fun onSilenceRinger() {
+        val ringing = callController.calls.value.filter { it.status == CallStatus.RINGING && !it.viaArkCall }
+        Log.i(TAG, "Ring silence source=telecom")
+        ringing.forEach(ringSilencer::silenceRinging)
     }
 
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
@@ -105,7 +115,10 @@ class ArkInCallService : InCallService() {
         val previous = lastStatus[handle.id]
         lastStatus[handle.id] = status
         val info = callController.calls.value.firstOrNull { it.id == handle.id } ?: return
-        if (status != CallStatus.RINGING) callerAnnouncer.onRingingStopped(info.id)
+        if (status != CallStatus.RINGING) {
+            carrierRingAlerts.end(info.id)
+            callerAnnouncer.onRingingStopped(info.id)
+        }
         when (status) {
             CallStatus.RINGING -> handleRinging(info)
             CallStatus.DIALING, CallStatus.ACTIVE -> {
@@ -131,11 +144,12 @@ class ArkInCallService : InCallService() {
         // The log row is dated at ring start, which is already in the past
         // here — pad the match window backwards to cover clock differences.
         val ringNotBeforeMillis = System.currentTimeMillis() - RING_START_MARGIN_MILLIS
+        val ring = carrierRingAlerts.begin(info.id)
         appScope.launch {
             val decision = ruleEvaluator.evaluate(info.number, info.simAccountId)
             val stillRinging = callController.calls.value
                 .firstOrNull { it.id == info.id }?.status == CallStatus.RINGING
-            if (!stillRinging) return@launch
+            if (!stillRinging || carrierRingAlerts.current(info.id) !== ring) return@launch
             if (decision.block) {
                 val action = settingsCache.current.blockedCallAction
                 Log.i(TAG, "In-call rule block: action=$action ${decision.details}")
@@ -148,6 +162,11 @@ class ArkInCallService : InCallService() {
                     callController.reject(info.id)
                     rejectedCallReclassifier.markBlocked(info.number.orEmpty(), ringNotBeforeMillis)
                 }
+                return@launch
+            }
+            ring.admitted = true
+            if (ring.silenced) {
+                ringSilencer.silenceRinging(info)
                 return@launch
             }
             val settings = settingsCache.current
